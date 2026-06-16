@@ -1,0 +1,23 @@
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(CMOCKA QUIET cmocka)
+endif()
+
+if(NOT CMOCKA_FOUND)
+    find_path(CMOCKA_INCLUDE_DIRS cmocka.h)
+    find_library(CMOCKA_LIBRARIES cmocka)
+    if(CMOCKA_INCLUDE_DIRS AND CMOCKA_LIBRARIES)
+        set(CMOCKA_FOUND TRUE)
+    endif()
+endif()
+
+if(CMOCKA_FOUND)
+    message(STATUS "CMocka found: ${CMOCKA_LIBRARIES}")
+    include_directories(${CMOCKA_INCLUDE_DIRS})
+
+    add_executable(test_master_startup test_master_startup.c)
+    target_link_libraries(test_master_startup iolinki_master ${CMOCKA_LIBRARIES})
+    add_test(NAME test_master_startup COMMAND test_master_startup)
+else()
+    message(WARNING "CMocka not found, unit tests will be skipped. Install libcmocka-dev to enable them.")
+endif()
