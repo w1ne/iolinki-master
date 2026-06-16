@@ -11,14 +11,16 @@ set(IOLINKI_DEVICE_DIR
     CACHE PATH "Path to the local iolinki device repository")
 
 option(BUILD_TESTING "Build unit tests" ON)
-set(IOLINKI_MASTER_BUILD_TESTING "${BUILD_TESTING}")
-set(BUILD_TESTING OFF CACHE BOOL "Build dependency unit tests" FORCE)
-add_subdirectory("${IOLINKI_DEVICE_DIR}" "${CMAKE_BINARY_DIR}/iolinki-device" EXCLUDE_FROM_ALL)
-set(BUILD_TESTING "${IOLINKI_MASTER_BUILD_TESTING}" CACHE BOOL "Build unit tests" FORCE)
+
+add_library(iolinki_frame_helpers STATIC
+    "${IOLINKI_DEVICE_DIR}/src/crc.c"
+    "${IOLINKI_DEVICE_DIR}/src/frame.c"
+)
+target_include_directories(iolinki_frame_helpers PUBLIC "${IOLINKI_DEVICE_DIR}/include")
 
 add_library(iolinki_master STATIC src/master_port.c)
 target_include_directories(iolinki_master PUBLIC include "${IOLINKI_DEVICE_DIR}/include")
-target_link_libraries(iolinki_master PUBLIC iolinki)
+target_link_libraries(iolinki_master PUBLIC iolinki_frame_helpers)
 
 if(BUILD_TESTING)
     enable_testing()
