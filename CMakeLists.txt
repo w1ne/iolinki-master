@@ -18,7 +18,7 @@ add_library(iolinki_frame_helpers STATIC
 )
 target_include_directories(iolinki_frame_helpers PUBLIC "${IOLINKI_DEVICE_DIR}/include")
 
-add_library(iolinki_master STATIC src/master_port.c)
+add_library(iolinki_master STATIC src/master_port.c src/master_isdu.c)
 target_include_directories(iolinki_master PUBLIC include "${IOLINKI_DEVICE_DIR}/include")
 target_link_libraries(iolinki_master PUBLIC iolinki_frame_helpers)
 

@@ -66,5 +66,15 @@ int iolink_master_get_pd_in(const iolink_master_port_t* port,
                             uint8_t buffer_len,
                             uint8_t* out_len);
 int iolink_master_set_pd_out(iolink_master_port_t* port, const uint8_t* data, uint8_t len);
+int iolink_master_read_isdu(iolink_master_port_t* port,
+                            uint16_t index,
+                            uint8_t subindex,
+                            uint8_t* data,
+                            uint8_t* len);
+int iolink_master_write_isdu(iolink_master_port_t* port,
+                             uint16_t index,
+                             uint8_t subindex,
+                             const uint8_t* data,
+                             uint8_t len);
 
 #endif /* IOLINKI_MASTER_MASTER_H */
