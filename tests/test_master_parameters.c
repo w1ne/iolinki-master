@@ -133,6 +133,64 @@ static void test_get_device_info_rejects_invalid_or_unavailable_info(void** stat
     assert_false(info.valid);
 }
 
+static void test_validate_device_info_accepts_matching_configuration(void** state)
+{
+    uint8_t page[16];
+    iolink_master_port_t port;
+
+    (void)state;
+
+    memcpy(page, g_page1, sizeof(page));
+    page[0x02] = 10U;
+    page[0x03] = 0x01U; /* ISDU supported, operate M-sequence code 0. */
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
+    assert_int_equal(iolink_master_apply_direct_parameter_page1(&port, page, sizeof(page)), 0);
+    assert_int_equal(iolink_master_validate_device_info(&port), 0);
+}
+
+static void test_validate_device_info_rejects_missing_or_invalid_info(void** state)
+{
+    iolink_master_port_t port;
+    uint8_t page[16];
+
+    (void)state;
+
+    assert_int_equal(iolink_master_validate_device_info(NULL), -1);
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
+    assert_int_equal(iolink_master_validate_device_info(&port), 1);
+
+    memcpy(page, g_page1, sizeof(page));
+    page[0x04] = 0x22U;
+    assert_int_equal(iolink_master_apply_direct_parameter_page1(&port, page, sizeof(page)), 0);
+    assert_int_equal(iolink_master_validate_device_info(&port), -2);
+}
+
+static void test_validate_device_info_rejects_incompatible_cycle_pd_and_mseq(void** state)
+{
+    uint8_t page[16];
+    iolink_master_port_t port;
+
+    (void)state;
+
+    memcpy(page, g_page1, sizeof(page));
+    page[0x02] = 21U;
+    assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
+    assert_int_equal(iolink_master_apply_direct_parameter_page1(&port, page, sizeof(page)), 0);
+    assert_int_equal(iolink_master_validate_device_info(&port), -3);
+
+    memcpy(page, g_page1, sizeof(page));
+    page[0x05] = 0x18U;
+    assert_int_equal(iolink_master_apply_direct_parameter_page1(&port, page, sizeof(page)), 0);
+    assert_int_equal(iolink_master_validate_device_info(&port), -4);
+
+    memcpy(page, g_page1, sizeof(page));
+    page[0x03] = 0x03U; /* ISDU supported, operate M-sequence code 1. */
+    assert_int_equal(iolink_master_apply_direct_parameter_page1(&port, page, sizeof(page)), 0);
+    assert_int_equal(iolink_master_validate_device_info(&port), -5);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -141,6 +199,9 @@ int main(void)
         cmocka_unit_test(test_parse_direct_parameter_page1_rejects_invalid_args),
         cmocka_unit_test(test_apply_direct_parameter_page1_latches_info_on_port),
         cmocka_unit_test(test_get_device_info_rejects_invalid_or_unavailable_info),
+        cmocka_unit_test(test_validate_device_info_accepts_matching_configuration),
+        cmocka_unit_test(test_validate_device_info_rejects_missing_or_invalid_info),
+        cmocka_unit_test(test_validate_device_info_rejects_incompatible_cycle_pd_and_mseq),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
