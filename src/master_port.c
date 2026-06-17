@@ -239,12 +239,18 @@ int iolink_master_poll_rx(iolink_master_port_t* port)
         return -1;
     }
 
-    if(port->state != IOLINK_MASTER_STATE_OPERATE)
+    if((port->state == IOLINK_MASTER_STATE_STARTUP) && (port->startup.step >= 2U))
+    {
+        expected_len = IOLINK_M_SEQ_TYPE0_LEN;
+    }
+    else if(port->state == IOLINK_MASTER_STATE_OPERATE)
+    {
+        expected_len = (uint8_t)(1U + port->config.pd_in_len + port->od_len + 1U);
+    }
+    else
     {
         return 0;
     }
-
-    expected_len = (uint8_t)(1U + port->config.pd_in_len + port->od_len + 1U);
 
     while((recv_ret = port->phy->recv_byte(&byte)) > 0)
     {

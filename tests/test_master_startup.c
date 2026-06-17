@@ -17,6 +17,9 @@ static int g_set_mode_calls;
 static int g_set_baudrate_calls;
 static int g_send_calls;
 static int g_forced_send_return;
+static uint8_t g_recv_bytes[8];
+static uint8_t g_recv_len;
+static uint8_t g_recv_pos;
 static iolink_phy_mode_t g_last_mode;
 static iolink_baudrate_t g_last_baudrate;
 static iolink_baudrate_t g_baudrate_history[8];
@@ -61,11 +64,25 @@ static int fake_phy_send(const uint8_t* data, size_t len)
     return (int)len;
 }
 
+static int fake_phy_recv_byte(uint8_t* byte)
+{
+    assert_non_null(byte);
+
+    if(g_recv_pos >= g_recv_len)
+    {
+        return 0;
+    }
+
+    *byte = g_recv_bytes[g_recv_pos++];
+    return 1;
+}
+
 static const iolink_phy_api_t g_fake_phy = {
     .init = fake_phy_init,
     .set_mode = fake_phy_set_mode,
     .set_baudrate = fake_phy_set_baudrate,
     .send = fake_phy_send,
+    .recv_byte = fake_phy_recv_byte,
 };
 
 static const iolink_master_config_t g_config = {
@@ -84,6 +101,8 @@ static int reset_fake_phy(void** state)
     g_set_baudrate_calls = 0;
     g_send_calls = 0;
     g_forced_send_return = INT_MIN;
+    g_recv_len = 0U;
+    g_recv_pos = 0U;
     g_last_mode = IOLINK_PHY_MODE_INACTIVE;
     g_last_baudrate = IOLINK_BAUDRATE_COM1;
     memset(g_baudrate_history, 0, sizeof(g_baudrate_history));
@@ -369,6 +388,26 @@ static void test_process_startup_waits_for_type0_response_before_preoperate(void
     assert_true(g_send_calls >= 4);
 }
 
+static void test_poll_rx_accepts_startup_type0_response_from_phy(void** state)
+{
+    iolink_master_port_t port;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
+    iolink_master_process(&port);
+    iolink_master_process(&port);
+    assert_int_equal(port.startup.step, 2U);
+
+    g_recv_bytes[0] = 0x00U;
+    g_recv_bytes[1] = iolink_checksum_ck(g_recv_bytes[0], 0U);
+    g_recv_len = 2U;
+    g_recv_pos = 0U;
+
+    assert_int_equal(iolink_master_poll_rx(&port), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
+}
+
 static void test_process_partial_send_enters_error_state(void** state)
 {
     iolink_master_port_t port;
@@ -432,6 +471,8 @@ int main(void)
         cmocka_unit_test_setup(test_get_pd_in_too_small_exposes_required_length, reset_fake_phy),
         cmocka_unit_test_setup(test_get_pd_in_invalid_does_not_copy_stale_data, reset_fake_phy),
         cmocka_unit_test_setup(test_process_startup_waits_for_type0_response_before_preoperate,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_poll_rx_accepts_startup_type0_response_from_phy,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_process_partial_send_enters_error_state, reset_fake_phy),
         cmocka_unit_test_setup(test_startup_bad_type0_response_retries_before_error_state,
