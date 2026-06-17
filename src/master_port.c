@@ -323,6 +323,16 @@ int iolink_master_get_od_status(const iolink_master_port_t* port, uint8_t* statu
     return 0;
 }
 
+uint8_t iolink_master_get_device_status(const iolink_master_port_t* port)
+{
+    if(port == NULL)
+    {
+        return IOLINK_DEVICE_STATUS_FAILURE;
+    }
+
+    return (uint8_t)(port->diagnostics.od_status & IOLINK_OD_STATUS_DEVICE_MASK);
+}
+
 int iolink_master_set_pd_out(iolink_master_port_t* port, const uint8_t* data, uint8_t len)
 {
     if((port == NULL) || ((data == NULL) && (len > 0U)))

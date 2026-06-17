@@ -119,6 +119,7 @@ int iolink_master_get_pd_in(const iolink_master_port_t* port,
                             uint8_t buffer_len,
                             uint8_t* out_len);
 int iolink_master_get_od_status(const iolink_master_port_t* port, uint8_t* status);
+uint8_t iolink_master_get_device_status(const iolink_master_port_t* port);
 int iolink_master_set_pd_out(iolink_master_port_t* port, const uint8_t* data, uint8_t len);
 int iolink_master_read_isdu(iolink_master_port_t* port,
                             uint16_t index,

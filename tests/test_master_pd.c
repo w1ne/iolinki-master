@@ -6,6 +6,7 @@
 #include <cmocka.h>
 
 #include "iolinki/crc.h"
+#include "iolinki/protocol.h"
 #include "iolinki_master/master.h"
 
 static const iolink_phy_api_t g_empty_phy = {0};
@@ -52,6 +53,7 @@ static void test_on_rx_latches_od_status_for_diagnostics(void** state)
     assert_int_equal(iolink_master_get_od_status(&port, &status), 0);
     assert_int_equal(status, 0xA3U);
     assert_true(port.diagnostics.event_pending);
+    assert_int_equal(iolink_master_get_device_status(&port), IOLINK_DEVICE_STATUS_FAILURE);
 }
 
 static void test_get_od_status_rejects_invalid_args(void** state)
@@ -63,6 +65,13 @@ static void test_get_od_status_rejects_invalid_args(void** state)
 
     assert_int_equal(iolink_master_get_od_status(NULL, &status), -1);
     assert_int_equal(iolink_master_get_od_status(&port, NULL), -1);
+}
+
+static void test_get_device_status_returns_failure_for_null_port(void** state)
+{
+    (void)state;
+
+    assert_int_equal(iolink_master_get_device_status(NULL), IOLINK_DEVICE_STATUS_FAILURE);
 }
 
 static void test_on_rx_bad_checksum_returns_error_and_increments_count(void** state)
@@ -230,6 +239,7 @@ int main(void)
         cmocka_unit_test(test_on_rx_valid_response_latches_pd),
         cmocka_unit_test(test_on_rx_latches_od_status_for_diagnostics),
         cmocka_unit_test(test_get_od_status_rejects_invalid_args),
+        cmocka_unit_test(test_get_device_status_returns_failure_for_null_port),
         cmocka_unit_test(test_on_rx_bad_checksum_returns_error_and_increments_count),
         cmocka_unit_test(test_on_rx_bad_checksum_retries_twice_before_error_state),
         cmocka_unit_test(test_on_rx_valid_response_resets_checksum_retry_count),
