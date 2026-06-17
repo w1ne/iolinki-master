@@ -183,7 +183,6 @@ void iolink_master_process(iolink_master_port_t* port)
                 if(iolink_master_send_full(port, port->tx_buf, (size_t)frame_len))
                 {
                     port->startup.step++;
-                    port->state = IOLINK_MASTER_STATE_PREOPERATE;
                 }
             }
             return;
@@ -289,6 +288,32 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
     if((port == NULL) || (data == NULL) || (len == 0U))
     {
         return -1;
+    }
+
+    if(port->state == IOLINK_MASTER_STATE_STARTUP)
+    {
+        if(len != IOLINK_M_SEQ_TYPE0_LEN)
+        {
+            return -2;
+        }
+
+        if(iolink_checksum_ck(data[0], 0U) != data[1])
+        {
+            port->diagnostics.checksum_errors++;
+            if(port->diagnostics.rx_retry_count < 2U)
+            {
+                port->diagnostics.rx_retry_count++;
+            }
+            else
+            {
+                port->state = IOLINK_MASTER_STATE_ERROR;
+            }
+            return -3;
+        }
+
+        port->diagnostics.rx_retry_count = 0U;
+        port->state = IOLINK_MASTER_STATE_PREOPERATE;
+        return 0;
     }
 
     if(iolink_frame_decode_operate_response(data,

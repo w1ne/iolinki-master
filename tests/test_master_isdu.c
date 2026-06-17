@@ -59,10 +59,14 @@ static int reset_fake_phy(void** state)
 
 static void enter_operate(iolink_master_port_t* port)
 {
+    uint8_t startup_resp[2] = {0U};
+
     assert_int_equal(iolink_master_init(port, &g_fake_phy, &g_config), 0);
 
     iolink_master_process(port);
     iolink_master_process(port);
+    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    assert_int_equal(iolink_master_on_rx(port, startup_resp, sizeof(startup_resp)), 0);
     iolink_master_process(port);
 
     assert_int_equal(iolink_master_get_state(port), IOLINK_MASTER_STATE_OPERATE);

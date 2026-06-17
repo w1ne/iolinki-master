@@ -7,6 +7,7 @@
 
 #include <cmocka.h>
 
+#include "iolinki/crc.h"
 #include "iolinki/frame.h"
 #include "iolinki/protocol.h"
 #include "iolinki_master/master.h"
@@ -313,11 +314,12 @@ static void test_get_pd_in_invalid_does_not_copy_stale_data(void** state)
     assert_int_equal(buffer[3], 0xAAU);
 }
 
-static void test_process_startup_enters_preoperate_before_operate_and_sends_cyclic_frame(void** state)
+static void test_process_startup_waits_for_type0_response_before_preoperate(void** state)
 {
     iolink_master_port_t port;
     const uint8_t pd_out[] = {0x11U, 0x22U};
     uint8_t expected[8] = {0U};
+    uint8_t startup_resp[2] = {0U};
     int expected_len;
 
     (void)state;
@@ -336,6 +338,12 @@ static void test_process_startup_enters_preoperate_before_operate_and_sends_cycl
     assert_int_equal(g_send_calls, 2);
     assert_int_equal(g_sent_len[1], (size_t)expected_len);
     assert_memory_equal(g_sent[1], expected, (size_t)expected_len);
+    assert_int_equal(port.startup.step, 2U);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
+
+    startup_resp[0] = 0x00U;
+    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)), 0);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
 
     iolink_master_process(&port);
@@ -380,6 +388,28 @@ static void test_process_partial_send_enters_error_state(void** state)
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
 }
 
+static void test_startup_bad_type0_response_retries_before_error_state(void** state)
+{
+    iolink_master_port_t port;
+    const uint8_t bad_resp[] = {0x00U, 0x00U};
+
+    (void)state;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
+    iolink_master_process(&port);
+    iolink_master_process(&port);
+    assert_int_equal(port.startup.step, 2U);
+
+    assert_int_equal(iolink_master_on_rx(&port, bad_resp, sizeof(bad_resp)), -3);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
+
+    assert_int_equal(iolink_master_on_rx(&port, bad_resp, sizeof(bad_resp)), -3);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
+
+    assert_int_equal(iolink_master_on_rx(&port, bad_resp, sizeof(bad_resp)), -3);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -401,10 +431,11 @@ int main(void)
                                reset_fake_phy),
         cmocka_unit_test_setup(test_get_pd_in_too_small_exposes_required_length, reset_fake_phy),
         cmocka_unit_test_setup(test_get_pd_in_invalid_does_not_copy_stale_data, reset_fake_phy),
-        cmocka_unit_test_setup(
-            test_process_startup_enters_preoperate_before_operate_and_sends_cyclic_frame,
+        cmocka_unit_test_setup(test_process_startup_waits_for_type0_response_before_preoperate,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_process_partial_send_enters_error_state, reset_fake_phy),
+        cmocka_unit_test_setup(test_startup_bad_type0_response_retries_before_error_state,
+                               reset_fake_phy),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
