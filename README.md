@@ -12,6 +12,7 @@ Track implementation status and next work here:
 
 - [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- [`docs/TESTING.md`](docs/TESTING.md)
 
 The default local dependency path is:
 

@@ -1,0 +1,88 @@
+# iolinki-master Testing
+
+This stack currently has local software tests. It does not yet have real-device
+hardware validation or official IO-Link master conformance coverage.
+
+## Test Layers
+
+### Unit and Protocol Tests
+
+Status: implemented.
+
+These tests exercise focused behavior with fake PHY callbacks and explicit
+frames:
+
+- startup state changes
+- cyclic process data
+- ISDU read/write
+- direct parameter parsing and validation
+- tick/event behavior
+- controller fan-out
+- public header isolation
+
+Run:
+
+```sh
+ctest --test-dir build --output-on-failure
+```
+
+### Fake Device Harness
+
+Status: started.
+
+`tests/fake_iolink_device.c` provides a small simulated device behind the master
+PHY API. It reacts to master transmissions and queues device responses instead
+of making each test manually inject every byte.
+
+Current coverage:
+
+- wake-up detection
+- Type 0 startup response
+- transition command detection
+- cyclic OPERATE response with PD valid
+- port-level `min_cycle_time` pacing through `iolink_master_tick_at()`
+
+This is the first bridge between unit tests and a real conformance rig. It is
+still intentionally small.
+
+### Missing Test Layers
+
+- [ ] capability-matrix fake devices for M-sequence and PD-size negotiation
+- [ ] fake-device ISDU object dictionary
+- [ ] fake-device event injection and event ack tests
+- [ ] fake-device Data Storage behavior
+- [ ] line-noise, bad CRC, dropped byte, and timeout injection
+- [ ] long-running soak tests
+- [ ] real hardware PHY adapter tests
+- [ ] real sensor/actuator test matrix
+- [ ] official IO-Link master conformance validation
+
+## Current CTest Targets
+
+- `master_loopback_demo`
+- `test_master_startup`
+- `test_master_pd`
+- `test_master_isdu`
+- `test_master_tick`
+- `test_master_controller`
+- `test_master_parameters`
+- `test_master_public_flow`
+- `test_master_public_header`
+- `test_master_fake_device`
+
+## Verification Loop
+
+Use this before committing:
+
+```sh
+cmake -S . -B build
+cmake --build build
+ctest --test-dir build --output-on-failure
+git diff --check
+```
+
+## Honesty Rule
+
+Passing local tests means the master behavior is locally verified. It does not
+mean the stack is hardware-tested, timing-certified, or IO-Link conformance
+validated.

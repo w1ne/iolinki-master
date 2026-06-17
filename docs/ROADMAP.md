@@ -114,7 +114,8 @@ Required direction:
 - [ ] define the minimum PHY operations needed for IO-Link, DI, and DQ modes
 - [ ] decide whether DI needs a new `read_cq_line`-style hook
 - [ ] separate transceiver control, UART/USART byte transport, and timing source
-- [ ] add a fake PHY conformance harness before adding board-specific adapters
+- [x] add a first fake-device PHY harness before adding board-specific adapters
+- [ ] expand the fake-device harness into a conformance-style matrix
 - [ ] keep board support out of `src/master_*.c`
 
 ### 6. Controller and Multi-Port Runtime
@@ -234,7 +235,8 @@ Status: open.
 Add hardware adapters and validate against real devices before calling this a
 real master stack.
 
-- [ ] define fake PHY conformance harness
+- [x] define first fake-device PHY harness
+- [ ] expand fake-device harness into a conformance-style matrix
 - [ ] add first hardware PHY adapter
 - [ ] test one known sensor
 - [ ] test one known actuator

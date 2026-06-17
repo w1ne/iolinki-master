@@ -35,7 +35,7 @@ Status definitions:
 | Block parameterization | Open | None | Add block write/readback workflows and verification policy. |
 | Hardware PHY adapters | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) consumes the dependency PHY contract | Add real master-port hardware adapters outside the protocol core. |
 | Conformance | Open | Local tests only | Run official IO-Link master conformance testing. |
-| Documentation/examples | Partial | [`README.md`](../README.md), [`docs/ROADMAP.md`](ROADMAP.md) | Add focused examples for startup, cyclic PD, ISDU, SIO, and controller use. |
+| Documentation/examples | Partial | [`README.md`](../README.md), [`docs/ROADMAP.md`](ROADMAP.md), [`docs/TESTING.md`](TESTING.md) | Add focused examples for startup, cyclic PD, ISDU, SIO, and controller use. |
 
 ## Checkable Ledger
 
@@ -65,6 +65,7 @@ and gap detail.
 - [x] SIO DQ output through `set_cq_line`.
 - [x] Public header compile test.
 - [x] Public black-box startup/process-data flow test.
+- [x] Fake-device harness for startup, transition, cyclic PD, and port pacing.
 
 ### In Progress
 
@@ -80,13 +81,15 @@ and gap detail.
 
 - [ ] Full scheduler/timing model with explicit cycle and response deadlines.
 - [ ] Controller-owned `min_cycle_time` scheduling across ports.
+- [ ] Capability-matrix fake devices.
+- [ ] Fake-device ISDU object dictionary.
 - [ ] Capability-driven M-sequence and PD-size selection.
 - [ ] DI input API/PHY support.
 - [ ] Dynamic SIO/IO-Link mode transitions.
 - [ ] Event read/ack and event-detail decoding.
 - [ ] Data Storage / parameter server behavior.
 - [ ] Block parameterization and readback verification.
-- [ ] Fake PHY conformance harness.
+- [ ] Expand fake-device harness into a conformance-style matrix.
 - [ ] Real hardware PHY adapter.
 - [ ] Real-device sensor/actuator test matrix.
 - [ ] Official IO-Link master conformance validation.
@@ -104,6 +107,7 @@ Local CTest currently exercises these targets when CMocka is available:
 - `test_master_public_flow`
 - `test_master_public_header`
 - `master_loopback_demo`
+- `test_master_fake_device`
 
 Use this verification loop before committing master-stack changes:
 
