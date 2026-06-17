@@ -326,6 +326,18 @@ void iolink_master_process(iolink_master_port_t* port)
 
     if(port->state == IOLINK_MASTER_STATE_PREOPERATE)
     {
+        if((port->isdu.op != IOLINK_MASTER_ISDU_OP_NONE) && !port->isdu.done)
+        {
+            uint8_t od = 0U;
+            iolink_master_isdu_fill_od(port, &od, 1U);
+            frame_len = iolink_frame_encode_type0(od, port->tx_buf, sizeof(port->tx_buf));
+            if(frame_len > 0)
+            {
+                (void)iolink_master_send_full(port, port->tx_buf, (size_t)frame_len);
+            }
+            return;
+        }
+
         frame_len = iolink_frame_encode_type0(IOLINK_MC_TRANSITION_COMMAND,
                                               port->tx_buf,
                                               sizeof(port->tx_buf));
@@ -475,6 +487,32 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
 
         port->diagnostics.rx_retry_count = 0U;
         port->state = IOLINK_MASTER_STATE_PREOPERATE;
+        return 0;
+    }
+
+    if(port->state == IOLINK_MASTER_STATE_PREOPERATE)
+    {
+        if(len != IOLINK_M_SEQ_TYPE0_LEN)
+        {
+            return -2;
+        }
+
+        if(iolink_checksum_ck(data[0], 0U) != data[1])
+        {
+            port->diagnostics.checksum_errors++;
+            if(port->diagnostics.rx_retry_count < 2U)
+            {
+                port->diagnostics.rx_retry_count++;
+            }
+            else
+            {
+                port->state = IOLINK_MASTER_STATE_ERROR;
+            }
+            return -3;
+        }
+
+        port->diagnostics.rx_retry_count = 0U;
+        iolink_master_isdu_on_od(port, data, 1U);
         return 0;
     }
 

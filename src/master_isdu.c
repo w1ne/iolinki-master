@@ -235,7 +235,8 @@ int iolink_master_read_isdu(iolink_master_port_t* port,
         return -1;
     }
 
-    if(port->state != IOLINK_MASTER_STATE_OPERATE)
+    if((port->state != IOLINK_MASTER_STATE_OPERATE) &&
+       (port->state != IOLINK_MASTER_STATE_PREOPERATE))
     {
         return -5;
     }
@@ -307,7 +308,8 @@ int iolink_master_write_isdu(iolink_master_port_t* port,
         return -1;
     }
 
-    if(port->state != IOLINK_MASTER_STATE_OPERATE)
+    if((port->state != IOLINK_MASTER_STATE_OPERATE) &&
+       (port->state != IOLINK_MASTER_STATE_PREOPERATE))
     {
         return -5;
     }
