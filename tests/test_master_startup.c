@@ -211,6 +211,23 @@ static void test_init_rejects_oversized_pd_out_len(void** state)
     assert_int_equal(g_init_calls, 0);
 }
 
+static void test_init_rejects_invalid_baudrate_and_m_sequence_type(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.baudrate = (iolink_baudrate_t)3U;
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), -1);
+    assert_int_equal(g_init_calls, 0);
+
+    config = g_config;
+    config.m_seq_type = (iolink_master_m_seq_type_t)7U;
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), -1);
+    assert_int_equal(g_init_calls, 0);
+}
+
 static void test_get_pd_in_too_small_exposes_required_length(void** state)
 {
     iolink_master_port_t port;
@@ -326,6 +343,8 @@ int main(void)
                                reset_fake_phy),
         cmocka_unit_test_setup(test_init_rejects_oversized_pd_in_len, reset_fake_phy),
         cmocka_unit_test_setup(test_init_rejects_oversized_pd_out_len, reset_fake_phy),
+        cmocka_unit_test_setup(test_init_rejects_invalid_baudrate_and_m_sequence_type,
+                               reset_fake_phy),
         cmocka_unit_test_setup(test_get_pd_in_too_small_exposes_required_length, reset_fake_phy),
         cmocka_unit_test_setup(test_get_pd_in_invalid_does_not_copy_stale_data, reset_fake_phy),
         cmocka_unit_test_setup(
