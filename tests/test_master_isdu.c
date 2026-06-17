@@ -155,6 +155,79 @@ static void test_read_isdu_emits_segmented_request_bytes(void** state)
     assert_last_od((uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x03U), 0x00U);
 }
 
+static void test_type0_read_isdu_emits_one_byte_type0_frames(void** state)
+{
+    iolink_master_port_t port = {0};
+    uint8_t data[8] = {0U};
+    uint8_t len = sizeof(data);
+    uint8_t expected[2] = {0U};
+    int expected_len;
+
+    (void)state;
+
+    port.phy = &g_fake_phy;
+    port.state = IOLINK_MASTER_STATE_OPERATE;
+    port.config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_0;
+    port.od_len = 1U;
+
+    assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len), 1);
+
+    iolink_master_process(&port);
+    expected_len = iolink_frame_encode_type0(IOLINK_ISDU_CTRL_START, expected, sizeof(expected));
+    assert_int_equal(expected_len, 2);
+    assert_int_equal(g_send_calls, 1);
+    assert_int_equal(g_sent_len[0], (size_t)expected_len);
+    assert_memory_equal(g_sent[0], expected, (size_t)expected_len);
+
+    iolink_master_process(&port);
+    expected_len = iolink_frame_encode_type0((uint8_t)(IOLINK_ISDU_SERVICE_READ << 4),
+                                             expected,
+                                             sizeof(expected));
+    assert_int_equal(expected_len, 2);
+    assert_int_equal(g_send_calls, 2);
+    assert_int_equal(g_sent_len[1], (size_t)expected_len);
+    assert_memory_equal(g_sent[1], expected, (size_t)expected_len);
+}
+
+static void test_type0_read_isdu_completes_from_type0_response_bytes(void** state)
+{
+    iolink_master_port_t port = {0};
+    uint8_t data[8] = {0U};
+    uint8_t len = sizeof(data);
+    uint8_t frame[2] = {0U};
+
+    (void)state;
+
+    port.phy = &g_fake_phy;
+    port.state = IOLINK_MASTER_STATE_OPERATE;
+    port.config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_0;
+    port.od_len = 1U;
+
+    assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len), 1);
+
+    frame[0] = IOLINK_ISDU_CTRL_START;
+    frame[1] = iolink_checksum_ck(frame[0], 0U);
+    assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), 0);
+
+    frame[0] = 0x4FU;
+    frame[1] = iolink_checksum_ck(frame[0], 0U);
+    assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), 0);
+
+    frame[0] = (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x01U);
+    frame[1] = iolink_checksum_ck(frame[0], 0U);
+    assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), 0);
+
+    frame[0] = 0x4BU;
+    frame[1] = iolink_checksum_ck(frame[0], 0U);
+    assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), 0);
+
+    len = sizeof(data);
+    assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len), 0);
+    assert_int_equal(len, 2U);
+    assert_int_equal(data[0], 0x4FU);
+    assert_int_equal(data[1], 0x4BU);
+}
+
 static void test_read_isdu_completes_after_response_bytes(void** state)
 {
     iolink_master_port_t port;
@@ -343,6 +416,10 @@ int main(void)
         cmocka_unit_test_setup(test_read_isdu_returns_pending_for_valid_request, reset_fake_phy),
         cmocka_unit_test_setup(test_read_isdu_rejects_non_operate_state, reset_fake_phy),
         cmocka_unit_test_setup(test_read_isdu_emits_segmented_request_bytes, reset_fake_phy),
+        cmocka_unit_test_setup(test_type0_read_isdu_emits_one_byte_type0_frames,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_type0_read_isdu_completes_from_type0_response_bytes,
+                               reset_fake_phy),
         cmocka_unit_test_setup(test_read_isdu_completes_after_response_bytes, reset_fake_phy),
         cmocka_unit_test_setup(test_read_isdu_reports_small_result_buffer, reset_fake_phy),
         cmocka_unit_test_setup(test_write_isdu_rejects_invalid_args, reset_fake_phy),
