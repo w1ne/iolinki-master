@@ -29,7 +29,7 @@ Status definitions:
 | Diagnostics | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c) | Add event detail, link-quality metrics, and stable public error taxonomy. |
 | Multi-port controller | Partial | [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Add scheduler ownership, port-level timing policy, and examples. |
 | SIO DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Add DI input and dynamic mode-transition behavior. |
-| Scheduler/timing | Open | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c) | Implement min-cycle-time pacing, timer integration, and jitter/error accounting. |
+| Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Implement min-cycle-time pacing, timer integration, and jitter/error accounting. |
 | Events | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) | Implement event read/ack and expose decoded event detail. |
 | Data Storage | Open | None | Add master-side parameter storage and restore behavior. |
 | Block parameterization | Open | None | Add block write/readback workflows and verification policy. |
@@ -59,6 +59,8 @@ and gap detail.
 - [x] Optional startup device-info validation.
 - [x] Basic diagnostics API.
 - [x] Multi-port controller init/tick helper.
+- [x] Event-driven tick dispatch for none, cycle-due, and response-timeout events.
+- [x] Per-port controller tick events.
 - [x] SIO DQ output through `set_cq_line`.
 - [x] Public header compile test.
 - [x] Public black-box startup/process-data flow test.
@@ -75,7 +77,7 @@ and gap detail.
 
 ### Not Started
 
-- [ ] Scheduler/timing model with explicit cycle and response deadlines.
+- [ ] Full scheduler/timing model with explicit cycle and response deadlines.
 - [ ] `min_cycle_time`-based frame pacing.
 - [ ] Capability-driven M-sequence and PD-size selection.
 - [ ] DI input API/PHY support.

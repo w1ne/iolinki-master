@@ -176,10 +176,18 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
 
 int iolink_master_tick(iolink_master_port_t* port, bool response_timeout)
 {
+    return iolink_master_tick_event(port,
+                                    response_timeout
+                                        ? IOLINK_MASTER_TICK_RESPONSE_TIMEOUT
+                                        : IOLINK_MASTER_TICK_CYCLE_DUE);
+}
+
+int iolink_master_tick_event(iolink_master_port_t* port, iolink_master_tick_event_t event)
+{
     int rx_ret;
     int timeout_ret;
 
-    if(port == NULL)
+    if((port == NULL) || (event > IOLINK_MASTER_TICK_RESPONSE_TIMEOUT))
     {
         return -1;
     }
@@ -190,7 +198,7 @@ int iolink_master_tick(iolink_master_port_t* port, bool response_timeout)
         return rx_ret;
     }
 
-    if(response_timeout)
+    if(event == IOLINK_MASTER_TICK_RESPONSE_TIMEOUT)
     {
         timeout_ret = iolink_master_on_timeout(port);
         if(timeout_ret < 0)
@@ -199,7 +207,11 @@ int iolink_master_tick(iolink_master_port_t* port, bool response_timeout)
         }
     }
 
-    iolink_master_process(port);
+    if(event == IOLINK_MASTER_TICK_CYCLE_DUE)
+    {
+        iolink_master_process(port);
+    }
+
     return rx_ret;
 }
 

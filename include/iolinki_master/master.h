@@ -43,6 +43,13 @@ typedef enum
     IOLINK_MASTER_ISDU_OP_WRITE = 2
 } iolink_master_isdu_op_t;
 
+typedef enum
+{
+    IOLINK_MASTER_TICK_NONE = 0,
+    IOLINK_MASTER_TICK_CYCLE_DUE = 1,
+    IOLINK_MASTER_TICK_RESPONSE_TIMEOUT = 2
+} iolink_master_tick_event_t;
+
 typedef struct
 {
     iolink_master_port_mode_t port_mode;
@@ -106,6 +113,7 @@ void iolink_master_process(iolink_master_port_t* port);
 int iolink_master_poll_rx(iolink_master_port_t* port);
 int iolink_master_on_timeout(iolink_master_port_t* port);
 int iolink_master_tick(iolink_master_port_t* port, bool response_timeout);
+int iolink_master_tick_event(iolink_master_port_t* port, iolink_master_tick_event_t event);
 int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t len);
 iolink_master_state_t iolink_master_get_state(const iolink_master_port_t* port);
 int iolink_master_get_pd_in(const iolink_master_port_t* port,
@@ -145,5 +153,7 @@ int iolink_master_controller_init(iolink_master_controller_t* controller,
                                   const iolink_master_config_t* configs);
 int iolink_master_controller_tick(iolink_master_controller_t* controller,
                                   const bool* response_timeouts);
+int iolink_master_controller_tick_events(iolink_master_controller_t* controller,
+                                         const iolink_master_tick_event_t* events);
 
 #endif /* IOLINKI_MASTER_MASTER_H */

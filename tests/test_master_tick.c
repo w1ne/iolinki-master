@@ -128,11 +128,71 @@ static void test_tick_applies_timeout_before_transmit(void** state)
     assert_int_equal(g_send_calls, 0);
 }
 
+static void test_tick_event_none_drains_rx_without_transmitting(void** state)
+{
+    iolink_master_port_t port;
+    uint8_t startup_resp[2] = {0U};
+
+    (void)state;
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
+    iolink_master_process(&port);
+    iolink_master_process(&port);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
+
+    startup_resp[0] = 0x00U;
+    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    queue_bytes(startup_resp, sizeof(startup_resp));
+
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
+    assert_int_equal(g_send_calls, 2);
+}
+
+static void test_tick_event_cycle_due_transmits_after_rx(void** state)
+{
+    iolink_master_port_t port;
+    uint8_t startup_resp[2] = {0U};
+
+    (void)state;
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
+    iolink_master_process(&port);
+    iolink_master_process(&port);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
+
+    startup_resp[0] = 0x00U;
+    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    queue_bytes(startup_resp, sizeof(startup_resp));
+
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+    assert_int_equal(g_send_calls, 3);
+    assert_int_equal(g_sent_len[2], 2U);
+    assert_int_equal(g_sent[2][0], IOLINK_MC_TRANSITION_COMMAND);
+}
+
+static void test_tick_event_response_timeout_applies_before_transmit(void** state)
+{
+    iolink_master_port_t port;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&port)->diagnostics.rx_retry_count = 2U;
+
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_RESPONSE_TIMEOUT), -2);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(g_send_calls, 0);
+}
+
 static void test_tick_rejects_null_port(void** state)
 {
     (void)state;
 
     assert_int_equal(iolink_master_tick(NULL, false), -1);
+    assert_int_equal(iolink_master_tick_event(NULL, IOLINK_MASTER_TICK_CYCLE_DUE), -1);
 }
 
 int main(void)
@@ -141,6 +201,11 @@ int main(void)
         cmocka_unit_test_setup(test_tick_sends_startup_frame_when_no_rx, reset_fixture),
         cmocka_unit_test_setup(test_tick_drains_rx_before_sending_next_frame, reset_fixture),
         cmocka_unit_test_setup(test_tick_applies_timeout_before_transmit, reset_fixture),
+        cmocka_unit_test_setup(test_tick_event_none_drains_rx_without_transmitting,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_tick_event_cycle_due_transmits_after_rx, reset_fixture),
+        cmocka_unit_test_setup(test_tick_event_response_timeout_applies_before_transmit,
+                               reset_fixture),
         cmocka_unit_test_setup(test_tick_rejects_null_port, reset_fixture),
     };
 

@@ -109,6 +109,43 @@ static void test_controller_tick_reports_first_error_but_ticks_all_ports(void** 
     assert_int_equal(g_send_calls[1], 1);
 }
 
+static void test_controller_tick_events_allow_independent_port_events(void** state)
+{
+    iolink_master_controller_t controller;
+    iolink_master_port_t ports[2];
+    iolink_master_tick_event_t events[2] = {
+        IOLINK_MASTER_TICK_NONE,
+        IOLINK_MASTER_TICK_CYCLE_DUE,
+    };
+
+    (void)state;
+
+    assert_int_equal(iolink_master_controller_init(&controller, ports, 2U, g_phys, g_configs), 0);
+    assert_int_equal(iolink_master_controller_tick_events(&controller, events), 0);
+    assert_int_equal(g_send_calls[0], 0);
+    assert_int_equal(g_send_calls[1], 1);
+}
+
+static void test_controller_tick_events_report_first_error_but_tick_all_ports(void** state)
+{
+    iolink_master_controller_t controller;
+    iolink_master_port_t ports[2];
+    iolink_master_tick_event_t events[2] = {
+        IOLINK_MASTER_TICK_RESPONSE_TIMEOUT,
+        IOLINK_MASTER_TICK_CYCLE_DUE,
+    };
+
+    (void)state;
+
+    assert_int_equal(iolink_master_controller_init(&controller, ports, 2U, g_phys, g_configs), 0);
+    iolink_master_port_state(&ports[0])->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&ports[0])->diagnostics.rx_retry_count = 2U;
+
+    assert_int_equal(iolink_master_controller_tick_events(&controller, events), -2);
+    assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(g_send_calls[1], 1);
+}
+
 static void test_controller_rejects_invalid_args(void** state)
 {
     iolink_master_controller_t controller;
@@ -122,6 +159,7 @@ static void test_controller_rejects_invalid_args(void** state)
     assert_int_equal(iolink_master_controller_init(&controller, ports, 2U, NULL, g_configs), -1);
     assert_int_equal(iolink_master_controller_init(&controller, ports, 2U, g_phys, NULL), -1);
     assert_int_equal(iolink_master_controller_tick(NULL, NULL), -1);
+    assert_int_equal(iolink_master_controller_tick_events(NULL, NULL), -1);
 }
 
 int main(void)
@@ -130,6 +168,10 @@ int main(void)
         cmocka_unit_test_setup(test_controller_init_initializes_each_port, reset_fixture),
         cmocka_unit_test_setup(test_controller_tick_all_ticks_each_port, reset_fixture),
         cmocka_unit_test_setup(test_controller_tick_reports_first_error_but_ticks_all_ports,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_controller_tick_events_allow_independent_port_events,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_controller_tick_events_report_first_error_but_tick_all_ports,
                                reset_fixture),
         cmocka_unit_test_setup(test_controller_rejects_invalid_args, reset_fixture),
     };

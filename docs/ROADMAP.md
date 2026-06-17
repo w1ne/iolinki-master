@@ -82,7 +82,7 @@ Still missing:
 
 ### 4. Timing and Scheduler Core
 
-Status: open.
+Status: partial.
 
 This is the biggest architectural gap. Today the stack exposes tick/process and
 timeout hooks, but it does not own a precise master-cycle timing contract.
@@ -93,7 +93,7 @@ Required direction:
 
 - [ ] define who owns cycle time: caller, controller helper, or a dedicated scheduler
 - [ ] make `min_cycle_time` affect transmission pacing
-- [ ] represent response deadlines explicitly instead of only accepting a boolean
+- [x] represent response deadlines explicitly instead of only accepting a boolean
   timeout flag
 - [ ] keep the scheduler hardware-independent
 - [ ] make timing behavior testable without wall-clock sleeps
@@ -130,6 +130,7 @@ Required direction:
 - [ ] support independent port modes and cycle timings
 - [x] expose per-port diagnostics without hiding individual port failures
 - [x] keep one failed port from corrupting unrelated ports
+- [x] allow independent per-port tick events
 - [ ] add examples for common 1-port and 4-port master usage
 
 ### 7. Services Layer
@@ -197,10 +198,11 @@ Status: next.
 Build the missing runtime backbone before piling on more services:
 
 - [ ] define public result codes and API contracts
-- [ ] define the scheduler/timing model
+- [x] add event-driven tick dispatch for none, cycle-due, and response-timeout events
+- [ ] define the full scheduler/timing model
 - [ ] implement min-cycle-time pacing without wall-clock sleeps in tests
 - [ ] add public black-box tests for scheduler-visible behavior
-- [ ] keep the controller/helper boundary explicit
+- [x] keep the controller/helper boundary explicit for tick event fan-out
 
 ### Phase 3: Capability-Driven Master Behavior
 
@@ -246,7 +248,7 @@ Deliverables:
 
 - [ ] Add a public or internal time representation that can express cycle deadlines
    and response deadlines without sleeping in tests.
-- [ ] Replace the boolean-only timeout path in controller-facing code with a model
+- [x] Replace the boolean-only timeout path in controller-facing code with a model
    that can distinguish "not due", "response timed out", and "cycle due".
 - [ ] Make `min_cycle_time` affect when the next frame may be sent.
 - [ ] Add black-box tests proving frames are paced by configured cycle time.
