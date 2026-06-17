@@ -66,6 +66,8 @@ typedef struct
     uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE];
     uint8_t pd_out_len;
     bool pd_valid;
+    uint8_t od_status;
+    bool event_pending;
     iolink_master_isdu_op_t isdu_op;
     uint16_t isdu_index;
     uint8_t isdu_subindex;
@@ -101,6 +103,7 @@ int iolink_master_get_pd_in(const iolink_master_port_t* port,
                             uint8_t* buffer,
                             uint8_t buffer_len,
                             uint8_t* out_len);
+int iolink_master_get_od_status(const iolink_master_port_t* port, uint8_t* status);
 int iolink_master_set_pd_out(iolink_master_port_t* port, const uint8_t* data, uint8_t len);
 int iolink_master_read_isdu(iolink_master_port_t* port,
                             uint16_t index,

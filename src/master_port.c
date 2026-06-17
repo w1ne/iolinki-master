@@ -243,6 +243,8 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
     }
 
     port->rx_retry_count = 0U;
+    port->od_status = resp.status;
+    port->event_pending = resp.event_pending;
 
     if(resp.pd_valid)
     {
@@ -290,6 +292,17 @@ int iolink_master_get_pd_in(const iolink_master_port_t* port,
     }
 
     memcpy(buffer, port->pd_in, port->pd_in_len);
+    return 0;
+}
+
+int iolink_master_get_od_status(const iolink_master_port_t* port, uint8_t* status)
+{
+    if((port == NULL) || (status == NULL))
+    {
+        return -1;
+    }
+
+    *status = port->od_status;
     return 0;
 }
 
