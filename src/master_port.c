@@ -36,6 +36,21 @@ static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* d
     return false;
 }
 
+static uint8_t iolink_master_decode_pd_descriptor(uint8_t descriptor)
+{
+    if(descriptor == 0U)
+    {
+        return 0U;
+    }
+
+    if((descriptor & 0x80U) != 0U)
+    {
+        return (uint8_t)((descriptor & 0x7FU) + 1U);
+    }
+
+    return (uint8_t)(descriptor / 8U);
+}
+
 int iolink_master_init(iolink_master_port_t* port,
                        const iolink_phy_api_t* phy,
                        const iolink_master_config_t* config)
@@ -571,6 +586,67 @@ uint8_t iolink_master_get_device_status(const iolink_master_port_t* port)
     }
 
     return (uint8_t)(port->diagnostics.od_status & IOLINK_OD_STATUS_DEVICE_MASK);
+}
+
+int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
+                                               uint8_t len,
+                                               iolink_master_device_info_t* info)
+{
+    if((page == NULL) || (info == NULL))
+    {
+        return -1;
+    }
+
+    if(len < 16U)
+    {
+        return -2;
+    }
+
+    memset(info, 0, sizeof(*info));
+    info->valid = true;
+    info->min_cycle_time = page[0x02];
+    info->mseq_capability = page[0x03];
+    info->isdu_supported = ((page[0x03] & 0x01U) != 0U);
+    info->operate_mseq_code = (uint8_t)((page[0x03] >> 1U) & 0x07U);
+    info->preoperate_mseq_code = (uint8_t)((page[0x03] >> 4U) & 0x03U);
+    info->revision_id = page[0x04];
+    info->pd_in_descriptor = page[0x05];
+    info->pd_out_descriptor = page[0x06];
+    info->pd_in_len = iolink_master_decode_pd_descriptor(page[0x05]);
+    info->pd_out_len = iolink_master_decode_pd_descriptor(page[0x06]);
+    info->vendor_id = (uint16_t)(((uint16_t)page[0x07] << 8U) | page[0x08]);
+    info->device_id = ((uint32_t)page[0x09] << 16U) | ((uint32_t)page[0x0A] << 8U) |
+                      (uint32_t)page[0x0B];
+    return 0;
+}
+
+int iolink_master_apply_direct_parameter_page1(iolink_master_port_t* port,
+                                               const uint8_t* page,
+                                               uint8_t len)
+{
+    if(port == NULL)
+    {
+        return -1;
+    }
+
+    return iolink_master_parse_direct_parameter_page1(page, len, &port->device_info);
+}
+
+int iolink_master_get_device_info(const iolink_master_port_t* port,
+                                  iolink_master_device_info_t* info)
+{
+    if((port == NULL) || (info == NULL))
+    {
+        return -1;
+    }
+
+    *info = port->device_info;
+    if(!info->valid)
+    {
+        return 1;
+    }
+
+    return 0;
 }
 
 int iolink_master_set_pd_out(iolink_master_port_t* port, const uint8_t* data, uint8_t len)

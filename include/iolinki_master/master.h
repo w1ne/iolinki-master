@@ -71,6 +71,23 @@ typedef struct
 
 typedef struct
 {
+    bool valid;
+    uint8_t min_cycle_time;
+    uint8_t mseq_capability;
+    bool isdu_supported;
+    uint8_t operate_mseq_code;
+    uint8_t preoperate_mseq_code;
+    uint8_t revision_id;
+    uint8_t pd_in_descriptor;
+    uint8_t pd_out_descriptor;
+    uint8_t pd_in_len;
+    uint8_t pd_out_len;
+    uint16_t vendor_id;
+    uint32_t device_id;
+} iolink_master_device_info_t;
+
+typedef struct
+{
     iolink_master_isdu_op_t op;
     uint16_t index;
     uint8_t subindex;
@@ -109,6 +126,7 @@ typedef struct
     bool pd_valid;
     iolink_master_startup_t startup;
     iolink_master_diagnostics_t diagnostics;
+    iolink_master_device_info_t device_info;
     iolink_master_isdu_t isdu;
     iolink_master_rx_t rx;
     uint32_t cycle_count;
@@ -136,6 +154,14 @@ int iolink_master_get_pd_in(const iolink_master_port_t* port,
                             uint8_t* out_len);
 int iolink_master_get_od_status(const iolink_master_port_t* port, uint8_t* status);
 uint8_t iolink_master_get_device_status(const iolink_master_port_t* port);
+int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
+                                               uint8_t len,
+                                               iolink_master_device_info_t* info);
+int iolink_master_apply_direct_parameter_page1(iolink_master_port_t* port,
+                                               const uint8_t* page,
+                                               uint8_t len);
+int iolink_master_get_device_info(const iolink_master_port_t* port,
+                                  iolink_master_device_info_t* info);
 int iolink_master_set_pd_out(iolink_master_port_t* port, const uint8_t* data, uint8_t len);
 int iolink_master_read_isdu(iolink_master_port_t* port,
                             uint16_t index,
