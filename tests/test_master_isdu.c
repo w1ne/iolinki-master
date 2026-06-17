@@ -104,13 +104,26 @@ static void test_read_isdu_rejects_invalid_args(void** state)
 
 static void test_read_isdu_returns_pending_for_valid_request(void** state)
 {
+    iolink_master_port_t port;
+    uint8_t data[8] = {0U};
+    uint8_t len = sizeof(data);
+
+    (void)state;
+
+    enter_operate(&port);
+
+    assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len), 1);
+}
+
+static void test_read_isdu_rejects_non_operate_state(void** state)
+{
     iolink_master_port_t port = {0};
     uint8_t data[8] = {0U};
     uint8_t len = sizeof(data);
 
     (void)state;
 
-    assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len), 1);
+    assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len), -5);
 }
 
 static void test_read_isdu_emits_segmented_request_bytes(void** state)
@@ -191,13 +204,31 @@ static void test_write_isdu_rejects_invalid_args(void** state)
 
 static void test_write_isdu_accepts_valid_and_zero_length_requests(void** state)
 {
+    iolink_master_port_t port;
+    const uint8_t data[] = {0x11U, 0x22U};
+
+    (void)state;
+
+    enter_operate(&port);
+
+    assert_int_equal(iolink_master_write_isdu(&port, 0x0010U, 0U, data, sizeof(data)), 1);
+
+    feed_response_od(&port,
+                     (uint8_t)(IOLINK_ISDU_CTRL_START | IOLINK_ISDU_CTRL_LAST),
+                     0x00U);
+    assert_int_equal(iolink_master_write_isdu(&port, 0x0010U, 0U, data, sizeof(data)), 0);
+
+    assert_int_equal(iolink_master_write_isdu(&port, 0x0010U, 0U, NULL, 0U), 1);
+}
+
+static void test_write_isdu_rejects_non_operate_state(void** state)
+{
     iolink_master_port_t port = {0};
     const uint8_t data[] = {0x11U, 0x22U};
 
     (void)state;
 
-    assert_int_equal(iolink_master_write_isdu(&port, 0x0010U, 0U, data, sizeof(data)), 1);
-    assert_int_equal(iolink_master_write_isdu(&port, 0x0010U, 0U, NULL, 0U), 1);
+    assert_int_equal(iolink_master_write_isdu(&port, 0x0010U, 0U, data, sizeof(data)), -5);
 }
 
 static void test_write_isdu_emits_payload_request_bytes(void** state)
@@ -306,12 +337,14 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup(test_read_isdu_rejects_invalid_args, reset_fake_phy),
         cmocka_unit_test_setup(test_read_isdu_returns_pending_for_valid_request, reset_fake_phy),
+        cmocka_unit_test_setup(test_read_isdu_rejects_non_operate_state, reset_fake_phy),
         cmocka_unit_test_setup(test_read_isdu_emits_segmented_request_bytes, reset_fake_phy),
         cmocka_unit_test_setup(test_read_isdu_completes_after_response_bytes, reset_fake_phy),
         cmocka_unit_test_setup(test_read_isdu_reports_small_result_buffer, reset_fake_phy),
         cmocka_unit_test_setup(test_write_isdu_rejects_invalid_args, reset_fake_phy),
         cmocka_unit_test_setup(test_write_isdu_accepts_valid_and_zero_length_requests,
                                reset_fake_phy),
+        cmocka_unit_test_setup(test_write_isdu_rejects_non_operate_state, reset_fake_phy),
         cmocka_unit_test_setup(test_write_isdu_emits_payload_request_bytes, reset_fake_phy),
         cmocka_unit_test_setup(test_write_isdu_completes_after_ack_response, reset_fake_phy),
         cmocka_unit_test_setup(test_isdu_rejects_second_request_while_busy, reset_fake_phy),

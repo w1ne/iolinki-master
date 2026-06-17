@@ -235,6 +235,11 @@ int iolink_master_read_isdu(iolink_master_port_t* port,
         return -1;
     }
 
+    if(port->state != IOLINK_MASTER_STATE_OPERATE)
+    {
+        return -5;
+    }
+
     if(iolink_master_isdu_busy(port))
     {
         if(iolink_master_isdu_matches(port, IOLINK_MASTER_ISDU_OP_READ, index, subindex))
@@ -274,6 +279,11 @@ int iolink_master_write_isdu(iolink_master_port_t* port,
     if((port == NULL) || ((data == NULL) && (len > 0U)))
     {
         return -1;
+    }
+
+    if(port->state != IOLINK_MASTER_STATE_OPERATE)
+    {
+        return -5;
     }
 
     if(iolink_master_isdu_busy(port))
