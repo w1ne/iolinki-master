@@ -171,6 +171,35 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
     return -2;
 }
 
+int iolink_master_tick(iolink_master_port_t* port, bool response_timeout)
+{
+    int rx_ret;
+    int timeout_ret;
+
+    if(port == NULL)
+    {
+        return -1;
+    }
+
+    rx_ret = iolink_master_poll_rx(port);
+    if(rx_ret < 0)
+    {
+        return rx_ret;
+    }
+
+    if(response_timeout)
+    {
+        timeout_ret = iolink_master_on_timeout(port);
+        if(timeout_ret < 0)
+        {
+            return timeout_ret;
+        }
+    }
+
+    iolink_master_process(port);
+    return rx_ret;
+}
+
 void iolink_master_process(iolink_master_port_t* port)
 {
     int frame_len;
