@@ -552,6 +552,32 @@ static void test_poll_rx_accepts_startup_type0_response_from_phy(void** state)
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
 }
 
+static void test_poll_rx_accepts_preoperate_type0_isdu_response_from_phy(void** state)
+{
+    iolink_master_port_t port;
+    uint8_t startup_resp[2] = {0U};
+    uint8_t data[8] = {0U};
+    uint8_t len = sizeof(data);
+
+    (void)state;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
+    iolink_master_process(&port);
+    iolink_master_process(&port);
+    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
+
+    assert_int_equal(iolink_master_read_isdu(&port, 0x0002U, 0U, data, &len), 1);
+
+    g_recv_bytes[0] = IOLINK_ISDU_CTRL_START;
+    g_recv_bytes[1] = iolink_checksum_ck(g_recv_bytes[0], 0U);
+    g_recv_len = 2U;
+    g_recv_pos = 0U;
+
+    assert_int_equal(iolink_master_poll_rx(&port), 1);
+}
+
 static void test_process_partial_send_enters_error_state(void** state)
 {
     iolink_master_port_t port;
@@ -623,6 +649,8 @@ int main(void)
         cmocka_unit_test_setup(test_startup_can_validate_device_info_before_operate,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_poll_rx_accepts_startup_type0_response_from_phy,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_poll_rx_accepts_preoperate_type0_isdu_response_from_phy,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_process_partial_send_enters_error_state, reset_fake_phy),
         cmocka_unit_test_setup(test_startup_bad_type0_response_retries_before_error_state,
