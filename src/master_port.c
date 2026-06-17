@@ -107,14 +107,31 @@ int iolink_master_init(iolink_master_port_t* port,
 
 int iolink_master_on_timeout(iolink_master_port_t* port)
 {
-    if((port == NULL) || (port->phy == NULL))
+    if(port == NULL)
     {
         return -1;
     }
 
     if(port->state != IOLINK_MASTER_STATE_STARTUP)
     {
+        if(port->state == IOLINK_MASTER_STATE_OPERATE)
+        {
+            if(port->rx_retry_count < 2U)
+            {
+                port->rx_retry_count++;
+                return 1;
+            }
+
+            port->state = IOLINK_MASTER_STATE_ERROR;
+            return -2;
+        }
+
         return 0;
+    }
+
+    if(port->phy == NULL)
+    {
+        return -1;
     }
 
     if(port->config.auto_baudrate &&
