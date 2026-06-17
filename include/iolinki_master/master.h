@@ -155,6 +155,8 @@ int iolink_master_get_pd_in(const iolink_master_port_t* port,
                             uint8_t* out_len);
 int iolink_master_get_od_status(const iolink_master_port_t* port, uint8_t* status);
 uint8_t iolink_master_get_device_status(const iolink_master_port_t* port);
+int iolink_master_get_diagnostics(const iolink_master_port_t* port,
+                                  iolink_master_diagnostics_t* diagnostics);
 int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
                                                uint8_t len,
                                                iolink_master_device_info_t* info);

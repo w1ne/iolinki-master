@@ -663,6 +663,18 @@ uint8_t iolink_master_get_device_status(const iolink_master_port_t* port)
     return (uint8_t)(port->diagnostics.od_status & IOLINK_OD_STATUS_DEVICE_MASK);
 }
 
+int iolink_master_get_diagnostics(const iolink_master_port_t* port,
+                                  iolink_master_diagnostics_t* diagnostics)
+{
+    if((port == NULL) || (diagnostics == NULL))
+    {
+        return -1;
+    }
+
+    *diagnostics = port->diagnostics;
+    return 0;
+}
+
 int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
                                                uint8_t len,
                                                iolink_master_device_info_t* info)

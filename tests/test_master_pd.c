@@ -143,6 +143,7 @@ static void test_on_rx_latches_od_status_for_diagnostics(void** state)
     iolink_master_port_t port = {0};
     uint8_t frame[] = {0xA3U, 0xA5U, 0x00U, 0x00U};
     uint8_t status = 0U;
+    iolink_master_diagnostics_t diagnostics;
 
     (void)state;
 
@@ -155,17 +156,23 @@ static void test_on_rx_latches_od_status_for_diagnostics(void** state)
     assert_int_equal(status, 0xA3U);
     assert_true(port.diagnostics.event_pending);
     assert_int_equal(iolink_master_get_device_status(&port), IOLINK_DEVICE_STATUS_FAILURE);
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_int_equal(diagnostics.od_status, 0xA3U);
+    assert_true(diagnostics.event_pending);
 }
 
 static void test_get_od_status_rejects_invalid_args(void** state)
 {
     iolink_master_port_t port = {0};
     uint8_t status = 0U;
+    iolink_master_diagnostics_t diagnostics;
 
     (void)state;
 
     assert_int_equal(iolink_master_get_od_status(NULL, &status), -1);
     assert_int_equal(iolink_master_get_od_status(&port, NULL), -1);
+    assert_int_equal(iolink_master_get_diagnostics(NULL, &diagnostics), -1);
+    assert_int_equal(iolink_master_get_diagnostics(&port, NULL), -1);
 }
 
 static void test_get_device_status_returns_failure_for_null_port(void** state)
