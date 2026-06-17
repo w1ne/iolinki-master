@@ -213,6 +213,7 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
     {
         if(iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_OPERATE)
         {
+            iolink_master_port_state(port)->diagnostics.response_timeouts++;
             if(iolink_master_port_state(port)->diagnostics.rx_retry_count < 2U)
             {
                 iolink_master_port_state(port)->diagnostics.rx_retry_count++;

@@ -188,6 +188,7 @@ static void test_controller_tick_at_times_out_missing_response_before_next_cycle
     iolink_master_controller_t controller;
     iolink_master_port_t ports[1];
     iolink_master_config_t configs[1];
+    iolink_master_diagnostics_t diagnostics;
 
     (void)state;
 
@@ -209,6 +210,8 @@ static void test_controller_tick_at_times_out_missing_response_before_next_cycle
     assert_int_equal(iolink_master_controller_tick_at(&controller, 120U), -2);
     assert_int_equal(g_send_calls[0], 1);
     assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(iolink_master_get_diagnostics(&ports[0], &diagnostics), 0);
+    assert_int_equal(diagnostics.response_timeouts, 1U);
 }
 
 static void test_controller_rejects_invalid_args(void** state)

@@ -97,7 +97,8 @@ Required direction:
   timeout flag
 - [ ] keep the scheduler hardware-independent
 - [x] make port-level cycle pacing testable without wall-clock sleeps
-- [ ] track cycle slips, timeout counts, and jitter/error diagnostics
+- [x] track response timeout counts in public diagnostics
+- [ ] track cycle slips and jitter diagnostics
 
 This should be the next major architecture slice after the docs checkpoint.
 

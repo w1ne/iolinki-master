@@ -69,6 +69,7 @@ typedef struct
     uint8_t rx_retry_count;
     uint32_t checksum_errors;
     uint32_t send_errors;
+    uint32_t response_timeouts;
 } iolink_master_diagnostics_t;
 
 typedef struct
