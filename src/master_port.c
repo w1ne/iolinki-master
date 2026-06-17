@@ -94,11 +94,15 @@ void iolink_master_process(iolink_master_port_t* port)
                 if(iolink_master_send_full(port, port->tx_buf, (size_t)frame_len))
                 {
                     port->startup_step++;
+                    port->state = IOLINK_MASTER_STATE_PREOPERATE;
                 }
             }
             return;
         }
+    }
 
+    if(port->state == IOLINK_MASTER_STATE_PREOPERATE)
+    {
         frame_len = iolink_frame_encode_type0(IOLINK_MC_TRANSITION_COMMAND,
                                               port->tx_buf,
                                               sizeof(port->tx_buf));

@@ -177,7 +177,7 @@ static void test_get_pd_in_invalid_does_not_copy_stale_data(void** state)
     assert_int_equal(buffer[3], 0xAAU);
 }
 
-static void test_process_startup_transitions_to_operate_and_sends_cyclic_frame(void** state)
+static void test_process_startup_enters_preoperate_before_operate_and_sends_cyclic_frame(void** state)
 {
     iolink_master_port_t port;
     const uint8_t pd_out[] = {0x11U, 0x22U};
@@ -200,6 +200,7 @@ static void test_process_startup_transitions_to_operate_and_sends_cyclic_frame(v
     assert_int_equal(g_send_calls, 2);
     assert_int_equal(g_sent_len[1], (size_t)expected_len);
     assert_memory_equal(g_sent[1], expected, (size_t)expected_len);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
 
     iolink_master_process(&port);
     expected_len = iolink_frame_encode_type0(IOLINK_MC_TRANSITION_COMMAND, expected, sizeof(expected));
@@ -252,7 +253,8 @@ int main(void)
         cmocka_unit_test_setup(test_init_rejects_oversized_pd_out_len, reset_fake_phy),
         cmocka_unit_test_setup(test_get_pd_in_too_small_exposes_required_length, reset_fake_phy),
         cmocka_unit_test_setup(test_get_pd_in_invalid_does_not_copy_stale_data, reset_fake_phy),
-        cmocka_unit_test_setup(test_process_startup_transitions_to_operate_and_sends_cyclic_frame,
+        cmocka_unit_test_setup(
+            test_process_startup_enters_preoperate_before_operate_and_sends_cyclic_frame,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_process_partial_send_enters_error_state, reset_fake_phy),
     };
