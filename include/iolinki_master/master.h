@@ -28,6 +28,13 @@ typedef enum
     IOLINK_MASTER_STATE_ERROR = 4
 } iolink_master_state_t;
 
+typedef enum
+{
+    IOLINK_MASTER_ISDU_OP_NONE = 0,
+    IOLINK_MASTER_ISDU_OP_READ = 1,
+    IOLINK_MASTER_ISDU_OP_WRITE = 2
+} iolink_master_isdu_op_t;
+
 typedef struct
 {
     iolink_master_m_seq_type_t m_seq_type;
@@ -49,6 +56,22 @@ typedef struct
     uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE];
     uint8_t pd_out_len;
     bool pd_valid;
+    iolink_master_isdu_op_t isdu_op;
+    uint16_t isdu_index;
+    uint8_t isdu_subindex;
+    uint8_t isdu_request[IOLINK_ISDU_BUFFER_SIZE];
+    uint8_t isdu_request_len;
+    uint8_t isdu_request_pos;
+    uint8_t isdu_request_seq;
+    bool isdu_request_control_phase;
+    bool isdu_request_sent;
+    uint8_t isdu_response[IOLINK_ISDU_BUFFER_SIZE];
+    uint16_t isdu_response_len;
+    uint8_t isdu_response_seq;
+    bool isdu_response_expect_control;
+    bool isdu_response_last;
+    bool isdu_done;
+    uint8_t isdu_error;
     uint8_t startup_step;
     uint32_t cycle_count;
     uint32_t checksum_errors;

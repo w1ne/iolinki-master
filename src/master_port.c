@@ -1,5 +1,6 @@
 #include "master_internal.h"
 
+#include "iolinki/crc.h"
 #include "iolinki/frame.h"
 #include "iolinki/protocol.h"
 
@@ -66,6 +67,7 @@ int iolink_master_init(iolink_master_port_t* port,
 void iolink_master_process(iolink_master_port_t* port)
 {
     int frame_len;
+    size_t od_pos;
 
     if((port == NULL) || (port->phy == NULL) || (port->phy->send == NULL))
     {
@@ -120,6 +122,10 @@ void iolink_master_process(iolink_master_port_t* port)
                                                     sizeof(port->tx_buf));
         if(frame_len > 0)
         {
+            od_pos = (size_t)IOLINK_M_SEQ_HEADER_LEN + port->pd_out_len;
+            iolink_master_isdu_fill_od(port, &port->tx_buf[od_pos], port->od_len);
+            port->tx_buf[frame_len - 1] = iolink_crc6(port->tx_buf, (uint8_t)(frame_len - 1));
+
             if(iolink_master_send_full(port, port->tx_buf, (size_t)frame_len))
             {
                 port->cycle_count++;
@@ -158,6 +164,8 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
         port->pd_in_len = resp.pd_len;
         port->pd_valid = true;
     }
+
+    iolink_master_isdu_on_od(port, resp.od, resp.od_len);
 
     return 0;
 }
