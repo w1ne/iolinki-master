@@ -92,11 +92,11 @@ than a serious master runtime.
 Required direction:
 
 - [ ] define who owns cycle time: caller, controller helper, or a dedicated scheduler
-- [ ] make `min_cycle_time` affect transmission pacing
+- [x] make `min_cycle_time` affect port-level OPERATE cycle pacing
 - [x] represent response deadlines explicitly instead of only accepting a boolean
   timeout flag
 - [ ] keep the scheduler hardware-independent
-- [ ] make timing behavior testable without wall-clock sleeps
+- [x] make port-level cycle pacing testable without wall-clock sleeps
 - [ ] track cycle slips, timeout counts, and jitter/error diagnostics
 
 This should be the next major architecture slice after the docs checkpoint.
@@ -200,7 +200,7 @@ Build the missing runtime backbone before piling on more services:
 - [ ] define public result codes and API contracts
 - [x] add event-driven tick dispatch for none, cycle-due, and response-timeout events
 - [ ] define the full scheduler/timing model
-- [ ] implement min-cycle-time pacing without wall-clock sleeps in tests
+- [x] implement port-level min-cycle-time pacing without wall-clock sleeps in tests
 - [ ] add public black-box tests for scheduler-visible behavior
 - [x] keep the controller/helper boundary explicit for tick event fan-out
 
@@ -242,16 +242,16 @@ real master stack.
 
 ## Recommended Next Slice
 
-The next implementation slice should be the scheduler/timing contract.
+The next implementation slice should be controller-owned cycle scheduling.
 
 Deliverables:
 
-- [ ] Add a public or internal time representation that can express cycle deadlines
-   and response deadlines without sleeping in tests.
+- [x] Add a public time input that can pace port-level cycles without sleeping in tests.
 - [x] Replace the boolean-only timeout path in controller-facing code with a model
    that can distinguish "not due", "response timed out", and "cycle due".
-- [ ] Make `min_cycle_time` affect when the next frame may be sent.
-- [ ] Add black-box tests proving frames are paced by configured cycle time.
+- [x] Make `min_cycle_time` affect when the next port-level OPERATE frame may be sent.
+- [x] Add tests proving port frames are paced by configured cycle time.
+- [ ] Add controller-owned scheduling that maps per-port deadlines to tick events.
 - [ ] Keep hardware timers outside the protocol core; tests should drive fake time.
 
 The result-code enum remains important, but it is API cleanup. Timing is the

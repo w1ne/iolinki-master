@@ -114,6 +114,9 @@ int iolink_master_poll_rx(iolink_master_port_t* port);
 int iolink_master_on_timeout(iolink_master_port_t* port);
 int iolink_master_tick(iolink_master_port_t* port, bool response_timeout);
 int iolink_master_tick_event(iolink_master_port_t* port, iolink_master_tick_event_t event);
+int iolink_master_tick_at(iolink_master_port_t* port,
+                          iolink_master_tick_event_t event,
+                          uint32_t now_100us);
 int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t len);
 iolink_master_state_t iolink_master_get_state(const iolink_master_port_t* port);
 int iolink_master_get_pd_in(const iolink_master_port_t* port,

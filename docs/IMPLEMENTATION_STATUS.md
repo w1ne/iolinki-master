@@ -60,6 +60,7 @@ and gap detail.
 - [x] Basic diagnostics API.
 - [x] Multi-port controller init/tick helper.
 - [x] Event-driven tick dispatch for none, cycle-due, and response-timeout events.
+- [x] Port-level `min_cycle_time` pacing with fake monotonic 100us ticks.
 - [x] Per-port controller tick events.
 - [x] SIO DQ output through `set_cq_line`.
 - [x] Public header compile test.
@@ -78,7 +79,7 @@ and gap detail.
 ### Not Started
 
 - [ ] Full scheduler/timing model with explicit cycle and response deadlines.
-- [ ] `min_cycle_time`-based frame pacing.
+- [ ] Controller-owned `min_cycle_time` scheduling across ports.
 - [ ] Capability-driven M-sequence and PD-size selection.
 - [ ] DI input API/PHY support.
 - [ ] Dynamic SIO/IO-Link mode transitions.

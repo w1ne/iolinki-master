@@ -53,6 +53,8 @@ typedef struct
     iolink_master_isdu_state_t isdu;
     iolink_master_rx_state_t rx;
     uint32_t cycle_count;
+    uint32_t last_cycle_start_100us;
+    bool cycle_timer_valid;
 } iolink_master_port_state_t;
 
 typedef struct

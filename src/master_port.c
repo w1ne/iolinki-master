@@ -39,6 +39,73 @@ static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* d
     return false;
 }
 
+static bool iolink_master_cycle_due_at(const iolink_master_port_t* port, uint32_t now_100us)
+{
+    const iolink_master_port_state_t* state = iolink_master_port_const_state(port);
+
+    if((state->state != IOLINK_MASTER_STATE_OPERATE) || (state->config.min_cycle_time == 0U) ||
+       !state->cycle_timer_valid)
+    {
+        return true;
+    }
+
+    return ((uint32_t)(now_100us - state->last_cycle_start_100us) >=
+            (uint32_t)state->config.min_cycle_time);
+}
+
+static int iolink_master_tick_common(iolink_master_port_t* port,
+                                     iolink_master_tick_event_t event,
+                                     bool pace_cycles,
+                                     uint32_t now_100us)
+{
+    iolink_master_port_state_t* state;
+    uint32_t cycle_count_before;
+    int rx_ret;
+    int timeout_ret;
+
+    if((port == NULL) || (event > IOLINK_MASTER_TICK_RESPONSE_TIMEOUT))
+    {
+        return -1;
+    }
+
+    rx_ret = iolink_master_poll_rx(port);
+    if(rx_ret < 0)
+    {
+        return rx_ret;
+    }
+
+    if(event == IOLINK_MASTER_TICK_RESPONSE_TIMEOUT)
+    {
+        timeout_ret = iolink_master_on_timeout(port);
+        if(timeout_ret < 0)
+        {
+            return timeout_ret;
+        }
+    }
+
+    if(event != IOLINK_MASTER_TICK_CYCLE_DUE)
+    {
+        return rx_ret;
+    }
+
+    if(pace_cycles && !iolink_master_cycle_due_at(port, now_100us))
+    {
+        return rx_ret;
+    }
+
+    state = iolink_master_port_state(port);
+    cycle_count_before = state->cycle_count;
+    iolink_master_process(port);
+
+    if(pace_cycles && (state->cycle_count != cycle_count_before))
+    {
+        state->last_cycle_start_100us = now_100us;
+        state->cycle_timer_valid = true;
+    }
+
+    return rx_ret;
+}
+
 int iolink_master_init(iolink_master_port_t* port,
                        const iolink_phy_api_t* phy,
                        const iolink_master_config_t* config)
@@ -184,35 +251,14 @@ int iolink_master_tick(iolink_master_port_t* port, bool response_timeout)
 
 int iolink_master_tick_event(iolink_master_port_t* port, iolink_master_tick_event_t event)
 {
-    int rx_ret;
-    int timeout_ret;
+    return iolink_master_tick_common(port, event, false, 0U);
+}
 
-    if((port == NULL) || (event > IOLINK_MASTER_TICK_RESPONSE_TIMEOUT))
-    {
-        return -1;
-    }
-
-    rx_ret = iolink_master_poll_rx(port);
-    if(rx_ret < 0)
-    {
-        return rx_ret;
-    }
-
-    if(event == IOLINK_MASTER_TICK_RESPONSE_TIMEOUT)
-    {
-        timeout_ret = iolink_master_on_timeout(port);
-        if(timeout_ret < 0)
-        {
-            return timeout_ret;
-        }
-    }
-
-    if(event == IOLINK_MASTER_TICK_CYCLE_DUE)
-    {
-        iolink_master_process(port);
-    }
-
-    return rx_ret;
+int iolink_master_tick_at(iolink_master_port_t* port,
+                          iolink_master_tick_event_t event,
+                          uint32_t now_100us)
+{
+    return iolink_master_tick_common(port, event, true, now_100us);
 }
 
 void iolink_master_process(iolink_master_port_t* port)
