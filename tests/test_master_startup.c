@@ -204,10 +204,10 @@ static void test_auto_baudrate_startup_timeout_scans_com3_com2_com1_then_errors(
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
 
     iolink_master_process(&port);
-    assert_int_equal(port.startup_step, 1U);
+    assert_int_equal(port.startup.step, 1U);
 
     assert_int_equal(iolink_master_on_timeout(&port), 1);
-    assert_int_equal(port.startup_step, 0U);
+    assert_int_equal(port.startup.step, 0U);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
     assert_int_equal(g_set_baudrate_calls, 2);
     assert_int_equal(g_baudrate_history[1], IOLINK_BAUDRATE_COM2);
@@ -369,14 +369,14 @@ static void test_process_partial_send_enters_error_state(void** state)
 
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
     iolink_master_process(&port);
-    assert_int_equal(port.startup_step, 1U);
+    assert_int_equal(port.startup.step, 1U);
 
     g_forced_send_return = 1;
     iolink_master_process(&port);
 
     assert_int_equal(g_send_calls, 2);
-    assert_int_equal(port.startup_step, 1U);
-    assert_int_equal(port.send_errors, 1U);
+    assert_int_equal(port.startup.step, 1U);
+    assert_int_equal(port.diagnostics.send_errors, 1U);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
 }
 

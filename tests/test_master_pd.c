@@ -51,7 +51,7 @@ static void test_on_rx_latches_od_status_for_diagnostics(void** state)
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), 0);
     assert_int_equal(iolink_master_get_od_status(&port, &status), 0);
     assert_int_equal(status, 0xA3U);
-    assert_true(port.event_pending);
+    assert_true(port.diagnostics.event_pending);
 }
 
 static void test_get_od_status_rejects_invalid_args(void** state)
@@ -76,7 +76,7 @@ static void test_on_rx_bad_checksum_returns_error_and_increments_count(void** st
     port.od_len = 1U;
 
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), -3);
-    assert_int_equal(port.checksum_errors, 1U);
+    assert_int_equal(port.diagnostics.checksum_errors, 1U);
 }
 
 static void test_on_rx_bad_checksum_retries_twice_before_error_state(void** state)
@@ -98,7 +98,7 @@ static void test_on_rx_bad_checksum_retries_twice_before_error_state(void** stat
 
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), -3);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
-    assert_int_equal(port.checksum_errors, 3U);
+    assert_int_equal(port.diagnostics.checksum_errors, 3U);
 }
 
 static void test_on_rx_valid_response_resets_checksum_retry_count(void** state)
@@ -170,7 +170,7 @@ static void test_on_rx_malformed_frame_returns_decode_error(void** state)
     port.od_len = 1U;
 
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), -2);
-    assert_int_equal(port.checksum_errors, 0U);
+    assert_int_equal(port.diagnostics.checksum_errors, 0U);
 }
 
 static void test_on_rx_rejects_invalid_args(void** state)

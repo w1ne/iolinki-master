@@ -56,6 +56,41 @@ typedef struct
 
 typedef struct
 {
+    uint8_t step;
+    uint8_t baudrate_index;
+} iolink_master_startup_t;
+
+typedef struct
+{
+    uint8_t od_status;
+    bool event_pending;
+    uint8_t rx_retry_count;
+    uint32_t checksum_errors;
+    uint32_t send_errors;
+} iolink_master_diagnostics_t;
+
+typedef struct
+{
+    iolink_master_isdu_op_t op;
+    uint16_t index;
+    uint8_t subindex;
+    uint8_t request[IOLINK_ISDU_BUFFER_SIZE];
+    uint8_t request_len;
+    uint8_t request_pos;
+    uint8_t request_seq;
+    bool request_control_phase;
+    bool request_sent;
+    uint8_t response[IOLINK_ISDU_BUFFER_SIZE];
+    uint16_t response_len;
+    uint8_t response_seq;
+    bool response_expect_control;
+    bool response_last;
+    bool done;
+    uint8_t error;
+} iolink_master_isdu_t;
+
+typedef struct
+{
     const iolink_phy_api_t* phy;
     iolink_master_config_t config;
     iolink_master_state_t state;
@@ -66,30 +101,10 @@ typedef struct
     uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE];
     uint8_t pd_out_len;
     bool pd_valid;
-    uint8_t od_status;
-    bool event_pending;
-    iolink_master_isdu_op_t isdu_op;
-    uint16_t isdu_index;
-    uint8_t isdu_subindex;
-    uint8_t isdu_request[IOLINK_ISDU_BUFFER_SIZE];
-    uint8_t isdu_request_len;
-    uint8_t isdu_request_pos;
-    uint8_t isdu_request_seq;
-    bool isdu_request_control_phase;
-    bool isdu_request_sent;
-    uint8_t isdu_response[IOLINK_ISDU_BUFFER_SIZE];
-    uint16_t isdu_response_len;
-    uint8_t isdu_response_seq;
-    bool isdu_response_expect_control;
-    bool isdu_response_last;
-    bool isdu_done;
-    uint8_t isdu_error;
-    uint8_t startup_step;
-    uint8_t startup_baudrate_index;
-    uint8_t rx_retry_count;
+    iolink_master_startup_t startup;
+    iolink_master_diagnostics_t diagnostics;
+    iolink_master_isdu_t isdu;
     uint32_t cycle_count;
-    uint32_t checksum_errors;
-    uint32_t send_errors;
 } iolink_master_port_t;
 
 int iolink_master_init(iolink_master_port_t* port,

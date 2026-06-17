@@ -16,7 +16,7 @@ static iolink_baudrate_t iolink_master_startup_baudrate(const iolink_master_port
 {
     if(port->config.auto_baudrate)
     {
-        return g_iolink_master_baudrate_scan[port->startup_baudrate_index];
+        return g_iolink_master_baudrate_scan[port->startup.baudrate_index];
     }
 
     return port->config.baudrate;
@@ -31,7 +31,7 @@ static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* d
         return true;
     }
 
-    port->send_errors++;
+    port->diagnostics.send_errors++;
     port->state = IOLINK_MASTER_STATE_ERROR;
     return false;
 }
@@ -58,7 +58,7 @@ int iolink_master_init(iolink_master_port_t* port,
     port->od_len = iolink_master_od_len_for_type(config->m_seq_type);
     port->pd_in_len = config->pd_in_len;
     port->pd_out_len = config->pd_out_len;
-    port->startup_baudrate_index = 0U;
+    port->startup.baudrate_index = 0U;
     port->state = (config->port_mode == IOLINK_MASTER_PORT_MODE_IOLINK)
                       ? IOLINK_MASTER_STATE_STARTUP
                       : IOLINK_MASTER_STATE_INACTIVE;
@@ -116,9 +116,9 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
     {
         if(port->state == IOLINK_MASTER_STATE_OPERATE)
         {
-            if(port->rx_retry_count < 2U)
+            if(port->diagnostics.rx_retry_count < 2U)
             {
-                port->rx_retry_count++;
+                port->diagnostics.rx_retry_count++;
                 return 1;
             }
 
@@ -135,13 +135,13 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
     }
 
     if(port->config.auto_baudrate &&
-       (port->startup_baudrate_index <
+       (port->startup.baudrate_index <
         (uint8_t)((sizeof(g_iolink_master_baudrate_scan) /
                    sizeof(g_iolink_master_baudrate_scan[0])) -
                   1U)))
     {
-        port->startup_baudrate_index++;
-        port->startup_step = 0U;
+        port->startup.baudrate_index++;
+        port->startup.step = 0U;
         if(port->phy->set_baudrate != NULL)
         {
             port->phy->set_baudrate(iolink_master_startup_baudrate(port));
@@ -165,24 +165,24 @@ void iolink_master_process(iolink_master_port_t* port)
 
     if(port->state == IOLINK_MASTER_STATE_STARTUP)
     {
-        if(port->startup_step == 0U)
+        if(port->startup.step == 0U)
         {
             port->tx_buf[0] = 0x55U;
             if(iolink_master_send_full(port, port->tx_buf, 1U))
             {
-                port->startup_step++;
+                port->startup.step++;
             }
             return;
         }
 
-        if(port->startup_step == 1U)
+        if(port->startup.step == 1U)
         {
             frame_len = iolink_frame_encode_type0(0x00U, port->tx_buf, sizeof(port->tx_buf));
             if(frame_len > 0)
             {
                 if(iolink_master_send_full(port, port->tx_buf, (size_t)frame_len))
                 {
-                    port->startup_step++;
+                    port->startup.step++;
                     port->state = IOLINK_MASTER_STATE_PREOPERATE;
                 }
             }
@@ -199,7 +199,7 @@ void iolink_master_process(iolink_master_port_t* port)
         {
             if(iolink_master_send_full(port, port->tx_buf, (size_t)frame_len))
             {
-                port->startup_step++;
+                port->startup.step++;
                 port->state = IOLINK_MASTER_STATE_OPERATE;
             }
         }
@@ -247,10 +247,10 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
 
     if(!resp.checksum_ok)
     {
-        port->checksum_errors++;
-        if(port->rx_retry_count < 2U)
+        port->diagnostics.checksum_errors++;
+        if(port->diagnostics.rx_retry_count < 2U)
         {
-            port->rx_retry_count++;
+            port->diagnostics.rx_retry_count++;
         }
         else
         {
@@ -259,9 +259,9 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
         return -3;
     }
 
-    port->rx_retry_count = 0U;
-    port->od_status = resp.status;
-    port->event_pending = resp.event_pending;
+    port->diagnostics.rx_retry_count = 0U;
+    port->diagnostics.od_status = resp.status;
+    port->diagnostics.event_pending = resp.event_pending;
 
     if(resp.pd_valid)
     {
@@ -319,7 +319,7 @@ int iolink_master_get_od_status(const iolink_master_port_t* port, uint8_t* statu
         return -1;
     }
 
-    *status = port->od_status;
+    *status = port->diagnostics.od_status;
     return 0;
 }
 
