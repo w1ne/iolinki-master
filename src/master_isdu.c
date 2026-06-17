@@ -268,6 +268,32 @@ int iolink_master_read_isdu(iolink_master_port_t* port,
     return 1;
 }
 
+int iolink_master_read_device_info(iolink_master_port_t* port)
+{
+    uint8_t page[16];
+    uint8_t len = sizeof(page);
+    int ret;
+
+    if(port == NULL)
+    {
+        return -1;
+    }
+
+    ret = iolink_master_read_isdu(port, IOLINK_IDX_DIRECT_PARAMETERS_1, 0U, page, &len);
+    if(ret != 0)
+    {
+        return ret;
+    }
+
+    ret = iolink_master_apply_direct_parameter_page1(port, page, len);
+    if(ret != 0)
+    {
+        return ret;
+    }
+
+    return iolink_master_validate_device_info(port);
+}
+
 int iolink_master_write_isdu(iolink_master_port_t* port,
                              uint16_t index,
                              uint8_t subindex,

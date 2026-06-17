@@ -169,6 +169,7 @@ int iolink_master_read_isdu(iolink_master_port_t* port,
                             uint8_t subindex,
                             uint8_t* data,
                             uint8_t* len);
+int iolink_master_read_device_info(iolink_master_port_t* port);
 int iolink_master_write_isdu(iolink_master_port_t* port,
                              uint16_t index,
                              uint8_t subindex,

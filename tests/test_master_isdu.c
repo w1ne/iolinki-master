@@ -93,6 +93,26 @@ static void feed_response_od(iolink_master_port_t* port, uint8_t od0, uint8_t od
     assert_int_equal(iolink_master_on_rx(port, frame, sizeof(frame)), 0);
 }
 
+static void feed_isdu_response_bytes(iolink_master_port_t* port, const uint8_t* data, uint8_t len)
+{
+    uint8_t i;
+    uint8_t ctrl;
+
+    for(i = 0U; i < len; i++)
+    {
+        ctrl = i;
+        if(i == 0U)
+        {
+            ctrl |= IOLINK_ISDU_CTRL_START;
+        }
+        if(i == (uint8_t)(len - 1U))
+        {
+            ctrl |= IOLINK_ISDU_CTRL_LAST;
+        }
+        feed_response_od(port, ctrl, data[i]);
+    }
+}
+
 static void test_read_isdu_rejects_invalid_args(void** state)
 {
     iolink_master_port_t port = {0};
@@ -247,6 +267,59 @@ static void test_read_isdu_completes_after_response_bytes(void** state)
     assert_int_equal(len, 2U);
     assert_int_equal(data[0], 0x4FU);
     assert_int_equal(data[1], 0x4BU);
+}
+
+static void test_read_device_info_reads_direct_parameter_page1(void** state)
+{
+    static const uint8_t page1[] = {
+        0x00U,
+        0x00U,
+        10U,
+        0x01U,
+        0x11U,
+        0x00U,
+        0x00U,
+        0x12U,
+        0x34U,
+        0x56U,
+        0x78U,
+        0x9AU,
+        0x00U,
+        0x00U,
+        0x00U,
+        0x00U,
+    };
+    iolink_master_port_t port;
+    iolink_master_device_info_t info;
+
+    (void)state;
+
+    enter_operate(&port);
+
+    assert_int_equal(iolink_master_read_device_info(&port), 1);
+    feed_isdu_response_bytes(&port, page1, sizeof(page1));
+    assert_int_equal(iolink_master_read_device_info(&port), 0);
+    assert_int_equal(iolink_master_get_device_info(&port, &info), 0);
+    assert_int_equal(info.vendor_id, 0x1234U);
+    assert_int_equal(info.device_id, 0x56789AU);
+}
+
+static void test_read_device_info_rejects_incompatible_device_page(void** state)
+{
+    uint8_t page1[16] = {0U};
+    iolink_master_port_t port;
+
+    (void)state;
+
+    page1[0x02] = 10U;
+    page1[0x03] = 0x03U;
+    page1[0x04] = 0x11U;
+
+    enter_operate(&port);
+
+    assert_int_equal(iolink_master_read_device_info(&port), 1);
+    feed_isdu_response_bytes(&port, page1, sizeof(page1));
+    assert_int_equal(iolink_master_read_device_info(&port), -5);
 }
 
 static void test_read_isdu_reports_small_result_buffer(void** state)
@@ -421,6 +494,9 @@ int main(void)
         cmocka_unit_test_setup(test_type0_read_isdu_completes_from_type0_response_bytes,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_read_isdu_completes_after_response_bytes, reset_fake_phy),
+        cmocka_unit_test_setup(test_read_device_info_reads_direct_parameter_page1, reset_fake_phy),
+        cmocka_unit_test_setup(test_read_device_info_rejects_incompatible_device_page,
+                               reset_fake_phy),
         cmocka_unit_test_setup(test_read_isdu_reports_small_result_buffer, reset_fake_phy),
         cmocka_unit_test_setup(test_write_isdu_rejects_invalid_args, reset_fake_phy),
         cmocka_unit_test_setup(test_write_isdu_accepts_valid_and_zero_length_requests,
