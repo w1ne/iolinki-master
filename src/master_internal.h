@@ -66,16 +66,27 @@ typedef char iolink_master_port_storage_must_fit
 typedef char iolink_master_controller_storage_must_fit
     [(sizeof(iolink_master_controller_state_t) <= IOLINK_MASTER_CONTROLLER_STORAGE_SIZE) ? 1 : -1];
 
-static inline iolink_master_port_state_t*
-iolink_master_port_state(const iolink_master_port_t* port)
+static inline iolink_master_port_state_t* iolink_master_port_state(iolink_master_port_t* port)
 {
     return (iolink_master_port_state_t*)(void*)port->storage;
 }
 
+static inline const iolink_master_port_state_t*
+iolink_master_port_const_state(const iolink_master_port_t* port)
+{
+    return (const iolink_master_port_state_t*)(const void*)port->storage;
+}
+
 static inline iolink_master_controller_state_t*
-iolink_master_controller_state(const iolink_master_controller_t* controller)
+iolink_master_controller_state(iolink_master_controller_t* controller)
 {
     return (iolink_master_controller_state_t*)(void*)controller->storage;
+}
+
+static inline const iolink_master_controller_state_t*
+iolink_master_controller_const_state(const iolink_master_controller_t* controller)
+{
+    return (const iolink_master_controller_state_t*)(const void*)controller->storage;
 }
 
 static inline uint8_t iolink_master_od_len_for_type(iolink_master_m_seq_type_t type)

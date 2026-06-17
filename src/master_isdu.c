@@ -6,7 +6,9 @@
 
 static bool iolink_master_isdu_busy(const iolink_master_port_t* port)
 {
-    return (iolink_master_port_state(port)->isdu.op != IOLINK_MASTER_ISDU_OP_NONE) && !iolink_master_port_state(port)->isdu.done;
+    const iolink_master_port_state_t* state = iolink_master_port_const_state(port);
+
+    return (state->isdu.op != IOLINK_MASTER_ISDU_OP_NONE) && !state->isdu.done;
 }
 
 static bool iolink_master_isdu_matches(const iolink_master_port_t* port,
@@ -14,8 +16,10 @@ static bool iolink_master_isdu_matches(const iolink_master_port_t* port,
                                        uint16_t index,
                                        uint8_t subindex)
 {
-    return (iolink_master_port_state(port)->isdu.op == op) && (iolink_master_port_state(port)->isdu.index == index) &&
-           (iolink_master_port_state(port)->isdu.subindex == subindex);
+    const iolink_master_port_state_t* state = iolink_master_port_const_state(port);
+
+    return (state->isdu.op == op) && (state->isdu.index == index) &&
+           (state->isdu.subindex == subindex);
 }
 
 static void iolink_master_isdu_clear(iolink_master_port_t* port)
