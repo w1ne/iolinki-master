@@ -209,6 +209,32 @@ static void test_tick_at_paces_operate_cycles_by_min_cycle_time(void** state)
     assert_int_equal(iolink_master_port_state(&port)->cycle_count, 2U);
 }
 
+static void test_tick_at_counts_late_cycle_slips(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_diagnostics_t diagnostics;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U), 0);
+    assert_int_equal(g_send_calls, 1);
+    iolink_master_port_state(&port)->awaiting_response = false;
+
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 120U), 0);
+    assert_int_equal(g_send_calls, 2);
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_int_equal(diagnostics.cycle_slips, 0U);
+    iolink_master_port_state(&port)->awaiting_response = false;
+
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 145U), 0);
+    assert_int_equal(g_send_calls, 3);
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_int_equal(diagnostics.cycle_slips, 1U);
+}
+
 static void test_tick_rejects_null_port(void** state)
 {
     (void)state;
@@ -231,6 +257,7 @@ int main(void)
                                reset_fixture),
         cmocka_unit_test_setup(test_tick_at_paces_operate_cycles_by_min_cycle_time,
                                reset_fixture),
+        cmocka_unit_test_setup(test_tick_at_counts_late_cycle_slips, reset_fixture),
         cmocka_unit_test_setup(test_tick_rejects_null_port, reset_fixture),
     };
 

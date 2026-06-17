@@ -98,7 +98,8 @@ Required direction:
 - [ ] keep the scheduler hardware-independent
 - [x] make port-level cycle pacing testable without wall-clock sleeps
 - [x] track response timeout counts in public diagnostics
-- [ ] track cycle slips and jitter diagnostics
+- [x] track cycle-slip counts in public diagnostics
+- [ ] track jitter diagnostics
 
 This should be the next major architecture slice after the docs checkpoint.
 

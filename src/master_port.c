@@ -53,6 +53,20 @@ static bool iolink_master_cycle_due_at(const iolink_master_port_t* port, uint32_
             (uint32_t)state->config.min_cycle_time);
 }
 
+static bool iolink_master_cycle_slipped_at(const iolink_master_port_t* port, uint32_t now_100us)
+{
+    const iolink_master_port_state_t* state = iolink_master_port_const_state(port);
+
+    if((state->state != IOLINK_MASTER_STATE_OPERATE) || (state->config.min_cycle_time == 0U) ||
+       !state->cycle_timer_valid)
+    {
+        return false;
+    }
+
+    return ((uint32_t)(now_100us - state->last_cycle_start_100us) >
+            (uint32_t)state->config.min_cycle_time);
+}
+
 static int iolink_master_tick_common(iolink_master_port_t* port,
                                      iolink_master_tick_event_t event,
                                      bool pace_cycles,
@@ -105,6 +119,11 @@ static int iolink_master_tick_common(iolink_master_port_t* port,
 
     if(pace_cycles && (state->cycle_count != cycle_count_before))
     {
+        if(iolink_master_cycle_slipped_at(port, now_100us))
+        {
+            state->diagnostics.cycle_slips++;
+        }
+
         state->last_cycle_start_100us = now_100us;
         state->response_deadline_100us =
             (uint32_t)(now_100us + (uint32_t)state->config.min_cycle_time);

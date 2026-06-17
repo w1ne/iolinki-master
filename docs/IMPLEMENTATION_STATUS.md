@@ -59,6 +59,7 @@ and gap detail.
 - [x] Optional startup device-info validation.
 - [x] Basic diagnostics API.
 - [x] Response timeout counter in public diagnostics.
+- [x] Cycle-slip counter in public diagnostics.
 - [x] Multi-port controller init/tick helper.
 - [x] Event-driven tick dispatch for none, cycle-due, and response-timeout events.
 - [x] Port-level `min_cycle_time` pacing with fake monotonic 100us ticks.
@@ -82,7 +83,7 @@ and gap detail.
 
 ### Not Started
 
-- [ ] Full scheduler/timing model with jitter and cycle-slip diagnostics.
+- [ ] Full scheduler/timing model with jitter diagnostics.
 - [ ] Capability-matrix fake devices.
 - [ ] Fake-device ISDU object dictionary.
 - [ ] Capability-driven M-sequence and PD-size selection.

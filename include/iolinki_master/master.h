@@ -70,6 +70,7 @@ typedef struct
     uint32_t checksum_errors;
     uint32_t send_errors;
     uint32_t response_timeouts;
+    uint32_t cycle_slips;
 } iolink_master_diagnostics_t;
 
 typedef struct
