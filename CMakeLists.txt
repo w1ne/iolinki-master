@@ -11,6 +11,7 @@ set(IOLINKI_DEVICE_DIR
     CACHE PATH "Path to the local iolinki device repository")
 
 option(BUILD_TESTING "Build unit tests" ON)
+option(BUILD_EXAMPLES "Build runnable examples" ON)
 
 add_library(iolinki_frame_helpers STATIC
     "${IOLINKI_DEVICE_DIR}/src/crc.c"
@@ -22,7 +23,15 @@ add_library(iolinki_master STATIC src/master_port.c src/master_isdu.c)
 target_include_directories(iolinki_master PUBLIC include "${IOLINKI_DEVICE_DIR}/include")
 target_link_libraries(iolinki_master PUBLIC iolinki_frame_helpers)
 
+if(BUILD_EXAMPLES)
+    add_executable(master_loopback_demo examples/master_loopback_demo.c)
+    target_link_libraries(master_loopback_demo iolinki_master)
+endif()
+
 if(BUILD_TESTING)
     enable_testing()
     add_subdirectory(tests)
+    if(BUILD_EXAMPLES)
+        add_test(NAME master_loopback_demo COMMAND master_loopback_demo)
+    endif()
 endif()
