@@ -115,6 +115,54 @@ static void test_valid_init_sets_startup_state(void** state)
     assert_int_equal(g_last_mode, IOLINK_PHY_MODE_SDCI);
 }
 
+static void test_init_deactivated_port_sets_inactive_phy_and_does_not_send(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.port_mode = IOLINK_MASTER_PORT_MODE_DEACTIVATED;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_INACTIVE);
+    assert_int_equal(g_set_baudrate_calls, 0);
+    assert_int_equal(g_set_mode_calls, 1);
+    assert_int_equal(g_last_mode, IOLINK_PHY_MODE_INACTIVE);
+
+    iolink_master_process(&port);
+    assert_int_equal(g_send_calls, 0);
+}
+
+static void test_init_di_and_dq_ports_stay_in_sio_and_do_not_send(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.port_mode = IOLINK_MASTER_PORT_MODE_DI;
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_INACTIVE);
+    assert_int_equal(g_set_baudrate_calls, 0);
+    assert_int_equal(g_set_mode_calls, 1);
+    assert_int_equal(g_last_mode, IOLINK_PHY_MODE_SIO);
+
+    iolink_master_process(&port);
+    assert_int_equal(g_send_calls, 0);
+
+    reset_fake_phy(state);
+    config.port_mode = IOLINK_MASTER_PORT_MODE_DQ;
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_INACTIVE);
+    assert_int_equal(g_set_baudrate_calls, 0);
+    assert_int_equal(g_set_mode_calls, 1);
+    assert_int_equal(g_last_mode, IOLINK_PHY_MODE_SIO);
+
+    iolink_master_process(&port);
+    assert_int_equal(g_send_calls, 0);
+}
+
 static void test_init_rejects_oversized_pd_in_len(void** state)
 {
     iolink_master_port_t port;
@@ -249,6 +297,10 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup(test_init_rejects_null_args, reset_fake_phy),
         cmocka_unit_test_setup(test_valid_init_sets_startup_state, reset_fake_phy),
+        cmocka_unit_test_setup(test_init_deactivated_port_sets_inactive_phy_and_does_not_send,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_init_di_and_dq_ports_stay_in_sio_and_do_not_send,
+                               reset_fake_phy),
         cmocka_unit_test_setup(test_init_rejects_oversized_pd_in_len, reset_fake_phy),
         cmocka_unit_test_setup(test_init_rejects_oversized_pd_out_len, reset_fake_phy),
         cmocka_unit_test_setup(test_get_pd_in_too_small_exposes_required_length, reset_fake_phy),

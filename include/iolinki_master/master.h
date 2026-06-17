@@ -30,6 +30,14 @@ typedef enum
 
 typedef enum
 {
+    IOLINK_MASTER_PORT_MODE_IOLINK = 0,
+    IOLINK_MASTER_PORT_MODE_DI = 1,
+    IOLINK_MASTER_PORT_MODE_DQ = 2,
+    IOLINK_MASTER_PORT_MODE_DEACTIVATED = 3
+} iolink_master_port_mode_t;
+
+typedef enum
+{
     IOLINK_MASTER_ISDU_OP_NONE = 0,
     IOLINK_MASTER_ISDU_OP_READ = 1,
     IOLINK_MASTER_ISDU_OP_WRITE = 2
@@ -37,6 +45,7 @@ typedef enum
 
 typedef struct
 {
+    iolink_master_port_mode_t port_mode;
     iolink_master_m_seq_type_t m_seq_type;
     iolink_baudrate_t baudrate;
     uint8_t min_cycle_time;

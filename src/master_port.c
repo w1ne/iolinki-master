@@ -28,7 +28,8 @@ int iolink_master_init(iolink_master_port_t* port,
 
     if((port == NULL) || (phy == NULL) || (config == NULL) ||
        (config->pd_in_len > IOLINK_PD_IN_MAX_SIZE) ||
-       (config->pd_out_len > IOLINK_PD_OUT_MAX_SIZE))
+       (config->pd_out_len > IOLINK_PD_OUT_MAX_SIZE) ||
+       (config->port_mode > IOLINK_MASTER_PORT_MODE_DEACTIVATED))
     {
         return -1;
     }
@@ -39,7 +40,9 @@ int iolink_master_init(iolink_master_port_t* port,
     port->od_len = iolink_master_od_len_for_type(config->m_seq_type);
     port->pd_in_len = config->pd_in_len;
     port->pd_out_len = config->pd_out_len;
-    port->state = IOLINK_MASTER_STATE_STARTUP;
+    port->state = (config->port_mode == IOLINK_MASTER_PORT_MODE_IOLINK)
+                      ? IOLINK_MASTER_STATE_STARTUP
+                      : IOLINK_MASTER_STATE_INACTIVE;
 
     if(phy->init != NULL)
     {
@@ -49,6 +52,25 @@ int iolink_master_init(iolink_master_port_t* port,
             port->state = IOLINK_MASTER_STATE_ERROR;
             return ret;
         }
+    }
+
+    if(config->port_mode == IOLINK_MASTER_PORT_MODE_DEACTIVATED)
+    {
+        if(phy->set_mode != NULL)
+        {
+            phy->set_mode(IOLINK_PHY_MODE_INACTIVE);
+        }
+        return 0;
+    }
+
+    if((config->port_mode == IOLINK_MASTER_PORT_MODE_DI) ||
+       (config->port_mode == IOLINK_MASTER_PORT_MODE_DQ))
+    {
+        if(phy->set_mode != NULL)
+        {
+            phy->set_mode(IOLINK_PHY_MODE_SIO);
+        }
+        return 0;
     }
 
     if(phy->set_baudrate != NULL)
