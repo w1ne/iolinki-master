@@ -1,0 +1,25 @@
+#include "master_internal.h"
+
+int iolink_master_set_dq(iolink_master_port_t* port, bool level)
+{
+    iolink_master_port_state_t* state;
+
+    if(port == NULL)
+    {
+        return -1;
+    }
+
+    state = iolink_master_port_state(port);
+    if(state->config.port_mode != IOLINK_MASTER_PORT_MODE_DQ)
+    {
+        return -2;
+    }
+
+    if((state->phy == NULL) || (state->phy->set_cq_line == NULL))
+    {
+        return -3;
+    }
+
+    state->phy->set_cq_line(level ? 1U : 0U);
+    return 0;
+}
