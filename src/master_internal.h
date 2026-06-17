@@ -3,6 +3,81 @@
 
 #include "iolinki_master/master.h"
 
+typedef struct
+{
+    uint8_t step;
+    uint8_t baudrate_index;
+} iolink_master_startup_state_t;
+
+typedef struct
+{
+    iolink_master_isdu_op_t op;
+    uint16_t index;
+    uint8_t subindex;
+    uint8_t request[IOLINK_ISDU_BUFFER_SIZE];
+    uint8_t request_len;
+    uint8_t request_pos;
+    uint8_t request_seq;
+    bool request_control_phase;
+    bool request_sent;
+    uint8_t response[IOLINK_ISDU_BUFFER_SIZE];
+    uint16_t response_len;
+    uint8_t response_seq;
+    bool response_expect_control;
+    bool response_last;
+    bool done;
+    uint8_t error;
+} iolink_master_isdu_state_t;
+
+typedef struct
+{
+    uint8_t buf[64];
+    uint8_t len;
+} iolink_master_rx_state_t;
+
+typedef struct
+{
+    const iolink_phy_api_t* phy;
+    iolink_master_config_t config;
+    iolink_master_state_t state;
+    uint8_t od_len;
+    uint8_t tx_buf[64];
+    uint8_t pd_in[IOLINK_PD_IN_MAX_SIZE];
+    uint8_t pd_in_len;
+    uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE];
+    uint8_t pd_out_len;
+    bool pd_valid;
+    iolink_master_startup_state_t startup;
+    iolink_master_diagnostics_t diagnostics;
+    iolink_master_device_info_t device_info;
+    iolink_master_isdu_state_t isdu;
+    iolink_master_rx_state_t rx;
+    uint32_t cycle_count;
+} iolink_master_port_state_t;
+
+typedef struct
+{
+    iolink_master_port_t* ports;
+    uint8_t port_count;
+} iolink_master_controller_state_t;
+
+typedef char iolink_master_port_storage_must_fit
+    [(sizeof(iolink_master_port_state_t) <= IOLINK_MASTER_PORT_STORAGE_SIZE) ? 1 : -1];
+typedef char iolink_master_controller_storage_must_fit
+    [(sizeof(iolink_master_controller_state_t) <= IOLINK_MASTER_CONTROLLER_STORAGE_SIZE) ? 1 : -1];
+
+static inline iolink_master_port_state_t*
+iolink_master_port_state(const iolink_master_port_t* port)
+{
+    return (iolink_master_port_state_t*)(void*)port->storage;
+}
+
+static inline iolink_master_controller_state_t*
+iolink_master_controller_state(const iolink_master_controller_t* controller)
+{
+    return (iolink_master_controller_state_t*)(void*)controller->storage;
+}
+
 static inline uint8_t iolink_master_od_len_for_type(iolink_master_m_seq_type_t type)
 {
     switch(type)

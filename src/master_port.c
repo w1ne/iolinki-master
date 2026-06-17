@@ -14,25 +14,25 @@ static const iolink_baudrate_t g_iolink_master_baudrate_scan[] = {
 
 static iolink_baudrate_t iolink_master_startup_baudrate(const iolink_master_port_t* port)
 {
-    if(port->config.auto_baudrate)
+    if(iolink_master_port_state(port)->config.auto_baudrate)
     {
-        return g_iolink_master_baudrate_scan[port->startup.baudrate_index];
+        return g_iolink_master_baudrate_scan[iolink_master_port_state(port)->startup.baudrate_index];
     }
 
-    return port->config.baudrate;
+    return iolink_master_port_state(port)->config.baudrate;
 }
 
 static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* data, size_t len)
 {
-    int sent = port->phy->send(data, len);
+    int sent = iolink_master_port_state(port)->phy->send(data, len);
 
     if(sent == (int)len)
     {
         return true;
     }
 
-    port->diagnostics.send_errors++;
-    port->state = IOLINK_MASTER_STATE_ERROR;
+    iolink_master_port_state(port)->diagnostics.send_errors++;
+    iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
     return false;
 }
 
@@ -85,13 +85,13 @@ int iolink_master_init(iolink_master_port_t* port,
     }
 
     memset(port, 0, sizeof(*port));
-    port->phy = phy;
-    port->config = *config;
-    port->od_len = iolink_master_od_len_for_type(config->m_seq_type);
-    port->pd_in_len = config->pd_in_len;
-    port->pd_out_len = config->pd_out_len;
-    port->startup.baudrate_index = 0U;
-    port->state = (config->port_mode == IOLINK_MASTER_PORT_MODE_IOLINK)
+    iolink_master_port_state(port)->phy = phy;
+    iolink_master_port_state(port)->config = *config;
+    iolink_master_port_state(port)->od_len = iolink_master_od_len_for_type(config->m_seq_type);
+    iolink_master_port_state(port)->pd_in_len = config->pd_in_len;
+    iolink_master_port_state(port)->pd_out_len = config->pd_out_len;
+    iolink_master_port_state(port)->startup.baudrate_index = 0U;
+    iolink_master_port_state(port)->state = (config->port_mode == IOLINK_MASTER_PORT_MODE_IOLINK)
                       ? IOLINK_MASTER_STATE_STARTUP
                       : IOLINK_MASTER_STATE_INACTIVE;
 
@@ -100,7 +100,7 @@ int iolink_master_init(iolink_master_port_t* port,
         ret = phy->init();
         if(ret != 0)
         {
-            port->state = IOLINK_MASTER_STATE_ERROR;
+            iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
             return ret;
         }
     }
@@ -142,13 +142,13 @@ int iolink_master_restart(iolink_master_port_t* port)
     const iolink_phy_api_t* phy;
     iolink_master_config_t config;
 
-    if((port == NULL) || (port->phy == NULL))
+    if((port == NULL) || (iolink_master_port_state(port)->phy == NULL))
     {
         return -1;
     }
 
-    phy = port->phy;
-    config = port->config;
+    phy = iolink_master_port_state(port)->phy;
+    config = iolink_master_port_state(port)->config;
 
     return iolink_master_init(port, phy, &config);
 }
@@ -169,15 +169,15 @@ int iolink_master_controller_init(iolink_master_controller_t* controller,
     }
 
     memset(controller, 0, sizeof(*controller));
-    controller->ports = ports;
-    controller->port_count = port_count;
+    iolink_master_controller_state(controller)->ports = ports;
+    iolink_master_controller_state(controller)->port_count = port_count;
 
     for(i = 0U; i < port_count; i++)
     {
         ret = iolink_master_init(&ports[i], &phys[i], &configs[i]);
         if(ret != 0)
         {
-            controller->port_count = i;
+            iolink_master_controller_state(controller)->port_count = i;
             return ret;
         }
     }
@@ -198,10 +198,10 @@ int iolink_master_controller_tick(iolink_master_controller_t* controller,
         return -1;
     }
 
-    for(i = 0U; i < controller->port_count; i++)
+    for(i = 0U; i < iolink_master_controller_state(controller)->port_count; i++)
     {
         timeout = (response_timeouts != NULL) ? response_timeouts[i] : false;
-        ret = iolink_master_tick(&controller->ports[i], timeout);
+        ret = iolink_master_tick(&iolink_master_controller_state(controller)->ports[i], timeout);
         if((ret < 0) && (first_error == 0))
         {
             first_error = ret;
@@ -218,44 +218,44 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
         return -1;
     }
 
-    if(port->state != IOLINK_MASTER_STATE_STARTUP)
+    if(iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_STARTUP)
     {
-        if(port->state == IOLINK_MASTER_STATE_OPERATE)
+        if(iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_OPERATE)
         {
-            if(port->diagnostics.rx_retry_count < 2U)
+            if(iolink_master_port_state(port)->diagnostics.rx_retry_count < 2U)
             {
-                port->diagnostics.rx_retry_count++;
+                iolink_master_port_state(port)->diagnostics.rx_retry_count++;
                 return 1;
             }
 
-            port->state = IOLINK_MASTER_STATE_ERROR;
+            iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
             return -2;
         }
 
         return 0;
     }
 
-    if(port->phy == NULL)
+    if(iolink_master_port_state(port)->phy == NULL)
     {
         return -1;
     }
 
-    if(port->config.auto_baudrate &&
-       (port->startup.baudrate_index <
+    if(iolink_master_port_state(port)->config.auto_baudrate &&
+       (iolink_master_port_state(port)->startup.baudrate_index <
         (uint8_t)((sizeof(g_iolink_master_baudrate_scan) /
                    sizeof(g_iolink_master_baudrate_scan[0])) -
                   1U)))
     {
-        port->startup.baudrate_index++;
-        port->startup.step = 0U;
-        if(port->phy->set_baudrate != NULL)
+        iolink_master_port_state(port)->startup.baudrate_index++;
+        iolink_master_port_state(port)->startup.step = 0U;
+        if(iolink_master_port_state(port)->phy->set_baudrate != NULL)
         {
-            port->phy->set_baudrate(iolink_master_startup_baudrate(port));
+            iolink_master_port_state(port)->phy->set_baudrate(iolink_master_startup_baudrate(port));
         }
         return 1;
     }
 
-    port->state = IOLINK_MASTER_STATE_ERROR;
+    iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
     return -2;
 }
 
@@ -293,54 +293,54 @@ void iolink_master_process(iolink_master_port_t* port)
     int frame_len;
     size_t od_pos;
 
-    if((port == NULL) || (port->phy == NULL) || (port->phy->send == NULL))
+    if((port == NULL) || (iolink_master_port_state(port)->phy == NULL) || (iolink_master_port_state(port)->phy->send == NULL))
     {
         return;
     }
 
-    if(port->state == IOLINK_MASTER_STATE_STARTUP)
+    if(iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_STARTUP)
     {
-        if(port->startup.step == 0U)
+        if(iolink_master_port_state(port)->startup.step == 0U)
         {
-            port->tx_buf[0] = 0x55U;
-            if(iolink_master_send_full(port, port->tx_buf, 1U))
+            iolink_master_port_state(port)->tx_buf[0] = 0x55U;
+            if(iolink_master_send_full(port, iolink_master_port_state(port)->tx_buf, 1U))
             {
-                port->startup.step++;
+                iolink_master_port_state(port)->startup.step++;
             }
             return;
         }
 
-        if(port->startup.step == 1U)
+        if(iolink_master_port_state(port)->startup.step == 1U)
         {
-            frame_len = iolink_frame_encode_type0(0x00U, port->tx_buf, sizeof(port->tx_buf));
+            frame_len = iolink_frame_encode_type0(0x00U, iolink_master_port_state(port)->tx_buf, sizeof(iolink_master_port_state(port)->tx_buf));
             if(frame_len > 0)
             {
-                if(iolink_master_send_full(port, port->tx_buf, (size_t)frame_len))
+                if(iolink_master_send_full(port, iolink_master_port_state(port)->tx_buf, (size_t)frame_len))
                 {
-                    port->startup.step++;
+                    iolink_master_port_state(port)->startup.step++;
                 }
             }
             return;
         }
     }
 
-    if(port->state == IOLINK_MASTER_STATE_PREOPERATE)
+    if(iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_PREOPERATE)
     {
         int ret;
 
-        if((port->isdu.op != IOLINK_MASTER_ISDU_OP_NONE) && !port->isdu.done)
+        if((iolink_master_port_state(port)->isdu.op != IOLINK_MASTER_ISDU_OP_NONE) && !iolink_master_port_state(port)->isdu.done)
         {
             uint8_t od = 0U;
             iolink_master_isdu_fill_od(port, &od, 1U);
-            frame_len = iolink_frame_encode_type0(od, port->tx_buf, sizeof(port->tx_buf));
+            frame_len = iolink_frame_encode_type0(od, iolink_master_port_state(port)->tx_buf, sizeof(iolink_master_port_state(port)->tx_buf));
             if(frame_len > 0)
             {
-                (void)iolink_master_send_full(port, port->tx_buf, (size_t)frame_len);
+                (void)iolink_master_send_full(port, iolink_master_port_state(port)->tx_buf, (size_t)frame_len);
             }
             return;
         }
 
-        if(port->config.validate_device_info && !port->device_info.valid)
+        if(iolink_master_port_state(port)->config.validate_device_info && !iolink_master_port_state(port)->device_info.valid)
         {
             ret = iolink_master_read_device_info(port);
             if(ret == 1)
@@ -349,63 +349,63 @@ void iolink_master_process(iolink_master_port_t* port)
             }
             if(ret < 0)
             {
-                port->state = IOLINK_MASTER_STATE_ERROR;
+                iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
                 return;
             }
         }
 
-        if(port->config.validate_device_info && (iolink_master_validate_device_info(port) != 0))
+        if(iolink_master_port_state(port)->config.validate_device_info && (iolink_master_validate_device_info(port) != 0))
         {
-            port->state = IOLINK_MASTER_STATE_ERROR;
+            iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
             return;
         }
 
         frame_len = iolink_frame_encode_type0(IOLINK_MC_TRANSITION_COMMAND,
-                                              port->tx_buf,
-                                              sizeof(port->tx_buf));
+                                              iolink_master_port_state(port)->tx_buf,
+                                              sizeof(iolink_master_port_state(port)->tx_buf));
         if(frame_len > 0)
         {
-            if(iolink_master_send_full(port, port->tx_buf, (size_t)frame_len))
+            if(iolink_master_send_full(port, iolink_master_port_state(port)->tx_buf, (size_t)frame_len))
             {
-                port->startup.step++;
-                port->state = IOLINK_MASTER_STATE_OPERATE;
+                iolink_master_port_state(port)->startup.step++;
+                iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_OPERATE;
             }
         }
         return;
     }
 
-    if(port->state == IOLINK_MASTER_STATE_OPERATE)
+    if(iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_OPERATE)
     {
-        if((port->config.m_seq_type == IOLINK_MASTER_M_SEQ_TYPE_0) &&
-           (port->config.pd_in_len == 0U) && (port->pd_out_len == 0U))
+        if((iolink_master_port_state(port)->config.m_seq_type == IOLINK_MASTER_M_SEQ_TYPE_0) &&
+           (iolink_master_port_state(port)->config.pd_in_len == 0U) && (iolink_master_port_state(port)->pd_out_len == 0U))
         {
             uint8_t od = 0U;
             iolink_master_isdu_fill_od(port, &od, 1U);
-            frame_len = iolink_frame_encode_type0(od, port->tx_buf, sizeof(port->tx_buf));
+            frame_len = iolink_frame_encode_type0(od, iolink_master_port_state(port)->tx_buf, sizeof(iolink_master_port_state(port)->tx_buf));
             if(frame_len > 0)
             {
-                if(iolink_master_send_full(port, port->tx_buf, (size_t)frame_len))
+                if(iolink_master_send_full(port, iolink_master_port_state(port)->tx_buf, (size_t)frame_len))
                 {
-                    port->cycle_count++;
+                    iolink_master_port_state(port)->cycle_count++;
                 }
             }
             return;
         }
 
-        frame_len = iolink_frame_encode_type1_cycle(port->pd_out,
-                                                    port->pd_out_len,
-                                                    port->od_len,
-                                                    port->tx_buf,
-                                                    sizeof(port->tx_buf));
+        frame_len = iolink_frame_encode_type1_cycle(iolink_master_port_state(port)->pd_out,
+                                                    iolink_master_port_state(port)->pd_out_len,
+                                                    iolink_master_port_state(port)->od_len,
+                                                    iolink_master_port_state(port)->tx_buf,
+                                                    sizeof(iolink_master_port_state(port)->tx_buf));
         if(frame_len > 0)
         {
-            od_pos = (size_t)IOLINK_M_SEQ_HEADER_LEN + port->pd_out_len;
-            iolink_master_isdu_fill_od(port, &port->tx_buf[od_pos], port->od_len);
-            port->tx_buf[frame_len - 1] = iolink_crc6(port->tx_buf, (uint8_t)(frame_len - 1));
+            od_pos = (size_t)IOLINK_M_SEQ_HEADER_LEN + iolink_master_port_state(port)->pd_out_len;
+            iolink_master_isdu_fill_od(port, &iolink_master_port_state(port)->tx_buf[od_pos], iolink_master_port_state(port)->od_len);
+            iolink_master_port_state(port)->tx_buf[frame_len - 1] = iolink_crc6(iolink_master_port_state(port)->tx_buf, (uint8_t)(frame_len - 1));
 
-            if(iolink_master_send_full(port, port->tx_buf, (size_t)frame_len))
+            if(iolink_master_send_full(port, iolink_master_port_state(port)->tx_buf, (size_t)frame_len))
             {
-                port->cycle_count++;
+                iolink_master_port_state(port)->cycle_count++;
             }
         }
     }
@@ -419,48 +419,48 @@ int iolink_master_poll_rx(iolink_master_port_t* port)
     int frame_ret;
     int frames = 0;
 
-    if((port == NULL) || (port->phy == NULL))
+    if((port == NULL) || (iolink_master_port_state(port)->phy == NULL))
     {
         return -1;
     }
 
-    if(port->phy->recv_byte == NULL)
+    if(iolink_master_port_state(port)->phy->recv_byte == NULL)
     {
         return 0;
     }
 
-    if((port->state == IOLINK_MASTER_STATE_STARTUP) && (port->startup.step >= 2U))
+    if((iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_STARTUP) && (iolink_master_port_state(port)->startup.step >= 2U))
     {
         expected_len = IOLINK_M_SEQ_TYPE0_LEN;
     }
-    else if(port->state == IOLINK_MASTER_STATE_PREOPERATE)
+    else if(iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_PREOPERATE)
     {
         expected_len = IOLINK_M_SEQ_TYPE0_LEN;
     }
-    else if(port->state == IOLINK_MASTER_STATE_OPERATE)
+    else if(iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_OPERATE)
     {
-        expected_len = (uint8_t)(1U + port->config.pd_in_len + port->od_len + 1U);
+        expected_len = (uint8_t)(1U + iolink_master_port_state(port)->config.pd_in_len + iolink_master_port_state(port)->od_len + 1U);
     }
     else
     {
         return 0;
     }
 
-    while((recv_ret = port->phy->recv_byte(&byte)) > 0)
+    while((recv_ret = iolink_master_port_state(port)->phy->recv_byte(&byte)) > 0)
     {
-        if(port->rx.len >= sizeof(port->rx.buf))
+        if(iolink_master_port_state(port)->rx.len >= sizeof(iolink_master_port_state(port)->rx.buf))
         {
-            port->state = IOLINK_MASTER_STATE_ERROR;
-            port->rx.len = 0U;
+            iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
+            iolink_master_port_state(port)->rx.len = 0U;
             return -3;
         }
 
-        port->rx.buf[port->rx.len++] = byte;
+        iolink_master_port_state(port)->rx.buf[iolink_master_port_state(port)->rx.len++] = byte;
 
-        if(port->rx.len >= expected_len)
+        if(iolink_master_port_state(port)->rx.len >= expected_len)
         {
-            frame_ret = iolink_master_on_rx(port, port->rx.buf, port->rx.len);
-            port->rx.len = 0U;
+            frame_ret = iolink_master_on_rx(port, iolink_master_port_state(port)->rx.buf, iolink_master_port_state(port)->rx.len);
+            iolink_master_port_state(port)->rx.len = 0U;
 
             if(frame_ret != 0)
             {
@@ -473,8 +473,8 @@ int iolink_master_poll_rx(iolink_master_port_t* port)
 
     if(recv_ret < 0)
     {
-        port->state = IOLINK_MASTER_STATE_ERROR;
-        port->rx.len = 0U;
+        iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
+        iolink_master_port_state(port)->rx.len = 0U;
         return -2;
     }
 
@@ -490,7 +490,7 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
         return -1;
     }
 
-    if(port->state == IOLINK_MASTER_STATE_STARTUP)
+    if(iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_STARTUP)
     {
         if(len != IOLINK_M_SEQ_TYPE0_LEN)
         {
@@ -499,24 +499,24 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
 
         if(iolink_checksum_ck(data[0], 0U) != data[1])
         {
-            port->diagnostics.checksum_errors++;
-            if(port->diagnostics.rx_retry_count < 2U)
+            iolink_master_port_state(port)->diagnostics.checksum_errors++;
+            if(iolink_master_port_state(port)->diagnostics.rx_retry_count < 2U)
             {
-                port->diagnostics.rx_retry_count++;
+                iolink_master_port_state(port)->diagnostics.rx_retry_count++;
             }
             else
             {
-                port->state = IOLINK_MASTER_STATE_ERROR;
+                iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
             }
             return -3;
         }
 
-        port->diagnostics.rx_retry_count = 0U;
-        port->state = IOLINK_MASTER_STATE_PREOPERATE;
+        iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
+        iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_PREOPERATE;
         return 0;
     }
 
-    if(port->state == IOLINK_MASTER_STATE_PREOPERATE)
+    if(iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_PREOPERATE)
     {
         if(len != IOLINK_M_SEQ_TYPE0_LEN)
         {
@@ -525,26 +525,26 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
 
         if(iolink_checksum_ck(data[0], 0U) != data[1])
         {
-            port->diagnostics.checksum_errors++;
-            if(port->diagnostics.rx_retry_count < 2U)
+            iolink_master_port_state(port)->diagnostics.checksum_errors++;
+            if(iolink_master_port_state(port)->diagnostics.rx_retry_count < 2U)
             {
-                port->diagnostics.rx_retry_count++;
+                iolink_master_port_state(port)->diagnostics.rx_retry_count++;
             }
             else
             {
-                port->state = IOLINK_MASTER_STATE_ERROR;
+                iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
             }
             return -3;
         }
 
-        port->diagnostics.rx_retry_count = 0U;
+        iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
         iolink_master_isdu_on_od(port, data, 1U);
         return 0;
     }
 
-    if((port->state == IOLINK_MASTER_STATE_OPERATE) &&
-       (port->config.m_seq_type == IOLINK_MASTER_M_SEQ_TYPE_0) &&
-       (port->config.pd_in_len == 0U) && (port->pd_out_len == 0U))
+    if((iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_OPERATE) &&
+       (iolink_master_port_state(port)->config.m_seq_type == IOLINK_MASTER_M_SEQ_TYPE_0) &&
+       (iolink_master_port_state(port)->config.pd_in_len == 0U) && (iolink_master_port_state(port)->pd_out_len == 0U))
     {
         if(len != IOLINK_M_SEQ_TYPE0_LEN)
         {
@@ -553,27 +553,27 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
 
         if(iolink_checksum_ck(data[0], 0U) != data[1])
         {
-            port->diagnostics.checksum_errors++;
-            if(port->diagnostics.rx_retry_count < 2U)
+            iolink_master_port_state(port)->diagnostics.checksum_errors++;
+            if(iolink_master_port_state(port)->diagnostics.rx_retry_count < 2U)
             {
-                port->diagnostics.rx_retry_count++;
+                iolink_master_port_state(port)->diagnostics.rx_retry_count++;
             }
             else
             {
-                port->state = IOLINK_MASTER_STATE_ERROR;
+                iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
             }
             return -3;
         }
 
-        port->diagnostics.rx_retry_count = 0U;
+        iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
         iolink_master_isdu_on_od(port, data, 1U);
         return 0;
     }
 
     if(iolink_frame_decode_operate_response(data,
                                             len,
-                                            port->config.pd_in_len,
-                                            port->od_len,
+                                            iolink_master_port_state(port)->config.pd_in_len,
+                                            iolink_master_port_state(port)->od_len,
                                             &resp) != 0)
     {
         return -2;
@@ -581,27 +581,27 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
 
     if(!resp.checksum_ok)
     {
-        port->diagnostics.checksum_errors++;
-        if(port->diagnostics.rx_retry_count < 2U)
+        iolink_master_port_state(port)->diagnostics.checksum_errors++;
+        if(iolink_master_port_state(port)->diagnostics.rx_retry_count < 2U)
         {
-            port->diagnostics.rx_retry_count++;
+            iolink_master_port_state(port)->diagnostics.rx_retry_count++;
         }
         else
         {
-            port->state = IOLINK_MASTER_STATE_ERROR;
+            iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
         }
         return -3;
     }
 
-    port->diagnostics.rx_retry_count = 0U;
-    port->diagnostics.od_status = resp.status;
-    port->diagnostics.event_pending = resp.event_pending;
+    iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
+    iolink_master_port_state(port)->diagnostics.od_status = resp.status;
+    iolink_master_port_state(port)->diagnostics.event_pending = resp.event_pending;
 
     if(resp.pd_valid)
     {
-        memcpy(port->pd_in, resp.pd, resp.pd_len);
-        port->pd_in_len = resp.pd_len;
-        port->pd_valid = true;
+        memcpy(iolink_master_port_state(port)->pd_in, resp.pd, resp.pd_len);
+        iolink_master_port_state(port)->pd_in_len = resp.pd_len;
+        iolink_master_port_state(port)->pd_valid = true;
     }
 
     iolink_master_isdu_on_od(port, resp.od, resp.od_len);
@@ -616,7 +616,7 @@ iolink_master_state_t iolink_master_get_state(const iolink_master_port_t* port)
         return IOLINK_MASTER_STATE_ERROR;
     }
 
-    return port->state;
+    return iolink_master_port_state(port)->state;
 }
 
 int iolink_master_get_pd_in(const iolink_master_port_t* port,
@@ -629,20 +629,20 @@ int iolink_master_get_pd_in(const iolink_master_port_t* port,
         return -1;
     }
 
-    if(buffer_len < port->pd_in_len)
+    if(buffer_len < iolink_master_port_state(port)->pd_in_len)
     {
-        *out_len = port->pd_in_len;
+        *out_len = iolink_master_port_state(port)->pd_in_len;
         return -2;
     }
 
-    *out_len = port->pd_in_len;
+    *out_len = iolink_master_port_state(port)->pd_in_len;
 
-    if(!port->pd_valid)
+    if(!iolink_master_port_state(port)->pd_valid)
     {
         return 1;
     }
 
-    memcpy(buffer, port->pd_in, port->pd_in_len);
+    memcpy(buffer, iolink_master_port_state(port)->pd_in, iolink_master_port_state(port)->pd_in_len);
     return 0;
 }
 
@@ -653,7 +653,7 @@ int iolink_master_get_od_status(const iolink_master_port_t* port, uint8_t* statu
         return -1;
     }
 
-    *status = port->diagnostics.od_status;
+    *status = iolink_master_port_state(port)->diagnostics.od_status;
     return 0;
 }
 
@@ -664,7 +664,7 @@ uint8_t iolink_master_get_device_status(const iolink_master_port_t* port)
         return IOLINK_DEVICE_STATUS_FAILURE;
     }
 
-    return (uint8_t)(port->diagnostics.od_status & IOLINK_OD_STATUS_DEVICE_MASK);
+    return (uint8_t)(iolink_master_port_state(port)->diagnostics.od_status & IOLINK_OD_STATUS_DEVICE_MASK);
 }
 
 int iolink_master_get_diagnostics(const iolink_master_port_t* port,
@@ -675,7 +675,7 @@ int iolink_master_get_diagnostics(const iolink_master_port_t* port,
         return -1;
     }
 
-    *diagnostics = port->diagnostics;
+    *diagnostics = iolink_master_port_state(port)->diagnostics;
     return 0;
 }
 
@@ -686,17 +686,17 @@ int iolink_master_set_dq(iolink_master_port_t* port, bool level)
         return -1;
     }
 
-    if(port->config.port_mode != IOLINK_MASTER_PORT_MODE_DQ)
+    if(iolink_master_port_state(port)->config.port_mode != IOLINK_MASTER_PORT_MODE_DQ)
     {
         return -2;
     }
 
-    if((port->phy == NULL) || (port->phy->set_cq_line == NULL))
+    if((iolink_master_port_state(port)->phy == NULL) || (iolink_master_port_state(port)->phy->set_cq_line == NULL))
     {
         return -3;
     }
 
-    port->phy->set_cq_line(level ? 1U : 0U);
+    iolink_master_port_state(port)->phy->set_cq_line(level ? 1U : 0U);
     return 0;
 }
 
@@ -741,7 +741,7 @@ int iolink_master_apply_direct_parameter_page1(iolink_master_port_t* port,
         return -1;
     }
 
-    return iolink_master_parse_direct_parameter_page1(page, len, &port->device_info);
+    return iolink_master_parse_direct_parameter_page1(page, len, &iolink_master_port_state(port)->device_info);
 }
 
 int iolink_master_get_device_info(const iolink_master_port_t* port,
@@ -752,7 +752,7 @@ int iolink_master_get_device_info(const iolink_master_port_t* port,
         return -1;
     }
 
-    *info = port->device_info;
+    *info = iolink_master_port_state(port)->device_info;
     if(!info->valid)
     {
         return 1;
@@ -770,7 +770,7 @@ int iolink_master_validate_device_info(const iolink_master_port_t* port)
         return -1;
     }
 
-    info = &port->device_info;
+    info = &iolink_master_port_state(port)->device_info;
     if(!info->valid)
     {
         return 1;
@@ -781,18 +781,18 @@ int iolink_master_validate_device_info(const iolink_master_port_t* port)
         return -2;
     }
 
-    if(port->config.min_cycle_time < info->min_cycle_time)
+    if(iolink_master_port_state(port)->config.min_cycle_time < info->min_cycle_time)
     {
         return -3;
     }
 
-    if((port->config.pd_in_len != info->pd_in_len) ||
-       (port->config.pd_out_len != info->pd_out_len))
+    if((iolink_master_port_state(port)->config.pd_in_len != info->pd_in_len) ||
+       (iolink_master_port_state(port)->config.pd_out_len != info->pd_out_len))
     {
         return -4;
     }
 
-    if(iolink_master_mseq_capability_code(port->config.m_seq_type) != info->operate_mseq_code)
+    if(iolink_master_mseq_capability_code(iolink_master_port_state(port)->config.m_seq_type) != info->operate_mseq_code)
     {
         return -5;
     }
@@ -807,15 +807,15 @@ int iolink_master_set_pd_out(iolink_master_port_t* port, const uint8_t* data, ui
         return -1;
     }
 
-    if((len > IOLINK_PD_OUT_MAX_SIZE) || (len != port->config.pd_out_len))
+    if((len > IOLINK_PD_OUT_MAX_SIZE) || (len != iolink_master_port_state(port)->config.pd_out_len))
     {
         return -2;
     }
 
     if(len > 0U)
     {
-        memcpy(port->pd_out, data, len);
+        memcpy(iolink_master_port_state(port)->pd_out, data, len);
     }
-    port->pd_out_len = len;
+    iolink_master_port_state(port)->pd_out_len = len;
     return 0;
 }

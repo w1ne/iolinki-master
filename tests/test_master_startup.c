@@ -10,7 +10,7 @@
 #include "iolinki/crc.h"
 #include "iolinki/frame.h"
 #include "iolinki/protocol.h"
-#include "iolinki_master/master.h"
+#include "../src/master_internal.h"
 
 static int g_init_calls;
 static int g_set_mode_calls;
@@ -141,8 +141,8 @@ static void test_valid_init_sets_startup_state(void** state)
 
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
-    assert_int_equal(port.od_len, 2);
-    assert_int_equal(port.pd_in_len, g_config.pd_in_len);
+    assert_int_equal(iolink_master_port_state(&port)->od_len, 2);
+    assert_int_equal(iolink_master_port_state(&port)->pd_in_len, g_config.pd_in_len);
     assert_int_equal(g_init_calls, 1);
     assert_int_equal(g_set_baudrate_calls, 1);
     assert_int_equal(g_last_baudrate, IOLINK_BAUDRATE_COM3);
@@ -159,17 +159,17 @@ static void test_init_sets_od_length_from_m_sequence_type(void** state)
 
     config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_1_1;
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
-    assert_int_equal(port.od_len, IOLINK_OD_LEN_8BIT);
+    assert_int_equal(iolink_master_port_state(&port)->od_len, IOLINK_OD_LEN_8BIT);
 
     reset_fake_phy(state);
     config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_2_1;
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
-    assert_int_equal(port.od_len, IOLINK_OD_LEN_16BIT);
+    assert_int_equal(iolink_master_port_state(&port)->od_len, IOLINK_OD_LEN_16BIT);
 
     reset_fake_phy(state);
     config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_2_V;
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
-    assert_int_equal(port.od_len, IOLINK_OD_LEN_32BIT);
+    assert_int_equal(iolink_master_port_state(&port)->od_len, IOLINK_OD_LEN_32BIT);
 }
 
 static void test_init_deactivated_port_sets_inactive_phy_and_does_not_send(void** state)
@@ -271,10 +271,10 @@ static void test_auto_baudrate_startup_timeout_scans_com3_com2_com1_then_errors(
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
 
     iolink_master_process(&port);
-    assert_int_equal(port.startup.step, 1U);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 1U);
 
     assert_int_equal(iolink_master_on_timeout(&port), 1);
-    assert_int_equal(port.startup.step, 0U);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 0U);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
     assert_int_equal(g_set_baudrate_calls, 2);
     assert_int_equal(g_baudrate_history[1], IOLINK_BAUDRATE_COM2);
@@ -311,22 +311,22 @@ static void test_restart_reenters_startup_and_clears_runtime_state(void** state)
     config.auto_baudrate = true;
 
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
-    port.state = IOLINK_MASTER_STATE_ERROR;
-    port.startup.step = 2U;
-    port.startup.baudrate_index = 2U;
-    port.diagnostics.rx_retry_count = 2U;
-    port.diagnostics.checksum_errors = 5U;
-    port.diagnostics.send_errors = 3U;
-    port.cycle_count = 11U;
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_ERROR;
+    iolink_master_port_state(&port)->startup.step = 2U;
+    iolink_master_port_state(&port)->startup.baudrate_index = 2U;
+    iolink_master_port_state(&port)->diagnostics.rx_retry_count = 2U;
+    iolink_master_port_state(&port)->diagnostics.checksum_errors = 5U;
+    iolink_master_port_state(&port)->diagnostics.send_errors = 3U;
+    iolink_master_port_state(&port)->cycle_count = 11U;
 
     assert_int_equal(iolink_master_restart(&port), 0);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
-    assert_int_equal(port.startup.step, 0U);
-    assert_int_equal(port.startup.baudrate_index, 0U);
-    assert_int_equal(port.diagnostics.rx_retry_count, 0U);
-    assert_int_equal(port.diagnostics.checksum_errors, 0U);
-    assert_int_equal(port.diagnostics.send_errors, 0U);
-    assert_int_equal(port.cycle_count, 0U);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 0U);
+    assert_int_equal(iolink_master_port_state(&port)->startup.baudrate_index, 0U);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.rx_retry_count, 0U);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.checksum_errors, 0U);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.send_errors, 0U);
+    assert_int_equal(iolink_master_port_state(&port)->cycle_count, 0U);
     assert_int_equal(g_set_baudrate_calls, 2);
     assert_int_equal(g_baudrate_history[1], IOLINK_BAUDRATE_COM3);
     assert_int_equal(g_last_mode, IOLINK_PHY_MODE_SDCI);
@@ -425,11 +425,11 @@ static void test_get_pd_in_invalid_does_not_copy_stale_data(void** state)
     (void)state;
 
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
-    port.pd_in[0] = 0x11U;
-    port.pd_in[1] = 0x22U;
-    port.pd_in[2] = 0x33U;
-    port.pd_in[3] = 0x44U;
-    port.pd_valid = false;
+    iolink_master_port_state(&port)->pd_in[0] = 0x11U;
+    iolink_master_port_state(&port)->pd_in[1] = 0x22U;
+    iolink_master_port_state(&port)->pd_in[2] = 0x33U;
+    iolink_master_port_state(&port)->pd_in[3] = 0x44U;
+    iolink_master_port_state(&port)->pd_valid = false;
 
     assert_int_equal(iolink_master_get_pd_in(&port, buffer, sizeof(buffer), &out_len), 1);
     assert_int_equal(out_len, g_config.pd_in_len);
@@ -463,7 +463,7 @@ static void test_process_startup_waits_for_type0_response_before_preoperate(void
     assert_int_equal(g_send_calls, 2);
     assert_int_equal(g_sent_len[1], (size_t)expected_len);
     assert_memory_equal(g_sent[1], expected, (size_t)expected_len);
-    assert_int_equal(port.startup.step, 2U);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
 
     startup_resp[0] = 0x00U;
@@ -482,14 +482,14 @@ static void test_process_startup_waits_for_type0_response_before_preoperate(void
     iolink_master_process(&port);
     expected_len = iolink_frame_encode_type1_cycle(pd_out,
                                                    sizeof(pd_out),
-                                                   port.od_len,
+                                                   iolink_master_port_state(&port)->od_len,
                                                    expected,
                                                    sizeof(expected));
     assert_int_equal(expected_len, 7);
     assert_int_equal(g_send_calls, 4);
     assert_int_equal(g_sent_len[3], (size_t)expected_len);
     assert_memory_equal(g_sent[3], expected, (size_t)expected_len);
-    assert_int_equal(port.cycle_count, 1U);
+    assert_int_equal(iolink_master_port_state(&port)->cycle_count, 1U);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
     assert_true(g_send_calls >= 4);
 }
@@ -588,7 +588,7 @@ static void test_poll_rx_accepts_startup_type0_response_from_phy(void** state)
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
     iolink_master_process(&port);
     iolink_master_process(&port);
-    assert_int_equal(port.startup.step, 2U);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
 
     g_recv_bytes[0] = 0x00U;
     g_recv_bytes[1] = iolink_checksum_ck(g_recv_bytes[0], 0U);
@@ -633,14 +633,14 @@ static void test_process_partial_send_enters_error_state(void** state)
 
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
     iolink_master_process(&port);
-    assert_int_equal(port.startup.step, 1U);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 1U);
 
     g_forced_send_return = 1;
     iolink_master_process(&port);
 
     assert_int_equal(g_send_calls, 2);
-    assert_int_equal(port.startup.step, 1U);
-    assert_int_equal(port.diagnostics.send_errors, 1U);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 1U);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.send_errors, 1U);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
 }
 
@@ -654,7 +654,7 @@ static void test_startup_bad_type0_response_retries_before_error_state(void** st
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
     iolink_master_process(&port);
     iolink_master_process(&port);
-    assert_int_equal(port.startup.step, 2U);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
 
     assert_int_equal(iolink_master_on_rx(&port, bad_resp, sizeof(bad_resp)), -3);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);

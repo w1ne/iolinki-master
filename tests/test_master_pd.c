@@ -8,7 +8,7 @@
 
 #include "iolinki/crc.h"
 #include "iolinki/protocol.h"
-#include "iolinki_master/master.h"
+#include "../src/master_internal.h"
 
 static const iolink_phy_api_t g_empty_phy = {0};
 
@@ -65,8 +65,8 @@ static void test_on_rx_valid_response_latches_pd(void** state)
 
     (void)state;
 
-    port.config.pd_in_len = 1U;
-    port.od_len = 1U;
+    iolink_master_port_state(&port)->config.pd_in_len = 1U;
+    iolink_master_port_state(&port)->od_len = 1U;
 
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), 0);
     assert_int_equal(iolink_master_get_pd_in(&port, pd, sizeof(pd), &len), 0);
@@ -83,10 +83,10 @@ static void test_poll_rx_latches_complete_operate_response_from_phy(void** state
 
     (void)state;
 
-    port.phy = &g_recv_phy;
-    port.state = IOLINK_MASTER_STATE_OPERATE;
-    port.config.pd_in_len = 1U;
-    port.od_len = 1U;
+    iolink_master_port_state(&port)->phy = &g_recv_phy;
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&port)->config.pd_in_len = 1U;
+    iolink_master_port_state(&port)->od_len = 1U;
     load_recv_bytes(frame, sizeof(frame));
 
     assert_int_equal(iolink_master_poll_rx(&port), 1);
@@ -105,10 +105,10 @@ static void test_poll_rx_keeps_partial_response_until_complete(void** state)
 
     (void)state;
 
-    port.phy = &g_recv_phy;
-    port.state = IOLINK_MASTER_STATE_OPERATE;
-    port.config.pd_in_len = 1U;
-    port.od_len = 1U;
+    iolink_master_port_state(&port)->phy = &g_recv_phy;
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&port)->config.pd_in_len = 1U;
+    iolink_master_port_state(&port)->od_len = 1U;
 
     load_recv_bytes(partial, sizeof(partial));
     assert_int_equal(iolink_master_poll_rx(&port), 0);
@@ -127,10 +127,10 @@ static void test_poll_rx_enters_error_on_phy_receive_error(void** state)
 
     (void)state;
 
-    port.phy = &g_recv_phy;
-    port.state = IOLINK_MASTER_STATE_OPERATE;
-    port.config.pd_in_len = 1U;
-    port.od_len = 1U;
+    iolink_master_port_state(&port)->phy = &g_recv_phy;
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&port)->config.pd_in_len = 1U;
+    iolink_master_port_state(&port)->od_len = 1U;
     load_recv_bytes(frame, sizeof(frame));
     g_recv_error_after = 1;
 
@@ -147,14 +147,14 @@ static void test_on_rx_latches_od_status_for_diagnostics(void** state)
 
     (void)state;
 
-    port.config.pd_in_len = 1U;
-    port.od_len = 1U;
+    iolink_master_port_state(&port)->config.pd_in_len = 1U;
+    iolink_master_port_state(&port)->od_len = 1U;
     frame[3] = iolink_crc6(frame, 3U);
 
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), 0);
     assert_int_equal(iolink_master_get_od_status(&port, &status), 0);
     assert_int_equal(status, 0xA3U);
-    assert_true(port.diagnostics.event_pending);
+    assert_true(iolink_master_port_state(&port)->diagnostics.event_pending);
     assert_int_equal(iolink_master_get_device_status(&port), IOLINK_DEVICE_STATUS_FAILURE);
     assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
     assert_int_equal(diagnostics.od_status, 0xA3U);
@@ -189,11 +189,11 @@ static void test_on_rx_bad_checksum_returns_error_and_increments_count(void** st
 
     (void)state;
 
-    port.config.pd_in_len = 1U;
-    port.od_len = 1U;
+    iolink_master_port_state(&port)->config.pd_in_len = 1U;
+    iolink_master_port_state(&port)->od_len = 1U;
 
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), -3);
-    assert_int_equal(port.diagnostics.checksum_errors, 1U);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.checksum_errors, 1U);
 }
 
 static void test_on_rx_bad_checksum_retries_twice_before_error_state(void** state)
@@ -203,9 +203,9 @@ static void test_on_rx_bad_checksum_retries_twice_before_error_state(void** stat
 
     (void)state;
 
-    port.state = IOLINK_MASTER_STATE_OPERATE;
-    port.config.pd_in_len = 1U;
-    port.od_len = 1U;
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&port)->config.pd_in_len = 1U;
+    iolink_master_port_state(&port)->od_len = 1U;
 
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), -3);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
@@ -215,7 +215,7 @@ static void test_on_rx_bad_checksum_retries_twice_before_error_state(void** stat
 
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), -3);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
-    assert_int_equal(port.diagnostics.checksum_errors, 3U);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.checksum_errors, 3U);
 }
 
 static void test_on_rx_valid_response_resets_checksum_retry_count(void** state)
@@ -226,9 +226,9 @@ static void test_on_rx_valid_response_resets_checksum_retry_count(void** state)
 
     (void)state;
 
-    port.state = IOLINK_MASTER_STATE_OPERATE;
-    port.config.pd_in_len = 1U;
-    port.od_len = 1U;
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&port)->config.pd_in_len = 1U;
+    iolink_master_port_state(&port)->od_len = 1U;
 
     assert_int_equal(iolink_master_on_rx(&port, bad_frame, sizeof(bad_frame)), -3);
     assert_int_equal(iolink_master_on_rx(&port, good_frame, sizeof(good_frame)), 0);
@@ -245,7 +245,7 @@ static void test_operate_timeout_retries_twice_before_error_state(void** state)
 
     (void)state;
 
-    port.state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
 
     assert_int_equal(iolink_master_on_timeout(&port), 1);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
@@ -264,9 +264,9 @@ static void test_valid_response_resets_operate_timeout_retry_count(void** state)
 
     (void)state;
 
-    port.state = IOLINK_MASTER_STATE_OPERATE;
-    port.config.pd_in_len = 1U;
-    port.od_len = 1U;
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&port)->config.pd_in_len = 1U;
+    iolink_master_port_state(&port)->od_len = 1U;
 
     assert_int_equal(iolink_master_on_timeout(&port), 1);
     assert_int_equal(iolink_master_on_rx(&port, good_frame, sizeof(good_frame)), 0);
@@ -283,11 +283,11 @@ static void test_on_rx_malformed_frame_returns_decode_error(void** state)
 
     (void)state;
 
-    port.config.pd_in_len = 1U;
-    port.od_len = 1U;
+    iolink_master_port_state(&port)->config.pd_in_len = 1U;
+    iolink_master_port_state(&port)->od_len = 1U;
 
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), -2);
-    assert_int_equal(port.diagnostics.checksum_errors, 0U);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.checksum_errors, 0U);
 }
 
 static void test_on_rx_rejects_invalid_args(void** state)
@@ -338,7 +338,7 @@ static void test_set_pd_out_accepts_zero_length_when_configured(void** state)
 
     assert_int_equal(iolink_master_init(&port, &g_empty_phy, &config), 0);
     assert_int_equal(iolink_master_set_pd_out(&port, NULL, 0U), 0);
-    assert_int_equal(port.pd_out_len, 0U);
+    assert_int_equal(iolink_master_port_state(&port)->pd_out_len, 0U);
 }
 
 int main(void)

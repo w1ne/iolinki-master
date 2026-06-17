@@ -9,7 +9,7 @@
 
 #include "iolinki/crc.h"
 #include "iolinki/protocol.h"
-#include "iolinki_master/master.h"
+#include "../src/master_internal.h"
 
 static uint8_t g_rx_queue[16];
 static uint8_t g_rx_len;
@@ -100,7 +100,7 @@ static void test_tick_drains_rx_before_sending_next_frame(void** state)
     assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
     iolink_master_process(&port);
     iolink_master_process(&port);
-    assert_int_equal(port.startup.step, 2U);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
 
     startup_resp[0] = 0x00U;
     startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
@@ -120,8 +120,8 @@ static void test_tick_applies_timeout_before_transmit(void** state)
     (void)state;
 
     assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
-    port.state = IOLINK_MASTER_STATE_OPERATE;
-    port.diagnostics.rx_retry_count = 2U;
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&port)->diagnostics.rx_retry_count = 2U;
 
     assert_int_equal(iolink_master_tick(&port, true), -2);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);

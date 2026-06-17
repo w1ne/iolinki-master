@@ -10,7 +10,7 @@
 #include "iolinki/crc.h"
 #include "iolinki/frame.h"
 #include "iolinki/protocol.h"
-#include "iolinki_master/master.h"
+#include "../src/master_internal.h"
 
 static int g_send_calls;
 static int g_forced_send_return;
@@ -215,10 +215,10 @@ static void test_type0_read_isdu_emits_one_byte_type0_frames(void** state)
 
     (void)state;
 
-    port.phy = &g_fake_phy;
-    port.state = IOLINK_MASTER_STATE_OPERATE;
-    port.config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_0;
-    port.od_len = 1U;
+    iolink_master_port_state(&port)->phy = &g_fake_phy;
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&port)->config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_0;
+    iolink_master_port_state(&port)->od_len = 1U;
 
     assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len), 1);
 
@@ -248,10 +248,10 @@ static void test_type0_read_isdu_completes_from_type0_response_bytes(void** stat
 
     (void)state;
 
-    port.phy = &g_fake_phy;
-    port.state = IOLINK_MASTER_STATE_OPERATE;
-    port.config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_0;
-    port.od_len = 1U;
+    iolink_master_port_state(&port)->phy = &g_fake_phy;
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&port)->config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_0;
+    iolink_master_port_state(&port)->od_len = 1U;
 
     assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len), 1);
 

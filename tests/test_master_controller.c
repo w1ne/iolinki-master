@@ -6,7 +6,7 @@
 
 #include <cmocka.h>
 
-#include "iolinki_master/master.h"
+#include "../src/master_internal.h"
 
 static int g_send_calls[2];
 static int g_active_phy;
@@ -72,8 +72,8 @@ static void test_controller_init_initializes_each_port(void** state)
     (void)state;
 
     assert_int_equal(iolink_master_controller_init(&controller, ports, 2U, g_phys, g_configs), 0);
-    assert_int_equal(controller.port_count, 2U);
-    assert_ptr_equal(controller.ports, ports);
+    assert_int_equal(iolink_master_controller_state(&controller)->port_count, 2U);
+    assert_ptr_equal(iolink_master_controller_state(&controller)->ports, ports);
     assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_STARTUP);
     assert_int_equal(iolink_master_get_state(&ports[1]), IOLINK_MASTER_STATE_STARTUP);
 }
@@ -101,8 +101,8 @@ static void test_controller_tick_reports_first_error_but_ticks_all_ports(void** 
     (void)state;
 
     assert_int_equal(iolink_master_controller_init(&controller, ports, 2U, g_phys, g_configs), 0);
-    ports[0].state = IOLINK_MASTER_STATE_OPERATE;
-    ports[0].diagnostics.rx_retry_count = 2U;
+    iolink_master_port_state(&ports[0])->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&ports[0])->diagnostics.rx_retry_count = 2U;
 
     assert_int_equal(iolink_master_controller_tick(&controller, timeouts), -2);
     assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_ERROR);

@@ -6,7 +6,7 @@
 
 #include <cmocka.h>
 
-#include "iolinki_master/master.h"
+#include "../src/master_internal.h"
 
 static const uint8_t g_page1[] = {
     0x00U, /* MasterCommand */

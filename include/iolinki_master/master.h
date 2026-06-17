@@ -57,12 +57,6 @@ typedef struct
 
 typedef struct
 {
-    uint8_t step;
-    uint8_t baudrate_index;
-} iolink_master_startup_t;
-
-typedef struct
-{
     uint8_t od_status;
     bool event_pending;
     uint8_t rx_retry_count;
@@ -87,56 +81,21 @@ typedef struct
     uint32_t device_id;
 } iolink_master_device_info_t;
 
-typedef struct
-{
-    iolink_master_isdu_op_t op;
-    uint16_t index;
-    uint8_t subindex;
-    uint8_t request[IOLINK_ISDU_BUFFER_SIZE];
-    uint8_t request_len;
-    uint8_t request_pos;
-    uint8_t request_seq;
-    bool request_control_phase;
-    bool request_sent;
-    uint8_t response[IOLINK_ISDU_BUFFER_SIZE];
-    uint16_t response_len;
-    uint8_t response_seq;
-    bool response_expect_control;
-    bool response_last;
-    bool done;
-    uint8_t error;
-} iolink_master_isdu_t;
+#define IOLINK_MASTER_PORT_STORAGE_SIZE 1024U
+#define IOLINK_MASTER_CONTROLLER_STORAGE_SIZE 32U
 
-typedef struct
+typedef union
 {
-    uint8_t buf[64];
-    uint8_t len;
-} iolink_master_rx_t;
-
-typedef struct
-{
-    const iolink_phy_api_t* phy;
-    iolink_master_config_t config;
-    iolink_master_state_t state;
-    uint8_t od_len;
-    uint8_t tx_buf[64];
-    uint8_t pd_in[IOLINK_PD_IN_MAX_SIZE];
-    uint8_t pd_in_len;
-    uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE];
-    uint8_t pd_out_len;
-    bool pd_valid;
-    iolink_master_startup_t startup;
-    iolink_master_diagnostics_t diagnostics;
-    iolink_master_device_info_t device_info;
-    iolink_master_isdu_t isdu;
-    iolink_master_rx_t rx;
-    uint32_t cycle_count;
+    void* align_ptr;
+    uint32_t align_u32;
+    uint8_t storage[IOLINK_MASTER_PORT_STORAGE_SIZE];
 } iolink_master_port_t;
 
-typedef struct
+typedef union
 {
-    iolink_master_port_t* ports;
-    uint8_t port_count;
+    void* align_ptr;
+    uint32_t align_u32;
+    uint8_t storage[IOLINK_MASTER_CONTROLLER_STORAGE_SIZE];
 } iolink_master_controller_t;
 
 int iolink_master_init(iolink_master_port_t* port,
