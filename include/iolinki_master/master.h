@@ -91,6 +91,12 @@ typedef struct
 
 typedef struct
 {
+    uint8_t buf[64];
+    uint8_t len;
+} iolink_master_rx_t;
+
+typedef struct
+{
     const iolink_phy_api_t* phy;
     iolink_master_config_t config;
     iolink_master_state_t state;
@@ -104,6 +110,7 @@ typedef struct
     iolink_master_startup_t startup;
     iolink_master_diagnostics_t diagnostics;
     iolink_master_isdu_t isdu;
+    iolink_master_rx_t rx;
     uint32_t cycle_count;
 } iolink_master_port_t;
 
@@ -111,6 +118,7 @@ int iolink_master_init(iolink_master_port_t* port,
                        const iolink_phy_api_t* phy,
                        const iolink_master_config_t* config);
 void iolink_master_process(iolink_master_port_t* port);
+int iolink_master_poll_rx(iolink_master_port_t* port);
 int iolink_master_on_timeout(iolink_master_port_t* port);
 int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t len);
 iolink_master_state_t iolink_master_get_state(const iolink_master_port_t* port);

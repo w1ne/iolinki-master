@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include <cmocka.h>
 
@@ -10,6 +11,42 @@
 #include "iolinki_master/master.h"
 
 static const iolink_phy_api_t g_empty_phy = {0};
+
+static uint8_t g_recv_bytes[16];
+static uint8_t g_recv_len;
+static uint8_t g_recv_pos;
+static int g_recv_error_after = -1;
+
+static int fake_recv_byte(uint8_t* byte)
+{
+    assert_non_null(byte);
+
+    if((g_recv_error_after >= 0) && (g_recv_pos >= (uint8_t)g_recv_error_after))
+    {
+        return -1;
+    }
+
+    if(g_recv_pos >= g_recv_len)
+    {
+        return 0;
+    }
+
+    *byte = g_recv_bytes[g_recv_pos++];
+    return 1;
+}
+
+static void load_recv_bytes(const uint8_t* data, uint8_t len)
+{
+    assert_in_range(len, 0, sizeof(g_recv_bytes));
+    memcpy(g_recv_bytes, data, len);
+    g_recv_len = len;
+    g_recv_pos = 0U;
+    g_recv_error_after = -1;
+}
+
+static const iolink_phy_api_t g_recv_phy = {
+    .recv_byte = fake_recv_byte,
+};
 
 static const iolink_master_config_t g_config = {
     .m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_2_1,
@@ -35,6 +72,70 @@ static void test_on_rx_valid_response_latches_pd(void** state)
     assert_int_equal(iolink_master_get_pd_in(&port, pd, sizeof(pd), &len), 0);
     assert_int_equal(len, 1U);
     assert_int_equal(pd[0], 0xA5U);
+}
+
+static void test_poll_rx_latches_complete_operate_response_from_phy(void** state)
+{
+    iolink_master_port_t port = {0};
+    const uint8_t frame[] = {0x20U, 0xA5U, 0x00U, 0x0DU};
+    uint8_t pd[1] = {0U};
+    uint8_t len = 0U;
+
+    (void)state;
+
+    port.phy = &g_recv_phy;
+    port.state = IOLINK_MASTER_STATE_OPERATE;
+    port.config.pd_in_len = 1U;
+    port.od_len = 1U;
+    load_recv_bytes(frame, sizeof(frame));
+
+    assert_int_equal(iolink_master_poll_rx(&port), 1);
+    assert_int_equal(iolink_master_get_pd_in(&port, pd, sizeof(pd), &len), 0);
+    assert_int_equal(len, 1U);
+    assert_int_equal(pd[0], 0xA5U);
+}
+
+static void test_poll_rx_keeps_partial_response_until_complete(void** state)
+{
+    iolink_master_port_t port = {0};
+    const uint8_t partial[] = {0x20U, 0xA5U};
+    const uint8_t rest[] = {0x00U, 0x0DU};
+    uint8_t pd[1] = {0U};
+    uint8_t len = 0U;
+
+    (void)state;
+
+    port.phy = &g_recv_phy;
+    port.state = IOLINK_MASTER_STATE_OPERATE;
+    port.config.pd_in_len = 1U;
+    port.od_len = 1U;
+
+    load_recv_bytes(partial, sizeof(partial));
+    assert_int_equal(iolink_master_poll_rx(&port), 0);
+    assert_int_equal(iolink_master_get_pd_in(&port, pd, sizeof(pd), &len), 1);
+
+    load_recv_bytes(rest, sizeof(rest));
+    assert_int_equal(iolink_master_poll_rx(&port), 1);
+    assert_int_equal(iolink_master_get_pd_in(&port, pd, sizeof(pd), &len), 0);
+    assert_int_equal(pd[0], 0xA5U);
+}
+
+static void test_poll_rx_enters_error_on_phy_receive_error(void** state)
+{
+    iolink_master_port_t port = {0};
+    const uint8_t frame[] = {0x20U};
+
+    (void)state;
+
+    port.phy = &g_recv_phy;
+    port.state = IOLINK_MASTER_STATE_OPERATE;
+    port.config.pd_in_len = 1U;
+    port.od_len = 1U;
+    load_recv_bytes(frame, sizeof(frame));
+    g_recv_error_after = 1;
+
+    assert_int_equal(iolink_master_poll_rx(&port), -2);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
 }
 
 static void test_on_rx_latches_od_status_for_diagnostics(void** state)
@@ -237,6 +338,9 @@ int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_on_rx_valid_response_latches_pd),
+        cmocka_unit_test(test_poll_rx_latches_complete_operate_response_from_phy),
+        cmocka_unit_test(test_poll_rx_keeps_partial_response_until_complete),
+        cmocka_unit_test(test_poll_rx_enters_error_on_phy_receive_error),
         cmocka_unit_test(test_on_rx_latches_od_status_for_diagnostics),
         cmocka_unit_test(test_get_od_status_rejects_invalid_args),
         cmocka_unit_test(test_get_device_status_returns_failure_for_null_port),

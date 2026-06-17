@@ -227,6 +227,61 @@ void iolink_master_process(iolink_master_port_t* port)
     }
 }
 
+int iolink_master_poll_rx(iolink_master_port_t* port)
+{
+    uint8_t byte;
+    uint8_t expected_len;
+    int recv_ret;
+    int frame_ret;
+    int frames = 0;
+
+    if((port == NULL) || (port->phy == NULL) || (port->phy->recv_byte == NULL))
+    {
+        return -1;
+    }
+
+    if(port->state != IOLINK_MASTER_STATE_OPERATE)
+    {
+        return 0;
+    }
+
+    expected_len = (uint8_t)(1U + port->config.pd_in_len + port->od_len + 1U);
+
+    while((recv_ret = port->phy->recv_byte(&byte)) > 0)
+    {
+        if(port->rx.len >= sizeof(port->rx.buf))
+        {
+            port->state = IOLINK_MASTER_STATE_ERROR;
+            port->rx.len = 0U;
+            return -3;
+        }
+
+        port->rx.buf[port->rx.len++] = byte;
+
+        if(port->rx.len >= expected_len)
+        {
+            frame_ret = iolink_master_on_rx(port, port->rx.buf, port->rx.len);
+            port->rx.len = 0U;
+
+            if(frame_ret != 0)
+            {
+                return frame_ret;
+            }
+
+            frames++;
+        }
+    }
+
+    if(recv_ret < 0)
+    {
+        port->state = IOLINK_MASTER_STATE_ERROR;
+        port->rx.len = 0U;
+        return -2;
+    }
+
+    return frames;
+}
+
 int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t len)
 {
     iolink_frame_operate_response_t resp;
