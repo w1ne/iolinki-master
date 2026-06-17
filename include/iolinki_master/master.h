@@ -114,6 +114,12 @@ typedef struct
     uint32_t cycle_count;
 } iolink_master_port_t;
 
+typedef struct
+{
+    iolink_master_port_t* ports;
+    uint8_t port_count;
+} iolink_master_controller_t;
+
 int iolink_master_init(iolink_master_port_t* port,
                        const iolink_phy_api_t* phy,
                        const iolink_master_config_t* config);
@@ -141,5 +147,12 @@ int iolink_master_write_isdu(iolink_master_port_t* port,
                              uint8_t subindex,
                              const uint8_t* data,
                              uint8_t len);
+int iolink_master_controller_init(iolink_master_controller_t* controller,
+                                  iolink_master_port_t* ports,
+                                  uint8_t port_count,
+                                  const iolink_phy_api_t* phys,
+                                  const iolink_master_config_t* configs);
+int iolink_master_controller_tick(iolink_master_controller_t* controller,
+                                  const bool* response_timeouts);
 
 #endif /* IOLINKI_MASTER_MASTER_H */
