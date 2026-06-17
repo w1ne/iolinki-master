@@ -231,8 +231,18 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
     if(!resp.checksum_ok)
     {
         port->checksum_errors++;
+        if(port->rx_retry_count < 2U)
+        {
+            port->rx_retry_count++;
+        }
+        else
+        {
+            port->state = IOLINK_MASTER_STATE_ERROR;
+        }
         return -3;
     }
+
+    port->rx_retry_count = 0U;
 
     if(resp.pd_valid)
     {

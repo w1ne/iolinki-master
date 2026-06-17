@@ -49,6 +49,49 @@ static void test_on_rx_bad_checksum_returns_error_and_increments_count(void** st
     assert_int_equal(port.checksum_errors, 1U);
 }
 
+static void test_on_rx_bad_checksum_retries_twice_before_error_state(void** state)
+{
+    iolink_master_port_t port = {0};
+    const uint8_t frame[] = {0x20U, 0xA5U, 0x00U, 0x00U};
+
+    (void)state;
+
+    port.state = IOLINK_MASTER_STATE_OPERATE;
+    port.config.pd_in_len = 1U;
+    port.od_len = 1U;
+
+    assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), -3);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+    assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), -3);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+    assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), -3);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(port.checksum_errors, 3U);
+}
+
+static void test_on_rx_valid_response_resets_checksum_retry_count(void** state)
+{
+    iolink_master_port_t port = {0};
+    const uint8_t bad_frame[] = {0x20U, 0xA5U, 0x00U, 0x00U};
+    const uint8_t good_frame[] = {0x20U, 0xA5U, 0x00U, 0x0DU};
+
+    (void)state;
+
+    port.state = IOLINK_MASTER_STATE_OPERATE;
+    port.config.pd_in_len = 1U;
+    port.od_len = 1U;
+
+    assert_int_equal(iolink_master_on_rx(&port, bad_frame, sizeof(bad_frame)), -3);
+    assert_int_equal(iolink_master_on_rx(&port, good_frame, sizeof(good_frame)), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+    assert_int_equal(iolink_master_on_rx(&port, bad_frame, sizeof(bad_frame)), -3);
+    assert_int_equal(iolink_master_on_rx(&port, bad_frame, sizeof(bad_frame)), -3);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+}
+
 static void test_on_rx_malformed_frame_returns_decode_error(void** state)
 {
     iolink_master_port_t port = {0};
@@ -119,6 +162,8 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_on_rx_valid_response_latches_pd),
         cmocka_unit_test(test_on_rx_bad_checksum_returns_error_and_increments_count),
+        cmocka_unit_test(test_on_rx_bad_checksum_retries_twice_before_error_state),
+        cmocka_unit_test(test_on_rx_valid_response_resets_checksum_retry_count),
         cmocka_unit_test(test_on_rx_malformed_frame_returns_decode_error),
         cmocka_unit_test(test_on_rx_rejects_invalid_args),
         cmocka_unit_test(test_set_pd_out_rejects_invalid_args),

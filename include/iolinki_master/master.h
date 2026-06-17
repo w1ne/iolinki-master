@@ -84,6 +84,7 @@ typedef struct
     uint8_t isdu_error;
     uint8_t startup_step;
     uint8_t startup_baudrate_index;
+    uint8_t rx_retry_count;
     uint32_t cycle_count;
     uint32_t checksum_errors;
     uint32_t send_errors;
