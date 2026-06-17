@@ -109,7 +109,11 @@ int iolink_master_controller_tick_at(iolink_master_controller_t* controller, uin
     state = iolink_master_controller_state(controller);
     for(i = 0U; i < state->port_count; i++)
     {
-        ret = iolink_master_tick_at(&state->ports[i], IOLINK_MASTER_TICK_CYCLE_DUE, now_100us);
+        ret = iolink_master_tick_at(&state->ports[i],
+                                    iolink_master_response_due_at(&state->ports[i], now_100us)
+                                        ? IOLINK_MASTER_TICK_RESPONSE_TIMEOUT
+                                        : IOLINK_MASTER_TICK_CYCLE_DUE,
+                                    now_100us);
         if((ret < 0) && (first_error == 0))
         {
             first_error = ret;

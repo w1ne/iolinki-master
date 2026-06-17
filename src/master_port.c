@@ -74,8 +74,15 @@ static int iolink_master_tick_common(iolink_master_port_t* port,
         return rx_ret;
     }
 
+    state = iolink_master_port_state(port);
     if(event == IOLINK_MASTER_TICK_RESPONSE_TIMEOUT)
     {
+        if(pace_cycles && !state->awaiting_response)
+        {
+            return rx_ret;
+        }
+
+        state->awaiting_response = false;
         timeout_ret = iolink_master_on_timeout(port);
         if(timeout_ret < 0)
         {
@@ -93,14 +100,16 @@ static int iolink_master_tick_common(iolink_master_port_t* port,
         return rx_ret;
     }
 
-    state = iolink_master_port_state(port);
     cycle_count_before = state->cycle_count;
     iolink_master_process(port);
 
     if(pace_cycles && (state->cycle_count != cycle_count_before))
     {
         state->last_cycle_start_100us = now_100us;
+        state->response_deadline_100us =
+            (uint32_t)(now_100us + (uint32_t)state->config.min_cycle_time);
         state->cycle_timer_valid = true;
+        state->awaiting_response = true;
     }
 
     return rx_ret;
@@ -485,6 +494,7 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
         }
 
         iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
+        iolink_master_port_state(port)->awaiting_response = false;
         iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_PREOPERATE;
         return 0;
     }
@@ -511,6 +521,7 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
         }
 
         iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
+        iolink_master_port_state(port)->awaiting_response = false;
         iolink_master_isdu_on_od(port, data, 1U);
         return 0;
     }
@@ -539,6 +550,7 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
         }
 
         iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
+        iolink_master_port_state(port)->awaiting_response = false;
         iolink_master_isdu_on_od(port, data, 1U);
         return 0;
     }
@@ -567,6 +579,7 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
     }
 
     iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
+    iolink_master_port_state(port)->awaiting_response = false;
     iolink_master_port_state(port)->diagnostics.od_status = resp.status;
     iolink_master_port_state(port)->diagnostics.event_pending = resp.event_pending;
 

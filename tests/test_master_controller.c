@@ -166,6 +166,8 @@ static void test_controller_tick_at_paces_ports_by_each_cycle_time(void** state)
     assert_int_equal(iolink_master_controller_tick_at(&controller, 100U), 0);
     assert_int_equal(g_send_calls[0], 1);
     assert_int_equal(g_send_calls[1], 1);
+    iolink_master_port_state(&ports[0])->awaiting_response = false;
+    iolink_master_port_state(&ports[1])->awaiting_response = false;
 
     assert_int_equal(iolink_master_controller_tick_at(&controller, 119U), 0);
     assert_int_equal(g_send_calls[0], 1);
@@ -174,10 +176,39 @@ static void test_controller_tick_at_paces_ports_by_each_cycle_time(void** state)
     assert_int_equal(iolink_master_controller_tick_at(&controller, 120U), 0);
     assert_int_equal(g_send_calls[0], 2);
     assert_int_equal(g_send_calls[1], 1);
+    iolink_master_port_state(&ports[0])->awaiting_response = false;
 
     assert_int_equal(iolink_master_controller_tick_at(&controller, 130U), 0);
     assert_int_equal(g_send_calls[0], 2);
     assert_int_equal(g_send_calls[1], 2);
+}
+
+static void test_controller_tick_at_times_out_missing_response_before_next_cycle(void** state)
+{
+    iolink_master_controller_t controller;
+    iolink_master_port_t ports[1];
+    iolink_master_config_t configs[1];
+
+    (void)state;
+
+    configs[0] = g_configs[0];
+    configs[0].min_cycle_time = 20U;
+
+    assert_int_equal(iolink_master_controller_init(&controller, ports, 1U, g_phys, configs), 0);
+    iolink_master_port_state(&ports[0])->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&ports[0])->diagnostics.rx_retry_count = 2U;
+
+    assert_int_equal(iolink_master_controller_tick_at(&controller, 100U), 0);
+    assert_int_equal(g_send_calls[0], 1);
+    assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_OPERATE);
+
+    assert_int_equal(iolink_master_controller_tick_at(&controller, 119U), 0);
+    assert_int_equal(g_send_calls[0], 1);
+    assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_OPERATE);
+
+    assert_int_equal(iolink_master_controller_tick_at(&controller, 120U), -2);
+    assert_int_equal(g_send_calls[0], 1);
+    assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_ERROR);
 }
 
 static void test_controller_rejects_invalid_args(void** state)
@@ -210,6 +241,9 @@ int main(void)
                                reset_fixture),
         cmocka_unit_test_setup(test_controller_tick_at_paces_ports_by_each_cycle_time,
                                reset_fixture),
+        cmocka_unit_test_setup(
+            test_controller_tick_at_times_out_missing_response_before_next_cycle,
+            reset_fixture),
         cmocka_unit_test_setup(test_controller_rejects_invalid_args, reset_fixture),
     };
 

@@ -63,6 +63,7 @@ and gap detail.
 - [x] Port-level `min_cycle_time` pacing with fake monotonic 100us ticks.
 - [x] Per-port controller tick events.
 - [x] Controller time-aware tick fan-out for per-port cycle pacing.
+- [x] Controller-owned response-deadline timeout scheduling across ports.
 - [x] SIO DQ output through `set_cq_line`.
 - [x] Public header compile test.
 - [x] Public black-box startup/process-data flow test.
@@ -80,8 +81,7 @@ and gap detail.
 
 ### Not Started
 
-- [ ] Full scheduler/timing model with explicit cycle and response deadlines.
-- [ ] Controller-owned response-deadline scheduling across ports.
+- [ ] Full scheduler/timing model with jitter, cycle-slip, and response-timeout diagnostics.
 - [ ] Capability-matrix fake devices.
 - [ ] Fake-device ISDU object dictionary.
 - [ ] Capability-driven M-sequence and PD-size selection.

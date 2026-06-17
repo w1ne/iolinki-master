@@ -54,7 +54,9 @@ typedef struct
     iolink_master_rx_state_t rx;
     uint32_t cycle_count;
     uint32_t last_cycle_start_100us;
+    uint32_t response_deadline_100us;
     bool cycle_timer_valid;
+    bool awaiting_response;
 } iolink_master_port_state_t;
 
 typedef struct
@@ -103,6 +105,14 @@ static inline uint8_t iolink_master_od_len_for_type(iolink_master_m_seq_type_t t
     default:
         return 1U;
     }
+}
+
+static inline bool iolink_master_response_due_at(const iolink_master_port_t* port,
+                                                 uint32_t now_100us)
+{
+    const iolink_master_port_state_t* state = iolink_master_port_const_state(port);
+
+    return state->awaiting_response && (now_100us >= state->response_deadline_100us);
 }
 
 void iolink_master_isdu_fill_od(iolink_master_port_t* port, uint8_t* od, uint8_t od_len);
