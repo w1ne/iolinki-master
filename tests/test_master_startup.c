@@ -115,6 +115,28 @@ static void test_valid_init_sets_startup_state(void** state)
     assert_int_equal(g_last_mode, IOLINK_PHY_MODE_SDCI);
 }
 
+static void test_init_sets_od_length_from_m_sequence_type(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_1_1;
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    assert_int_equal(port.od_len, IOLINK_OD_LEN_8BIT);
+
+    reset_fake_phy(state);
+    config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_2_1;
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    assert_int_equal(port.od_len, IOLINK_OD_LEN_16BIT);
+
+    reset_fake_phy(state);
+    config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_2_V;
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    assert_int_equal(port.od_len, IOLINK_OD_LEN_32BIT);
+}
+
 static void test_init_deactivated_port_sets_inactive_phy_and_does_not_send(void** state)
 {
     iolink_master_port_t port;
@@ -297,6 +319,7 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup(test_init_rejects_null_args, reset_fake_phy),
         cmocka_unit_test_setup(test_valid_init_sets_startup_state, reset_fake_phy),
+        cmocka_unit_test_setup(test_init_sets_od_length_from_m_sequence_type, reset_fake_phy),
         cmocka_unit_test_setup(test_init_deactivated_port_sets_inactive_phy_and_does_not_send,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_init_di_and_dq_ports_stay_in_sio_and_do_not_send,
