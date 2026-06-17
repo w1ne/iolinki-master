@@ -52,6 +52,7 @@ typedef struct
     uint8_t pd_in_len;
     uint8_t pd_out_len;
     bool auto_baudrate;
+    bool validate_device_info;
 } iolink_master_config_t;
 
 typedef struct

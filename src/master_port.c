@@ -326,6 +326,8 @@ void iolink_master_process(iolink_master_port_t* port)
 
     if(port->state == IOLINK_MASTER_STATE_PREOPERATE)
     {
+        int ret;
+
         if((port->isdu.op != IOLINK_MASTER_ISDU_OP_NONE) && !port->isdu.done)
         {
             uint8_t od = 0U;
@@ -335,6 +337,26 @@ void iolink_master_process(iolink_master_port_t* port)
             {
                 (void)iolink_master_send_full(port, port->tx_buf, (size_t)frame_len);
             }
+            return;
+        }
+
+        if(port->config.validate_device_info && !port->device_info.valid)
+        {
+            ret = iolink_master_read_device_info(port);
+            if(ret == 1)
+            {
+                return;
+            }
+            if(ret < 0)
+            {
+                port->state = IOLINK_MASTER_STATE_ERROR;
+                return;
+            }
+        }
+
+        if(port->config.validate_device_info && (iolink_master_validate_device_info(port) != 0))
+        {
+            port->state = IOLINK_MASTER_STATE_ERROR;
             return;
         }
 

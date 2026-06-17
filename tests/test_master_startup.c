@@ -447,6 +447,91 @@ static void test_process_startup_waits_for_type0_response_before_preoperate(void
     assert_true(g_send_calls >= 4);
 }
 
+static void feed_preoperate_isdu_response_bytes(iolink_master_port_t* port,
+                                                const uint8_t* data,
+                                                uint8_t len)
+{
+    uint8_t i;
+    uint8_t ctrl;
+    uint8_t frame[2];
+
+    for(i = 0U; i < len; i++)
+    {
+        ctrl = i;
+        if(i == 0U)
+        {
+            ctrl |= IOLINK_ISDU_CTRL_START;
+        }
+        if(i == (uint8_t)(len - 1U))
+        {
+            ctrl |= IOLINK_ISDU_CTRL_LAST;
+        }
+
+        frame[0] = ctrl;
+        frame[1] = iolink_checksum_ck(frame[0], 0U);
+        assert_int_equal(iolink_master_on_rx(port, frame, sizeof(frame)), 0);
+
+        frame[0] = data[i];
+        frame[1] = iolink_checksum_ck(frame[0], 0U);
+        assert_int_equal(iolink_master_on_rx(port, frame, sizeof(frame)), 0);
+    }
+}
+
+static void test_startup_can_validate_device_info_before_operate(void** state)
+{
+    static const uint8_t page1[] = {
+        0x00U,
+        0x00U,
+        10U,
+        0x01U,
+        0x11U,
+        0x83U,
+        0x10U,
+        0x12U,
+        0x34U,
+        0x56U,
+        0x78U,
+        0x9AU,
+        0x00U,
+        0x00U,
+        0x00U,
+        0x00U,
+    };
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+    iolink_master_device_info_t info;
+    uint8_t startup_resp[2] = {0U};
+
+    (void)state;
+
+    config.validate_device_info = true;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    iolink_master_process(&port);
+    iolink_master_process(&port);
+    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
+
+    iolink_master_process(&port);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
+    assert_int_equal(g_send_calls, 2);
+
+    iolink_master_process(&port);
+    assert_int_equal(g_send_calls, 3);
+    assert_int_equal(g_sent_len[2], 2U);
+    assert_int_equal(g_sent[2][0], IOLINK_ISDU_CTRL_START);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
+
+    feed_preoperate_isdu_response_bytes(&port, page1, sizeof(page1));
+
+    iolink_master_process(&port);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+    assert_int_equal(iolink_master_get_device_info(&port, &info), 0);
+    assert_int_equal(info.vendor_id, 0x1234U);
+    assert_int_equal(info.device_id, 0x56789AU);
+}
+
 static void test_poll_rx_accepts_startup_type0_response_from_phy(void** state)
 {
     iolink_master_port_t port;
@@ -534,6 +619,8 @@ int main(void)
         cmocka_unit_test_setup(test_get_pd_in_too_small_exposes_required_length, reset_fake_phy),
         cmocka_unit_test_setup(test_get_pd_in_invalid_does_not_copy_stale_data, reset_fake_phy),
         cmocka_unit_test_setup(test_process_startup_waits_for_type0_response_before_preoperate,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_startup_can_validate_device_info_before_operate,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_poll_rx_accepts_startup_type0_response_from_phy,
                                reset_fake_phy),
