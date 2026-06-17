@@ -146,6 +146,40 @@ static void test_controller_tick_events_report_first_error_but_tick_all_ports(vo
     assert_int_equal(g_send_calls[1], 1);
 }
 
+static void test_controller_tick_at_paces_ports_by_each_cycle_time(void** state)
+{
+    iolink_master_controller_t controller;
+    iolink_master_port_t ports[2];
+    iolink_master_config_t configs[2];
+
+    (void)state;
+
+    configs[0] = g_configs[0];
+    configs[1] = g_configs[1];
+    configs[0].min_cycle_time = 20U;
+    configs[1].min_cycle_time = 30U;
+
+    assert_int_equal(iolink_master_controller_init(&controller, ports, 2U, g_phys, configs), 0);
+    iolink_master_port_state(&ports[0])->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&ports[1])->state = IOLINK_MASTER_STATE_OPERATE;
+
+    assert_int_equal(iolink_master_controller_tick_at(&controller, 100U), 0);
+    assert_int_equal(g_send_calls[0], 1);
+    assert_int_equal(g_send_calls[1], 1);
+
+    assert_int_equal(iolink_master_controller_tick_at(&controller, 119U), 0);
+    assert_int_equal(g_send_calls[0], 1);
+    assert_int_equal(g_send_calls[1], 1);
+
+    assert_int_equal(iolink_master_controller_tick_at(&controller, 120U), 0);
+    assert_int_equal(g_send_calls[0], 2);
+    assert_int_equal(g_send_calls[1], 1);
+
+    assert_int_equal(iolink_master_controller_tick_at(&controller, 130U), 0);
+    assert_int_equal(g_send_calls[0], 2);
+    assert_int_equal(g_send_calls[1], 2);
+}
+
 static void test_controller_rejects_invalid_args(void** state)
 {
     iolink_master_controller_t controller;
@@ -160,6 +194,7 @@ static void test_controller_rejects_invalid_args(void** state)
     assert_int_equal(iolink_master_controller_init(&controller, ports, 2U, g_phys, NULL), -1);
     assert_int_equal(iolink_master_controller_tick(NULL, NULL), -1);
     assert_int_equal(iolink_master_controller_tick_events(NULL, NULL), -1);
+    assert_int_equal(iolink_master_controller_tick_at(NULL, 0U), -1);
 }
 
 int main(void)
@@ -172,6 +207,8 @@ int main(void)
         cmocka_unit_test_setup(test_controller_tick_events_allow_independent_port_events,
                                reset_fixture),
         cmocka_unit_test_setup(test_controller_tick_events_report_first_error_but_tick_all_ports,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_controller_tick_at_paces_ports_by_each_cycle_time,
                                reset_fixture),
         cmocka_unit_test_setup(test_controller_rejects_invalid_args, reset_fixture),
     };

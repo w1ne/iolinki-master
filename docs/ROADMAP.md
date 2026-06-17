@@ -127,7 +127,8 @@ yet a scheduler, port policy engine, or runtime supervisor.
 
 Required direction:
 
-- [ ] decide whether controller owns timing or only fans out to per-port schedulers
+- [x] fan one controller timestamp out to per-port cycle pacing
+- [ ] decide whether controller owns response deadlines or only fans out scheduler events
 - [ ] support independent port modes and cycle timings
 - [x] expose per-port diagnostics without hiding individual port failures
 - [x] keep one failed port from corrupting unrelated ports
@@ -253,7 +254,8 @@ Deliverables:
    that can distinguish "not due", "response timed out", and "cycle due".
 - [x] Make `min_cycle_time` affect when the next port-level OPERATE frame may be sent.
 - [x] Add tests proving port frames are paced by configured cycle time.
-- [ ] Add controller-owned scheduling that maps per-port deadlines to tick events.
+- [x] Add controller time input that lets each port enforce its own cycle deadline.
+- [ ] Add controller-owned response-deadline scheduling.
 - [ ] Keep hardware timers outside the protocol core; tests should drive fake time.
 
 The result-code enum remains important, but it is API cleanup. Timing is the

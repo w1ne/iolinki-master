@@ -93,3 +93,28 @@ int iolink_master_controller_tick_events(iolink_master_controller_t* controller,
 
     return first_error;
 }
+
+int iolink_master_controller_tick_at(iolink_master_controller_t* controller, uint32_t now_100us)
+{
+    iolink_master_controller_state_t* state;
+    uint8_t i;
+    int ret;
+    int first_error = 0;
+
+    if(controller == NULL)
+    {
+        return -1;
+    }
+
+    state = iolink_master_controller_state(controller);
+    for(i = 0U; i < state->port_count; i++)
+    {
+        ret = iolink_master_tick_at(&state->ports[i], IOLINK_MASTER_TICK_CYCLE_DUE, now_100us);
+        if((ret < 0) && (first_error == 0))
+        {
+            first_error = ret;
+        }
+    }
+
+    return first_error;
+}

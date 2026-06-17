@@ -158,5 +158,7 @@ int iolink_master_controller_tick(iolink_master_controller_t* controller,
                                   const bool* response_timeouts);
 int iolink_master_controller_tick_events(iolink_master_controller_t* controller,
                                          const iolink_master_tick_event_t* events);
+int iolink_master_controller_tick_at(iolink_master_controller_t* controller,
+                                     uint32_t now_100us);
 
 #endif /* IOLINKI_MASTER_MASTER_H */
