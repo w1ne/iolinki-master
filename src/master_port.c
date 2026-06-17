@@ -47,7 +47,9 @@ int iolink_master_init(iolink_master_port_t* port,
        (config->pd_out_len > IOLINK_PD_OUT_MAX_SIZE) ||
        (config->m_seq_type > IOLINK_MASTER_M_SEQ_TYPE_2_V) ||
        (config->baudrate > IOLINK_BAUDRATE_COM3) ||
-       (config->port_mode > IOLINK_MASTER_PORT_MODE_DEACTIVATED))
+       (config->port_mode > IOLINK_MASTER_PORT_MODE_DEACTIVATED) ||
+       ((config->m_seq_type == IOLINK_MASTER_M_SEQ_TYPE_0) &&
+        ((config->pd_in_len > 0U) || (config->pd_out_len > 0U))))
     {
         return -1;
     }
