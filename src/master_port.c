@@ -6,6 +6,22 @@
 
 #include <string.h>
 
+static const iolink_baudrate_t g_iolink_master_baudrate_scan[] = {
+    IOLINK_BAUDRATE_COM3,
+    IOLINK_BAUDRATE_COM2,
+    IOLINK_BAUDRATE_COM1,
+};
+
+static iolink_baudrate_t iolink_master_startup_baudrate(const iolink_master_port_t* port)
+{
+    if(port->config.auto_baudrate)
+    {
+        return g_iolink_master_baudrate_scan[port->startup_baudrate_index];
+    }
+
+    return port->config.baudrate;
+}
+
 static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* data, size_t len)
 {
     int sent = port->phy->send(data, len);
@@ -42,6 +58,7 @@ int iolink_master_init(iolink_master_port_t* port,
     port->od_len = iolink_master_od_len_for_type(config->m_seq_type);
     port->pd_in_len = config->pd_in_len;
     port->pd_out_len = config->pd_out_len;
+    port->startup_baudrate_index = 0U;
     port->state = (config->port_mode == IOLINK_MASTER_PORT_MODE_IOLINK)
                       ? IOLINK_MASTER_STATE_STARTUP
                       : IOLINK_MASTER_STATE_INACTIVE;
@@ -77,7 +94,7 @@ int iolink_master_init(iolink_master_port_t* port,
 
     if(phy->set_baudrate != NULL)
     {
-        phy->set_baudrate(config->baudrate);
+        phy->set_baudrate(iolink_master_startup_baudrate(port));
     }
 
     if(phy->set_mode != NULL)
@@ -86,6 +103,37 @@ int iolink_master_init(iolink_master_port_t* port,
     }
 
     return 0;
+}
+
+int iolink_master_on_timeout(iolink_master_port_t* port)
+{
+    if((port == NULL) || (port->phy == NULL))
+    {
+        return -1;
+    }
+
+    if(port->state != IOLINK_MASTER_STATE_STARTUP)
+    {
+        return 0;
+    }
+
+    if(port->config.auto_baudrate &&
+       (port->startup_baudrate_index <
+        (uint8_t)((sizeof(g_iolink_master_baudrate_scan) /
+                   sizeof(g_iolink_master_baudrate_scan[0])) -
+                  1U)))
+    {
+        port->startup_baudrate_index++;
+        port->startup_step = 0U;
+        if(port->phy->set_baudrate != NULL)
+        {
+            port->phy->set_baudrate(iolink_master_startup_baudrate(port));
+        }
+        return 1;
+    }
+
+    port->state = IOLINK_MASTER_STATE_ERROR;
+    return -2;
 }
 
 void iolink_master_process(iolink_master_port_t* port)

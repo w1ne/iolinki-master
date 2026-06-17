@@ -51,6 +51,7 @@ typedef struct
     uint8_t min_cycle_time;
     uint8_t pd_in_len;
     uint8_t pd_out_len;
+    bool auto_baudrate;
 } iolink_master_config_t;
 
 typedef struct
@@ -82,6 +83,7 @@ typedef struct
     bool isdu_done;
     uint8_t isdu_error;
     uint8_t startup_step;
+    uint8_t startup_baudrate_index;
     uint32_t cycle_count;
     uint32_t checksum_errors;
     uint32_t send_errors;
@@ -91,6 +93,7 @@ int iolink_master_init(iolink_master_port_t* port,
                        const iolink_phy_api_t* phy,
                        const iolink_master_config_t* config);
 void iolink_master_process(iolink_master_port_t* port);
+int iolink_master_on_timeout(iolink_master_port_t* port);
 int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t len);
 iolink_master_state_t iolink_master_get_state(const iolink_master_port_t* port);
 int iolink_master_get_pd_in(const iolink_master_port_t* port,
