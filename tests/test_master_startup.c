@@ -16,10 +16,12 @@ static int g_init_calls;
 static int g_set_mode_calls;
 static int g_set_baudrate_calls;
 static int g_send_calls;
+static int g_set_cq_line_calls;
 static int g_forced_send_return;
 static uint8_t g_recv_bytes[8];
 static uint8_t g_recv_len;
 static uint8_t g_recv_pos;
+static uint8_t g_last_cq_line;
 static iolink_phy_mode_t g_last_mode;
 static iolink_baudrate_t g_last_baudrate;
 static iolink_baudrate_t g_baudrate_history[8];
@@ -44,6 +46,12 @@ static void fake_phy_set_baudrate(iolink_baudrate_t baudrate)
     g_baudrate_history[g_set_baudrate_calls] = baudrate;
     g_set_baudrate_calls++;
     g_last_baudrate = baudrate;
+}
+
+static void fake_phy_set_cq_line(uint8_t state)
+{
+    g_set_cq_line_calls++;
+    g_last_cq_line = state;
 }
 
 static int fake_phy_send(const uint8_t* data, size_t len)
@@ -83,6 +91,7 @@ static const iolink_phy_api_t g_fake_phy = {
     .set_baudrate = fake_phy_set_baudrate,
     .send = fake_phy_send,
     .recv_byte = fake_phy_recv_byte,
+    .set_cq_line = fake_phy_set_cq_line,
 };
 
 static const iolink_master_config_t g_config = {
@@ -100,9 +109,11 @@ static int reset_fake_phy(void** state)
     g_set_mode_calls = 0;
     g_set_baudrate_calls = 0;
     g_send_calls = 0;
+    g_set_cq_line_calls = 0;
     g_forced_send_return = INT_MIN;
     g_recv_len = 0U;
     g_recv_pos = 0U;
+    g_last_cq_line = 0U;
     g_last_mode = IOLINK_PHY_MODE_INACTIVE;
     g_last_baudrate = IOLINK_BAUDRATE_COM1;
     memset(g_baudrate_history, 0, sizeof(g_baudrate_history));
@@ -206,6 +217,42 @@ static void test_init_di_and_dq_ports_stay_in_sio_and_do_not_send(void** state)
     assert_int_equal(g_last_mode, IOLINK_PHY_MODE_SIO);
 
     iolink_master_process(&port);
+    assert_int_equal(g_send_calls, 0);
+}
+
+static void test_set_dq_drives_cq_line_only_for_dq_ports(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+    iolink_phy_api_t phy = g_fake_phy;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_set_dq(NULL, true), -1);
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
+    assert_int_equal(iolink_master_set_dq(&port, true), -2);
+
+    reset_fake_phy(state);
+    config.port_mode = IOLINK_MASTER_PORT_MODE_DI;
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    assert_int_equal(iolink_master_set_dq(&port, true), -2);
+
+    reset_fake_phy(state);
+    config.port_mode = IOLINK_MASTER_PORT_MODE_DQ;
+    phy.set_cq_line = NULL;
+    assert_int_equal(iolink_master_init(&port, &phy, &config), 0);
+    assert_int_equal(iolink_master_set_dq(&port, true), -3);
+
+    reset_fake_phy(state);
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    assert_int_equal(iolink_master_set_dq(&port, true), 0);
+    assert_int_equal(g_set_cq_line_calls, 1);
+    assert_int_equal(g_last_cq_line, 1U);
+
+    assert_int_equal(iolink_master_set_dq(&port, false), 0);
+    assert_int_equal(g_set_cq_line_calls, 2);
+    assert_int_equal(g_last_cq_line, 0U);
     assert_int_equal(g_send_calls, 0);
 }
 
@@ -628,6 +675,8 @@ int main(void)
         cmocka_unit_test_setup(test_init_deactivated_port_sets_inactive_phy_and_does_not_send,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_init_di_and_dq_ports_stay_in_sio_and_do_not_send,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_set_dq_drives_cq_line_only_for_dq_ports,
                                reset_fake_phy),
         cmocka_unit_test_setup(
             test_auto_baudrate_startup_timeout_scans_com3_com2_com1_then_errors,

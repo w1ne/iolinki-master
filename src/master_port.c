@@ -679,6 +679,27 @@ int iolink_master_get_diagnostics(const iolink_master_port_t* port,
     return 0;
 }
 
+int iolink_master_set_dq(iolink_master_port_t* port, bool level)
+{
+    if(port == NULL)
+    {
+        return -1;
+    }
+
+    if(port->config.port_mode != IOLINK_MASTER_PORT_MODE_DQ)
+    {
+        return -2;
+    }
+
+    if((port->phy == NULL) || (port->phy->set_cq_line == NULL))
+    {
+        return -3;
+    }
+
+    port->phy->set_cq_line(level ? 1U : 0U);
+    return 0;
+}
+
 int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
                                                uint8_t len,
                                                iolink_master_device_info_t* info)
