@@ -107,6 +107,22 @@ int iolink_master_init(iolink_master_port_t* port,
     return 0;
 }
 
+int iolink_master_restart(iolink_master_port_t* port)
+{
+    const iolink_phy_api_t* phy;
+    iolink_master_config_t config;
+
+    if((port == NULL) || (port->phy == NULL))
+    {
+        return -1;
+    }
+
+    phy = port->phy;
+    config = port->config;
+
+    return iolink_master_init(port, phy, &config);
+}
+
 int iolink_master_on_timeout(iolink_master_port_t* port)
 {
     if(port == NULL)

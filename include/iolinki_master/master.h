@@ -117,6 +117,7 @@ typedef struct
 int iolink_master_init(iolink_master_port_t* port,
                        const iolink_phy_api_t* phy,
                        const iolink_master_config_t* config);
+int iolink_master_restart(iolink_master_port_t* port);
 void iolink_master_process(iolink_master_port_t* port);
 int iolink_master_poll_rx(iolink_master_port_t* port);
 int iolink_master_on_timeout(iolink_master_port_t* port);

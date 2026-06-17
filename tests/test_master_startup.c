@@ -254,6 +254,44 @@ static void test_fixed_baudrate_startup_timeout_enters_error(void** state)
     assert_int_equal(g_set_baudrate_calls, 1);
 }
 
+static void test_restart_reenters_startup_and_clears_runtime_state(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.auto_baudrate = true;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    port.state = IOLINK_MASTER_STATE_ERROR;
+    port.startup.step = 2U;
+    port.startup.baudrate_index = 2U;
+    port.diagnostics.rx_retry_count = 2U;
+    port.diagnostics.checksum_errors = 5U;
+    port.diagnostics.send_errors = 3U;
+    port.cycle_count = 11U;
+
+    assert_int_equal(iolink_master_restart(&port), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
+    assert_int_equal(port.startup.step, 0U);
+    assert_int_equal(port.startup.baudrate_index, 0U);
+    assert_int_equal(port.diagnostics.rx_retry_count, 0U);
+    assert_int_equal(port.diagnostics.checksum_errors, 0U);
+    assert_int_equal(port.diagnostics.send_errors, 0U);
+    assert_int_equal(port.cycle_count, 0U);
+    assert_int_equal(g_set_baudrate_calls, 2);
+    assert_int_equal(g_baudrate_history[1], IOLINK_BAUDRATE_COM3);
+    assert_int_equal(g_last_mode, IOLINK_PHY_MODE_SDCI);
+}
+
+static void test_restart_rejects_invalid_args(void** state)
+{
+    (void)state;
+
+    assert_int_equal(iolink_master_restart(NULL), -1);
+}
+
 static void test_init_rejects_oversized_pd_in_len(void** state)
 {
     iolink_master_port_t port;
@@ -485,6 +523,9 @@ int main(void)
             reset_fake_phy),
         cmocka_unit_test_setup(test_fixed_baudrate_startup_timeout_enters_error,
                                reset_fake_phy),
+        cmocka_unit_test_setup(test_restart_reenters_startup_and_clears_runtime_state,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_restart_rejects_invalid_args, reset_fake_phy),
         cmocka_unit_test_setup(test_init_rejects_oversized_pd_in_len, reset_fake_phy),
         cmocka_unit_test_setup(test_init_rejects_oversized_pd_out_len, reset_fake_phy),
         cmocka_unit_test_setup(test_init_rejects_invalid_baudrate_and_m_sequence_type,
