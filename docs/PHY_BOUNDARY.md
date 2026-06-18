@@ -23,24 +23,30 @@ Required for strict hardware validation:
 
 - `send`: transmit a complete encoded frame buffer.
 - `recv_byte`: non-blocking byte receive from UART/USART.
-- `set_mode`: switch the transceiver into SDCI mode.
-- `set_baudrate`: apply COM1, COM2, or COM3 during fixed or auto-baud startup.
+- `set_mode_checked` in `iolink_master_config_t`: switch the transceiver into
+  SDCI mode and report adapter failures.
+- `set_baudrate_checked` in `iolink_master_config_t`: apply COM1, COM2, or
+  COM3 during fixed or auto-baud startup and report adapter failures.
 - `wake_up` in `iolink_master_config_t`: generate the master wake-up pulse.
 
 Recommended:
 
+- `set_mode` and `set_baudrate`: legacy permissive fallbacks for unit tests or
+  partial fakes. Real adapters should expose the checked config hooks above.
 - `get_voltage_mv`: expose L+ diagnostics when the transceiver supports it.
 - `is_short_circuit`: expose hard line faults when available.
 
 ### DI Mode
 
-Required:
+Required for strict hardware validation:
 
-- `read_cq_line` in `iolink_master_config_t`.
+- `set_mode_checked`: switch the transceiver into SIO mode and report failures.
+- `read_cq_line_checked` in `iolink_master_config_t`: read C/Q and report
+  adapter failures.
 
 Recommended:
 
-- `set_mode`: switch the transceiver into SIO mode.
+- `read_cq_line`: legacy permissive fallback for existing tests/fakes.
 
 Not required:
 
@@ -51,10 +57,7 @@ Not required:
 Required:
 
 - `set_cq_line`: drive C/Q high or low.
-
-Recommended:
-
-- `set_mode`: switch the transceiver into SIO mode.
+- `set_mode_checked`: switch the transceiver into SIO mode and report failures.
 
 Not required:
 
@@ -62,9 +65,10 @@ Not required:
 
 ### Deactivated Mode
 
-Recommended:
+Required for strict hardware validation:
 
-- `set_mode`: switch the transceiver into inactive/high-impedance mode.
+- `set_mode_checked`: switch the transceiver into inactive/high-impedance mode
+  and report failures.
 
 ## Adapter Rules
 
@@ -76,6 +80,9 @@ Recommended:
   or a negative/short result so the core can enter error handling.
 - Real hardware adapters should pass `iolink_master_validate_phy_contract()`.
   `iolink_master_init()` remains permissive for unit tests and partial fake PHYs.
+- Keep response timeout separate from cycle pacing when the adapter can support
+  it. `response_timeout_100us` controls the deadline while `min_cycle_time`
+  controls cycle spacing; a zero response timeout falls back to `min_cycle_time`.
 - Keep adapter fault policy explicit: line faults may be surfaced through PHY
   callbacks and public diagnostics, but must not mutate core state behind its
   back. `iolink_master_get_diagnostics()` samples `get_voltage_mv` and

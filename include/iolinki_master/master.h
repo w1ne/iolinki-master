@@ -106,6 +106,10 @@ typedef struct
     uint8_t pd_out_len;
     bool auto_baudrate;
     bool validate_device_info;
+    uint8_t response_timeout_100us;
+    int (*set_mode_checked)(iolink_phy_mode_t mode);
+    int (*set_baudrate_checked)(iolink_baudrate_t baudrate);
+    int (*read_cq_line_checked)(void);
     int (*read_cq_line)(void);
     int (*wake_up)(void);
 } iolink_master_config_t;
@@ -169,9 +173,9 @@ typedef struct
  * protocol buffers and service state; controller storage only tracks a port
  * array reference plus port count.
  */
-#define IOLINK_MASTER_PORT_STORAGE_BUDGET_SIZE 1152U
+#define IOLINK_MASTER_PORT_STORAGE_BUDGET_SIZE 1216U
 #define IOLINK_MASTER_CONTROLLER_STORAGE_BUDGET_SIZE 32U
-#define IOLINK_MASTER_PORT_STORAGE_SIZE 1152U
+#define IOLINK_MASTER_PORT_STORAGE_SIZE 1216U
 #define IOLINK_MASTER_CONTROLLER_STORAGE_SIZE 32U
 
 typedef union

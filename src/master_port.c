@@ -24,6 +24,50 @@ static iolink_baudrate_t iolink_master_startup_baudrate(const iolink_master_port
     return state->config.baudrate;
 }
 
+static uint8_t iolink_master_response_timeout_100us(const iolink_master_port_state_t* state)
+{
+    if(state->config.response_timeout_100us != 0U)
+    {
+        return state->config.response_timeout_100us;
+    }
+
+    return state->config.min_cycle_time;
+}
+
+static int iolink_master_set_mode(iolink_master_port_t* port, iolink_phy_mode_t mode)
+{
+    iolink_master_port_state_t* state = iolink_master_port_state(port);
+
+    if(state->config.set_mode_checked != NULL)
+    {
+        return state->config.set_mode_checked(mode);
+    }
+
+    if((state->phy != NULL) && (state->phy->set_mode != NULL))
+    {
+        state->phy->set_mode(mode);
+    }
+
+    return IOLINK_MASTER_STATUS_OK;
+}
+
+static int iolink_master_set_baudrate(iolink_master_port_t* port, iolink_baudrate_t baudrate)
+{
+    iolink_master_port_state_t* state = iolink_master_port_state(port);
+
+    if(state->config.set_baudrate_checked != NULL)
+    {
+        return state->config.set_baudrate_checked(baudrate);
+    }
+
+    if((state->phy != NULL) && (state->phy->set_baudrate != NULL))
+    {
+        state->phy->set_baudrate(baudrate);
+    }
+
+    return IOLINK_MASTER_STATUS_OK;
+}
+
 static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* data, size_t len)
 {
     iolink_master_port_state_t* state = iolink_master_port_state(port);
@@ -217,7 +261,7 @@ static int iolink_master_tick_common(iolink_master_port_t* port,
 
         state->last_cycle_start_100us = now_100us;
         state->response_deadline_100us =
-            (uint32_t)(now_100us + (uint32_t)state->config.min_cycle_time);
+            (uint32_t)(now_100us + (uint32_t)iolink_master_response_timeout_100us(state));
         state->cycle_timer_valid = true;
         state->awaiting_response = true;
     }
@@ -266,9 +310,11 @@ int iolink_master_init(iolink_master_port_t* port,
 
     if(config->port_mode == IOLINK_MASTER_PORT_MODE_DEACTIVATED)
     {
-        if(phy->set_mode != NULL)
+        ret = iolink_master_set_mode(port, IOLINK_PHY_MODE_INACTIVE);
+        if(ret != IOLINK_MASTER_STATUS_OK)
         {
-            phy->set_mode(IOLINK_PHY_MODE_INACTIVE);
+            iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
+            return ret;
         }
         return IOLINK_MASTER_STATUS_OK;
     }
@@ -276,21 +322,27 @@ int iolink_master_init(iolink_master_port_t* port,
     if((config->port_mode == IOLINK_MASTER_PORT_MODE_DI) ||
        (config->port_mode == IOLINK_MASTER_PORT_MODE_DQ))
     {
-        if(phy->set_mode != NULL)
+        ret = iolink_master_set_mode(port, IOLINK_PHY_MODE_SIO);
+        if(ret != IOLINK_MASTER_STATUS_OK)
         {
-            phy->set_mode(IOLINK_PHY_MODE_SIO);
+            iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
+            return ret;
         }
         return IOLINK_MASTER_STATUS_OK;
     }
 
-    if(phy->set_baudrate != NULL)
+    ret = iolink_master_set_baudrate(port, iolink_master_startup_baudrate(port));
+    if(ret != IOLINK_MASTER_STATUS_OK)
     {
-        phy->set_baudrate(iolink_master_startup_baudrate(port));
+        iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
+        return ret;
     }
 
-    if(phy->set_mode != NULL)
+    ret = iolink_master_set_mode(port, IOLINK_PHY_MODE_SDCI);
+    if(ret != IOLINK_MASTER_STATUS_OK)
     {
-        phy->set_mode(IOLINK_PHY_MODE_SDCI);
+        iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
+        return ret;
     }
 
     return IOLINK_MASTER_STATUS_OK;
@@ -308,26 +360,27 @@ int iolink_master_validate_phy_contract(const iolink_phy_api_t* phy,
     switch(config->port_mode)
     {
     case IOLINK_MASTER_PORT_MODE_IOLINK:
-        if((phy->send == NULL) || (phy->recv_byte == NULL) || (phy->set_mode == NULL) ||
-           (phy->set_baudrate == NULL) || (config->wake_up == NULL))
+        if((phy->send == NULL) || (phy->recv_byte == NULL) ||
+           (config->set_mode_checked == NULL) ||
+           (config->set_baudrate_checked == NULL) || (config->wake_up == NULL))
         {
             return IOLINK_MASTER_ERR_UNSUPPORTED_PHY;
         }
         return IOLINK_MASTER_STATUS_OK;
     case IOLINK_MASTER_PORT_MODE_DI:
-        if((phy->set_mode == NULL) || (config->read_cq_line == NULL))
+        if((config->set_mode_checked == NULL) || (config->read_cq_line_checked == NULL))
         {
             return IOLINK_MASTER_ERR_UNSUPPORTED_PHY;
         }
         return IOLINK_MASTER_STATUS_OK;
     case IOLINK_MASTER_PORT_MODE_DQ:
-        if((phy->set_mode == NULL) || (phy->set_cq_line == NULL))
+        if((config->set_mode_checked == NULL) || (phy->set_cq_line == NULL))
         {
             return IOLINK_MASTER_ERR_UNSUPPORTED_PHY;
         }
         return IOLINK_MASTER_STATUS_OK;
     case IOLINK_MASTER_PORT_MODE_DEACTIVATED:
-        if(phy->set_mode == NULL)
+        if(config->set_mode_checked == NULL)
         {
             return IOLINK_MASTER_ERR_UNSUPPORTED_PHY;
         }
@@ -355,6 +408,8 @@ int iolink_master_restart(iolink_master_port_t* port)
 
 int iolink_master_on_timeout(iolink_master_port_t* port)
 {
+    int ret;
+
     if(port == NULL)
     {
         return IOLINK_MASTER_ERR_INVALID_ARG;
@@ -393,9 +448,11 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
     {
         iolink_master_port_state(port)->startup.baudrate_index++;
         iolink_master_port_state(port)->startup.step = 0U;
-        if(iolink_master_port_state(port)->phy->set_baudrate != NULL)
+        ret = iolink_master_set_baudrate(port, iolink_master_startup_baudrate(port));
+        if(ret != IOLINK_MASTER_STATUS_OK)
         {
-            iolink_master_port_state(port)->phy->set_baudrate(iolink_master_startup_baudrate(port));
+            iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
+            return ret;
         }
         return IOLINK_MASTER_STATUS_PENDING;
     }

@@ -8,7 +8,9 @@
 #include "iolinki_master/master.h"
 
 static int g_read_calls;
+static int g_checked_read_calls;
 static int g_read_result;
+static int g_checked_read_result;
 static int g_set_mode_calls;
 static iolink_phy_mode_t g_last_mode;
 
@@ -16,6 +18,12 @@ static int fake_read_cq_line(void)
 {
     g_read_calls++;
     return g_read_result;
+}
+
+static int fake_checked_read_cq_line(void)
+{
+    g_checked_read_calls++;
+    return g_checked_read_result;
 }
 
 static const iolink_phy_api_t g_phy = {0};
@@ -41,7 +49,9 @@ static int reset_fake_io(void** state)
 {
     (void)state;
     g_read_calls = 0;
+    g_checked_read_calls = 0;
     g_read_result = 1;
+    g_checked_read_result = 1;
     g_set_mode_calls = 0;
     g_last_mode = IOLINK_PHY_MODE_INACTIVE;
     return 0;
@@ -63,6 +73,25 @@ static void test_get_di_reads_configured_cq_reader_for_di_ports(void** state)
     assert_int_equal(iolink_master_get_di(&port, &level), IOLINK_MASTER_STATUS_OK);
     assert_false(level);
     assert_int_equal(g_read_calls, 2);
+}
+
+static void test_get_di_prefers_checked_cq_reader(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+    bool level = false;
+
+    (void)state;
+
+    config.read_cq_line_checked = fake_checked_read_cq_line;
+    g_read_result = 0;
+    g_checked_read_result = 1;
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &config), IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_get_di(&port, &level), IOLINK_MASTER_STATUS_OK);
+    assert_true(level);
+    assert_int_equal(g_checked_read_calls, 1);
+    assert_int_equal(g_read_calls, 0);
 }
 
 static void test_get_di_rejects_invalid_args_wrong_mode_and_missing_reader(void** state)
@@ -133,6 +162,7 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup(test_get_di_reads_configured_cq_reader_for_di_ports,
                                reset_fake_io),
+        cmocka_unit_test_setup(test_get_di_prefers_checked_cq_reader, reset_fake_io),
         cmocka_unit_test_setup(test_get_di_rejects_invalid_args_wrong_mode_and_missing_reader,
                                reset_fake_io),
         cmocka_unit_test_setup(test_set_port_mode_switches_between_sio_iolink_and_inactive,

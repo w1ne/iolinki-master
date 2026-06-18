@@ -15,6 +15,10 @@
 static int g_init_calls;
 static int g_set_mode_calls;
 static int g_set_baudrate_calls;
+static int g_checked_set_mode_calls;
+static int g_checked_set_baudrate_calls;
+static int g_checked_set_mode_result;
+static int g_checked_set_baudrate_result;
 static int g_send_calls;
 static int g_set_cq_line_calls;
 static int g_wake_up_calls;
@@ -50,6 +54,22 @@ static void fake_phy_set_baudrate(iolink_baudrate_t baudrate)
     g_baudrate_history[g_set_baudrate_calls] = baudrate;
     g_set_baudrate_calls++;
     g_last_baudrate = baudrate;
+}
+
+static int fake_checked_set_mode(iolink_phy_mode_t mode)
+{
+    g_checked_set_mode_calls++;
+    g_last_mode = mode;
+    return g_checked_set_mode_result;
+}
+
+static int fake_checked_set_baudrate(iolink_baudrate_t baudrate)
+{
+    assert_in_range(g_checked_set_baudrate_calls, 0, 7);
+    g_baudrate_history[g_checked_set_baudrate_calls] = baudrate;
+    g_checked_set_baudrate_calls++;
+    g_last_baudrate = baudrate;
+    return g_checked_set_baudrate_result;
 }
 
 static void fake_phy_set_cq_line(uint8_t state)
@@ -130,6 +150,10 @@ static int reset_fake_phy(void** state)
     g_init_calls = 0;
     g_set_mode_calls = 0;
     g_set_baudrate_calls = 0;
+    g_checked_set_mode_calls = 0;
+    g_checked_set_baudrate_calls = 0;
+    g_checked_set_mode_result = IOLINK_MASTER_STATUS_OK;
+    g_checked_set_baudrate_result = IOLINK_MASTER_STATUS_OK;
     g_send_calls = 0;
     g_set_cq_line_calls = 0;
     g_wake_up_calls = 0;
@@ -184,6 +208,8 @@ static void test_validate_phy_contract_rejects_missing_hardware_ops(void** state
     (void)state;
 
     config.wake_up = fake_wake_up;
+    config.set_mode_checked = fake_checked_set_mode;
+    config.set_baudrate_checked = fake_checked_set_baudrate;
     assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
                      IOLINK_MASTER_STATUS_OK);
 
@@ -197,10 +223,16 @@ static void test_validate_phy_contract_rejects_missing_hardware_ops(void** state
                      IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
 
     phy = g_fake_phy;
-    phy.set_baudrate = NULL;
+    config.set_baudrate_checked = NULL;
     assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
                      IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
 
+    config.set_baudrate_checked = fake_checked_set_baudrate;
+    config.set_mode_checked = NULL;
+    assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
+                     IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
+
+    config.set_mode_checked = fake_checked_set_mode;
     config.port_mode = IOLINK_MASTER_PORT_MODE_DQ;
     phy = g_fake_phy;
     phy.set_cq_line = NULL;
@@ -208,9 +240,64 @@ static void test_validate_phy_contract_rejects_missing_hardware_ops(void** state
                      IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
 
     config.port_mode = IOLINK_MASTER_PORT_MODE_DI;
-    config.read_cq_line = NULL;
+    config.read_cq_line_checked = NULL;
     assert_int_equal(iolink_master_validate_phy_contract(&g_fake_phy, &config),
                      IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
+}
+
+static void test_init_uses_checked_mode_and_baudrate_hooks(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.set_mode_checked = fake_checked_set_mode;
+    config.set_baudrate_checked = fake_checked_set_baudrate;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(g_checked_set_baudrate_calls, 1);
+    assert_int_equal(g_checked_set_mode_calls, 1);
+    assert_int_equal(g_set_baudrate_calls, 0);
+    assert_int_equal(g_set_mode_calls, 0);
+    assert_int_equal(g_last_baudrate, IOLINK_BAUDRATE_COM3);
+    assert_int_equal(g_last_mode, IOLINK_PHY_MODE_SDCI);
+}
+
+static void test_init_propagates_checked_mode_failure(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.set_mode_checked = fake_checked_set_mode;
+    config.set_baudrate_checked = fake_checked_set_baudrate;
+    g_checked_set_mode_result = IOLINK_MASTER_ERR_UNSUPPORTED_PHY;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config),
+                     IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(g_checked_set_baudrate_calls, 1);
+    assert_int_equal(g_checked_set_mode_calls, 1);
+}
+
+static void test_init_propagates_checked_baudrate_failure(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.set_mode_checked = fake_checked_set_mode;
+    config.set_baudrate_checked = fake_checked_set_baudrate;
+    g_checked_set_baudrate_result = IOLINK_MASTER_ERR_UNSUPPORTED_PHY;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config),
+                     IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(g_checked_set_baudrate_calls, 1);
+    assert_int_equal(g_checked_set_mode_calls, 0);
 }
 
 static void test_init_sets_od_length_from_m_sequence_type(void** state)
@@ -805,6 +892,11 @@ int main(void)
         cmocka_unit_test_setup(test_init_rejects_null_args, reset_fake_phy),
         cmocka_unit_test_setup(test_valid_init_sets_startup_state, reset_fake_phy),
         cmocka_unit_test_setup(test_validate_phy_contract_rejects_missing_hardware_ops,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_init_uses_checked_mode_and_baudrate_hooks,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_init_propagates_checked_mode_failure, reset_fake_phy),
+        cmocka_unit_test_setup(test_init_propagates_checked_baudrate_failure,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_init_sets_od_length_from_m_sequence_type, reset_fake_phy),
         cmocka_unit_test_setup(test_init_deactivated_port_sets_inactive_phy_and_does_not_send,

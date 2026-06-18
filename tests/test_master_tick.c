@@ -256,6 +256,26 @@ static void test_next_tick_time_prefers_response_deadline_before_cycle_due(void*
     assert_int_equal(next_due, 120U);
 }
 
+static void test_response_timeout_config_sets_deadline_before_cycle_due(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+    uint32_t next_due = 0U;
+
+    (void)state;
+
+    config.response_timeout_100us = 3U;
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &config), 0);
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U), 0);
+    assert_true(iolink_master_port_state(&port)->awaiting_response);
+    assert_int_equal(iolink_master_port_state(&port)->response_deadline_100us, 103U);
+    assert_int_equal(iolink_master_get_next_tick_time(&port, 101U, &next_due), 0);
+    assert_int_equal(next_due, 103U);
+}
+
 static void test_tick_at_counts_late_cycle_slips(void** state)
 {
     iolink_master_port_t port;
@@ -338,6 +358,8 @@ int main(void)
         cmocka_unit_test_setup(test_tick_at_paces_operate_cycles_by_min_cycle_time,
                                reset_fixture),
         cmocka_unit_test_setup(test_next_tick_time_prefers_response_deadline_before_cycle_due,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_response_timeout_config_sets_deadline_before_cycle_due,
                                reset_fixture),
         cmocka_unit_test_setup(test_tick_at_counts_late_cycle_slips, reset_fixture),
         cmocka_unit_test_setup(test_tick_at_tracks_cycle_jitter_diagnostics,

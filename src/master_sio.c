@@ -40,12 +40,14 @@ int iolink_master_get_di(const iolink_master_port_t* port, bool* level)
         return IOLINK_MASTER_SIO_ERR_WRONG_MODE;
     }
 
-    if(state->config.read_cq_line == NULL)
+    if((state->config.read_cq_line_checked == NULL) && (state->config.read_cq_line == NULL))
     {
         return IOLINK_MASTER_SIO_ERR_UNSUPPORTED_PHY;
     }
 
-    cq_level = state->config.read_cq_line();
+    cq_level = (state->config.read_cq_line_checked != NULL)
+                   ? state->config.read_cq_line_checked()
+                   : state->config.read_cq_line();
     if(cq_level < 0)
     {
         return IOLINK_MASTER_SIO_ERR_UNSUPPORTED_PHY;

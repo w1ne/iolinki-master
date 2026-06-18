@@ -29,7 +29,7 @@ Status definitions:
 | Diagnostics | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_port.c`](../src/master_port.c), [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c) | Add event detail and link-quality metrics. |
 | Multi-port controller | Partial | [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`examples/master_4port_controller_demo.c`](../examples/master_4port_controller_demo.c) | Define scheduler ownership and port-level runtime policy. |
 | SIO DI/DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_sio_public.c`](../tests/test_master_sio_public.c) | Validate SIO and mode transitions against real adapters. |
-| Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`tests/test_master_public_flow.c`](../tests/test_master_public_flow.c) | Define the full scheduler ownership model and validate timing against hardware. |
+| Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`tests/test_master_public_flow.c`](../tests/test_master_public_flow.c) | Validate timing against hardware captures. |
 | Events | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Validate event flows against real devices. |
 | Data Storage | Implemented | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c), [`tests/test_master_fake_device.c`](../tests/test_master_fake_device.c) | Validate Data Storage restore flows against real devices. |
 | Block parameterization | Implemented | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Validate block flows against real devices. |
@@ -51,6 +51,7 @@ and gap detail.
 - [x] Public opaque storage-size rationale and budget checks.
 - [x] Private master state under `src/`.
 - [x] Port lifecycle states: inactive, startup, preoperate, operate, error.
+- [x] Fallible checked mode and baudrate adapter hooks for strict hardware validation.
 - [x] Startup wake-up, Type 0 idle, transition command, and operate entry.
 - [x] Fixed-baudrate startup.
 - [x] Auto-baudrate scan across COM3/COM2/COM1.
@@ -83,6 +84,7 @@ and gap detail.
 - [x] Multi-port controller init/tick helper.
 - [x] Event-driven tick dispatch for none, cycle-due, and response-timeout events.
 - [x] Scheduler-visible pending retry result for response-timeout ticks.
+- [x] Separate configured response timeout from min-cycle pacing.
 - [x] Port-level `min_cycle_time` pacing with fake monotonic 100us ticks.
 - [x] Public scheduler-visible timing snapshot API.
 - [x] Per-port controller tick events.
@@ -92,6 +94,7 @@ and gap detail.
 - [x] 1-port loopback and 4-port mixed-controller runnable examples.
 - [x] SIO DQ output through `set_cq_line`.
 - [x] SIO DI input through configured `read_cq_line`.
+- [x] SIO DI checked C/Q reader for strict hardware validation.
 - [x] Dynamic SIO/IO-Link/deactivated mode transitions.
 - [x] Public header compile test.
 - [x] Public black-box startup/process-data flow test.
