@@ -77,6 +77,7 @@ and gap detail.
 - [x] Cycle-slip counter in public diagnostics.
 - [x] Last/max cycle-jitter diagnostics in 100us units.
 - [x] Last service-level result code in public diagnostics.
+- [x] Last event count/code diagnostics from event services.
 - [x] Last ISDU service error in public diagnostics.
 - [x] Multi-port controller init/tick helper.
 - [x] Event-driven tick dispatch for none, cycle-due, and response-timeout events.
@@ -111,7 +112,7 @@ and gap detail.
 ### In Progress
 
 - [ ] Complete M-sequence variant coverage.
-- [ ] Add event detail and link-quality metrics to diagnostics.
+- [ ] Add link-quality metrics to diagnostics.
 - [ ] Add clearer multi-port runtime policy.
 
 ### Not Started

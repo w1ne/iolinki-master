@@ -120,6 +120,8 @@ typedef struct
     uint32_t last_cycle_jitter_100us;
     uint32_t max_cycle_jitter_100us;
     int last_service_result;
+    uint8_t last_event_count;
+    uint16_t last_event_code;
     uint8_t last_isdu_error;
 } iolink_master_diagnostics_t;
 

@@ -176,6 +176,7 @@ static void test_fake_device_exposes_event_pending_status(void** state)
 static void test_fake_device_serves_event_details(void** state)
 {
     iolink_master_port_t port;
+    iolink_master_diagnostics_t diagnostics;
     iolink_master_event_t events[1];
     uint8_t count = 0U;
     const uint8_t details[] = {0xE2U, 0x42U, 0x10U};
@@ -209,6 +210,9 @@ static void test_fake_device_serves_event_details(void** state)
     assert_int_equal(events[0].qualifier, 0xE2U);
     assert_int_equal(events[0].type, IOLINK_MASTER_EVENT_TYPE_WARNING);
     assert_int_equal(events[0].code, 0x4210U);
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_int_equal(diagnostics.last_event_count, 1U);
+    assert_int_equal(diagnostics.last_event_code, 0x4210U);
 }
 
 static void test_fake_device_ack_event_reads_event_code(void** state)
@@ -245,6 +249,8 @@ static void test_fake_device_ack_event_reads_event_code(void** state)
 
     assert_int_equal(iolink_master_ack_event(&port, &event_code), IOLINK_MASTER_STATUS_OK);
     assert_int_equal(event_code, 0x1803U);
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_int_equal(diagnostics.last_event_code, 0x1803U);
 }
 
 static void test_fake_device_serves_isdu_object_dictionary_read(void** state)

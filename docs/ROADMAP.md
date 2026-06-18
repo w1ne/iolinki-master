@@ -111,6 +111,7 @@ Required direction:
 - [x] track response timeout counts in public diagnostics
 - [x] track cycle-slip counts in public diagnostics
 - [x] track jitter diagnostics
+- [x] track last event count/code diagnostics from event services
 
 This should be the next major architecture slice after the docs checkpoint.
 
@@ -175,6 +176,7 @@ Required direction:
 - [x] add block parameterization download/upload/store system-command helpers
 - [x] add block parameterization readback verification
 - [x] add service-level diagnostics and result codes
+- [x] expose event service result details in diagnostics
 
 ### 8. Hardware Validation and Conformance
 

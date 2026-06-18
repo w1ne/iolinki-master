@@ -478,6 +478,7 @@ int iolink_master_read_event_code(iolink_master_port_t* port, uint16_t* event_co
     }
 
     *event_code = (uint16_t)(((uint16_t)data[0] << 8U) | data[1]);
+    iolink_master_port_state(port)->diagnostics.last_event_code = *event_code;
     return IOLINK_MASTER_STATUS_OK;
 }
 
@@ -530,6 +531,8 @@ int iolink_master_read_event_details(iolink_master_port_t* port,
 
     count = (uint8_t)(len / 3U);
     *out_count = count;
+    iolink_master_port_state(port)->diagnostics.last_event_count = count;
+    iolink_master_port_state(port)->diagnostics.last_event_code = 0U;
     if(max_events < count)
     {
         return IOLINK_MASTER_ERR_BUFFER_TOO_SMALL;
@@ -541,6 +544,10 @@ int iolink_master_read_event_details(iolink_master_port_t* port,
         events[i].type = iolink_master_event_type_from_qualifier(events[i].qualifier);
         events[i].code = (uint16_t)(((uint16_t)data[(i * 3U) + 1U] << 8U) |
                                     data[(i * 3U) + 2U]);
+    }
+    if(count > 0U)
+    {
+        iolink_master_port_state(port)->diagnostics.last_event_code = events[count - 1U].code;
     }
 
     return IOLINK_MASTER_STATUS_OK;
