@@ -125,6 +125,42 @@ static void test_fake_device_serves_event_details(void** state)
     assert_int_equal(events[0].code, 0x4210U);
 }
 
+static void test_fake_device_ack_event_reads_event_code(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_diagnostics_t diagnostics;
+    uint16_t event_code = 0U;
+    uint8_t i;
+
+    (void)state;
+
+    fake_iolink_device_set_event_pending(true);
+    fake_iolink_device_set_event_code(0x1803U);
+
+    assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &g_config), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_true(diagnostics.event_pending);
+
+    assert_int_equal(iolink_master_ack_event(&port, &event_code), IOLINK_MASTER_STATUS_PENDING);
+
+    for(i = 0U; i < 11U; i++)
+    {
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    }
+
+    assert_int_equal(iolink_master_ack_event(&port, &event_code), IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(event_code, 0x1803U);
+}
+
 static void test_fake_device_serves_isdu_object_dictionary_read(void** state)
 {
     iolink_master_port_t port;
@@ -402,6 +438,8 @@ int main(void)
         cmocka_unit_test_setup(test_fake_device_exposes_event_pending_status,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_serves_event_details,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_fake_device_ack_event_reads_event_code,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_serves_isdu_object_dictionary_read,
                                reset_fixture),

@@ -54,7 +54,7 @@ still intentionally small.
 - [x] fake-device ISDU write/readback path
 - [x] fake-device event-pending OD status injection
 - [x] fake-device event-detail injection
-- [ ] fake-device event ack tests
+- [x] fake-device event ack tests
 - [x] fake-device Data Storage behavior
 - [ ] line-noise, bad CRC, dropped byte, and timeout injection
 - [ ] long-running soak tests

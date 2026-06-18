@@ -95,6 +95,7 @@ and gap detail.
 - [x] Multi-object fake-device ISDU dictionary.
 - [x] Fake-device event-pending OD status injection.
 - [x] Fake-device event-detail ISDU injection.
+- [x] Fake-device event ack/code read path.
 - [x] Fake-device ISDU write/readback path.
 - [x] Fake-device Data Storage write/readback verification path.
 

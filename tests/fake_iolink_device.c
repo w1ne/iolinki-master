@@ -374,6 +374,15 @@ void fake_iolink_device_set_event_pending(bool pending)
     g_device.event_pending = pending;
 }
 
+void fake_iolink_device_set_event_code(uint16_t event_code)
+{
+    uint8_t data[2];
+
+    data[0] = (uint8_t)(event_code >> 8);
+    data[1] = (uint8_t)(event_code & 0xFFU);
+    fake_iolink_device_set_isdu_object(IOLINK_IDX_SYSTEM_COMMAND, 0U, data, sizeof(data));
+}
+
 const iolink_phy_api_t* fake_iolink_device_phy(void)
 {
     return &g_phy;
