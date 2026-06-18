@@ -33,6 +33,9 @@ static uint8_t iolink_master_mseq_capability_code(iolink_master_m_seq_type_t typ
 }
 
 static bool iolink_master_mseq_type_from_capability_code(uint8_t code,
+                                                         bool isdu_supported,
+                                                         uint8_t pd_in_len,
+                                                         uint8_t pd_out_len,
                                                          iolink_master_m_seq_type_t* type)
 {
     if(type == NULL)
@@ -43,7 +46,18 @@ static bool iolink_master_mseq_type_from_capability_code(uint8_t code,
     switch(code)
     {
     case 0U:
-        *type = IOLINK_MASTER_M_SEQ_TYPE_0;
+        if((pd_in_len == 0U) && (pd_out_len == 0U))
+        {
+            *type = IOLINK_MASTER_M_SEQ_TYPE_0;
+        }
+        else if(isdu_supported)
+        {
+            *type = IOLINK_MASTER_M_SEQ_TYPE_2_2;
+        }
+        else
+        {
+            *type = IOLINK_MASTER_M_SEQ_TYPE_2_1;
+        }
         return true;
     case 1U:
         *type = IOLINK_MASTER_M_SEQ_TYPE_1_1;
@@ -187,7 +201,11 @@ int iolink_master_select_config_from_device_info(const iolink_master_device_info
         return IOLINK_MASTER_STATUS_PENDING;
     }
 
-    if(!iolink_master_mseq_type_from_capability_code(info->operate_mseq_code, &m_seq_type))
+    if(!iolink_master_mseq_type_from_capability_code(info->operate_mseq_code,
+                                                     info->isdu_supported,
+                                                     info->pd_in_len,
+                                                     info->pd_out_len,
+                                                     &m_seq_type))
     {
         return IOLINK_MASTER_PARAM_ERR_M_SEQUENCE;
     }

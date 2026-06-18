@@ -67,6 +67,7 @@ and gap detail.
 - [x] Detailed Device Status read wrapper.
 - [x] Direct Parameter Page 1 parse/apply/get/validate.
 - [x] Initial capability-driven config selection from Direct Parameter Page 1.
+- [x] Fixed Type 2 capability selection for code-0 Direct Parameter profiles.
 - [x] Public requested-config validation against Direct Parameter Page 1.
 - [x] Optional startup device-info validation.
 - [x] Basic diagnostics API.

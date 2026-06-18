@@ -217,6 +217,41 @@ static void test_select_config_from_device_info_applies_capability_profile(void*
     assert_int_equal(config.m_seq_type, IOLINK_MASTER_M_SEQ_TYPE_2_V);
 }
 
+static void test_select_config_from_device_info_maps_fixed_type2_profiles(void** state)
+{
+    uint8_t page[16];
+    iolink_master_device_info_t info;
+    iolink_master_config_t config = {
+        .port_mode = IOLINK_MASTER_PORT_MODE_IOLINK,
+        .baudrate = IOLINK_BAUDRATE_COM3,
+    };
+
+    (void)state;
+
+    memcpy(page, g_page1, sizeof(page));
+    page[0x03] = 0x00U; /* No ISDU, operate M-sequence code 0. */
+    page[0x05] = 0x10U;
+    page[0x06] = 0x10U;
+    assert_int_equal(iolink_master_parse_direct_parameter_page1(page, sizeof(page), &info),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_select_config_from_device_info(&info, &config),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(config.m_seq_type, IOLINK_MASTER_M_SEQ_TYPE_2_1);
+    assert_int_equal(config.pd_in_len, 2U);
+    assert_int_equal(config.pd_out_len, 2U);
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_STATUS_OK);
+
+    page[0x03] = 0x01U; /* ISDU supported, operate M-sequence code 0. */
+    assert_int_equal(iolink_master_parse_direct_parameter_page1(page, sizeof(page), &info),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_select_config_from_device_info(&info, &config),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(config.m_seq_type, IOLINK_MASTER_M_SEQ_TYPE_2_2);
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_STATUS_OK);
+}
+
 static void test_validate_config_against_device_info_rejects_incompatible_request(void** state)
 {
     iolink_master_device_info_t info;
@@ -278,6 +313,7 @@ int main(void)
         cmocka_unit_test(test_validate_device_info_rejects_missing_or_invalid_info),
         cmocka_unit_test(test_validate_device_info_rejects_incompatible_cycle_pd_and_mseq),
         cmocka_unit_test(test_select_config_from_device_info_applies_capability_profile),
+        cmocka_unit_test(test_select_config_from_device_info_maps_fixed_type2_profiles),
         cmocka_unit_test(test_validate_config_against_device_info_rejects_incompatible_request),
         cmocka_unit_test(test_select_config_from_device_info_rejects_invalid_inputs),
     };

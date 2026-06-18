@@ -77,6 +77,7 @@ Implemented locally:
 Still missing:
 
 - [x] initial capability-driven M-sequence and PD-size selection
+- [x] fixed Type 2 selection for code-0 Direct Parameter profiles
 - [ ] full M-sequence variant coverage
 - [x] initial event-code read wrapper
 - [x] event detail decode wrapper
@@ -236,6 +237,7 @@ configuration:
 
 - [x] parse Direct Parameter Page 1 capability data
 - [x] select compatible M-sequence and PD sizes for currently mapped capability codes
+- [x] map code-0 profiles with process data to fixed Type 2 variants
 - [x] validate requested configuration against the device capability profile
 - [x] fail with named result codes when no compatible mode exists
 
