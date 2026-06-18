@@ -209,6 +209,9 @@ int iolink_master_get_device_info(const iolink_master_port_t* port,
                                   iolink_master_device_info_t* info);
 /* Returns OK, PENDING, INVALID_ARG, or a PARAM validation error. */
 int iolink_master_validate_device_info(const iolink_master_port_t* port);
+/* Returns OK, PENDING, INVALID_ARG, or PARAM_M_SEQUENCE for unsupported capabilities. */
+int iolink_master_select_config_from_device_info(const iolink_master_device_info_t* info,
+                                                 iolink_master_config_t* config);
 /* Returns OK, INVALID_ARG, or BUFFER_TOO_SMALL when len does not match configured PD out. */
 int iolink_master_set_pd_out(iolink_master_port_t* port, const uint8_t* data, uint8_t len);
 /* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */

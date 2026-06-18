@@ -20,11 +20,11 @@ Status definitions:
 | Opaque storage/private state | Implemented | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_internal.h`](../src/master_internal.h) | Tune the public storage sizes once the private state stops moving quickly. |
 | Port lifecycle | Implemented | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Add a public lifecycle example for downstream users. |
 | Startup and baudrate scan | Implemented | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Validate timing and retries against real hardware. |
-| M-sequence handling | Partial | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Add device-capability negotiation and full variant coverage. |
+| M-sequence handling | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_parameters.c`](../src/master_parameters.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_parameters.c`](../tests/test_master_parameters.c) | Expand capability mapping to full variant coverage. |
 | Cyclic process data | Implemented | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_public_flow.c`](../tests/test_master_public_flow.c) | Add more black-box coverage for configured PD sizes and invalid user buffers. |
 | RX path and retries | Implemented | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c) | Add line-noise and long-running soak tests with a real PHY. |
 | ISDU read/write | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Verify behavior against real devices. |
-| Direct Parameter Page 1 | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`tests/test_master_parameters.c`](../tests/test_master_parameters.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c) | Use parsed capability data for automatic master configuration. |
+| Direct Parameter Page 1 | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`tests/test_master_parameters.c`](../tests/test_master_parameters.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c) | Expand automatic configuration once full M-sequence coverage exists. |
 | Startup device validation | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Expand validation once automatic negotiation exists. |
 | Diagnostics | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c) | Add event detail, link-quality metrics, and stable public error taxonomy. |
 | Multi-port controller | Partial | [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`examples/master_4port_controller_demo.c`](../examples/master_4port_controller_demo.c) | Define scheduler ownership and port-level runtime policy. |
@@ -58,6 +58,7 @@ and gap detail.
 - [x] RX accumulation, checksum handling, and retry tracking.
 - [x] ISDU read/write transfer in local tests.
 - [x] Direct Parameter Page 1 parse/apply/get/validate.
+- [x] Initial capability-driven config selection from Direct Parameter Page 1.
 - [x] Optional startup device-info validation.
 - [x] Basic diagnostics API.
 - [x] Response timeout counter in public diagnostics.
@@ -89,7 +90,7 @@ and gap detail.
 - [ ] Full scheduler/timing model.
 - [ ] Capability-matrix fake devices.
 - [ ] Fake-device ISDU object dictionary.
-- [ ] Capability-driven M-sequence and PD-size selection.
+- [x] Capability-driven M-sequence and PD-size selection for currently mapped codes.
 - [x] DI input API/PHY support.
 - [x] Dynamic SIO/IO-Link mode transitions.
 - [ ] Event read/ack and event-detail decoding.

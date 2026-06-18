@@ -73,7 +73,7 @@ Implemented locally:
 
 Still missing:
 
-- [ ] capability-driven M-sequence selection
+- [x] initial capability-driven M-sequence and PD-size selection
 - [ ] full M-sequence variant coverage
 - [ ] complete event read/ack flow
 - [ ] Data Storage / parameter server behavior
@@ -216,7 +216,7 @@ Use device information to configure the master instead of relying only on caller
 configuration:
 
 - [x] parse Direct Parameter Page 1 capability data
-- [ ] select compatible M-sequence and PD sizes
+- [x] select compatible M-sequence and PD sizes for currently mapped capability codes
 - [ ] validate requested configuration against the device capability profile
 - [ ] fail with named diagnostics when no compatible mode exists
 

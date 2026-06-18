@@ -191,6 +191,52 @@ static void test_validate_device_info_rejects_incompatible_cycle_pd_and_mseq(voi
     assert_int_equal(iolink_master_validate_device_info(&port), -5);
 }
 
+static void test_select_config_from_device_info_applies_capability_profile(void** state)
+{
+    iolink_master_device_info_t info;
+    iolink_master_config_t config = {
+        .port_mode = IOLINK_MASTER_PORT_MODE_IOLINK,
+        .baudrate = IOLINK_BAUDRATE_COM2,
+        .auto_baudrate = true,
+        .validate_device_info = true,
+    };
+
+    (void)state;
+
+    assert_int_equal(iolink_master_parse_direct_parameter_page1(g_page1, sizeof(g_page1), &info),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_select_config_from_device_info(&info, &config),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(config.port_mode, IOLINK_MASTER_PORT_MODE_IOLINK);
+    assert_int_equal(config.baudrate, IOLINK_BAUDRATE_COM2);
+    assert_true(config.auto_baudrate);
+    assert_true(config.validate_device_info);
+    assert_int_equal(config.min_cycle_time, 0x0AU);
+    assert_int_equal(config.pd_in_len, 2U);
+    assert_int_equal(config.pd_out_len, 4U);
+    assert_int_equal(config.m_seq_type, IOLINK_MASTER_M_SEQ_TYPE_2_V);
+}
+
+static void test_select_config_from_device_info_rejects_invalid_inputs(void** state)
+{
+    iolink_master_device_info_t info = {0};
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_select_config_from_device_info(NULL, &config),
+                     IOLINK_MASTER_ERR_INVALID_ARG);
+    assert_int_equal(iolink_master_select_config_from_device_info(&info, NULL),
+                     IOLINK_MASTER_ERR_INVALID_ARG);
+    assert_int_equal(iolink_master_select_config_from_device_info(&info, &config),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    info.valid = true;
+    info.operate_mseq_code = 7U;
+    assert_int_equal(iolink_master_select_config_from_device_info(&info, &config),
+                     IOLINK_MASTER_PARAM_ERR_M_SEQUENCE);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -202,6 +248,8 @@ int main(void)
         cmocka_unit_test(test_validate_device_info_accepts_matching_configuration),
         cmocka_unit_test(test_validate_device_info_rejects_missing_or_invalid_info),
         cmocka_unit_test(test_validate_device_info_rejects_incompatible_cycle_pd_and_mseq),
+        cmocka_unit_test(test_select_config_from_device_info_applies_capability_profile),
+        cmocka_unit_test(test_select_config_from_device_info_rejects_invalid_inputs),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

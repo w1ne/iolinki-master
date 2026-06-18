@@ -32,6 +32,30 @@ static uint8_t iolink_master_mseq_capability_code(iolink_master_m_seq_type_t typ
     }
 }
 
+static bool iolink_master_mseq_type_from_capability_code(uint8_t code,
+                                                         iolink_master_m_seq_type_t* type)
+{
+    if(type == NULL)
+    {
+        return false;
+    }
+
+    switch(code)
+    {
+    case 0U:
+        *type = IOLINK_MASTER_M_SEQ_TYPE_0;
+        return true;
+    case 1U:
+        *type = IOLINK_MASTER_M_SEQ_TYPE_1_1;
+        return true;
+    case 5U:
+        *type = IOLINK_MASTER_M_SEQ_TYPE_2_V;
+        return true;
+    default:
+        return false;
+    }
+}
+
 int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
                                                uint8_t len,
                                                iolink_master_device_info_t* info)
@@ -136,6 +160,34 @@ int iolink_master_validate_device_info(const iolink_master_port_t* port)
     {
         return IOLINK_MASTER_PARAM_ERR_M_SEQUENCE;
     }
+
+    return IOLINK_MASTER_STATUS_OK;
+}
+
+int iolink_master_select_config_from_device_info(const iolink_master_device_info_t* info,
+                                                 iolink_master_config_t* config)
+{
+    iolink_master_m_seq_type_t m_seq_type;
+
+    if((info == NULL) || (config == NULL))
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    if(!info->valid)
+    {
+        return IOLINK_MASTER_STATUS_PENDING;
+    }
+
+    if(!iolink_master_mseq_type_from_capability_code(info->operate_mseq_code, &m_seq_type))
+    {
+        return IOLINK_MASTER_PARAM_ERR_M_SEQUENCE;
+    }
+
+    config->m_seq_type = m_seq_type;
+    config->min_cycle_time = info->min_cycle_time;
+    config->pd_in_len = info->pd_in_len;
+    config->pd_out_len = info->pd_out_len;
 
     return IOLINK_MASTER_STATUS_OK;
 }
