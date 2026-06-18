@@ -29,5 +29,15 @@ int main(void)
         return 2;
     }
 
+    if(IOLINK_MASTER_PORT_STORAGE_SIZE > IOLINK_MASTER_PORT_STORAGE_BUDGET_SIZE)
+    {
+        return 3;
+    }
+
+    if(IOLINK_MASTER_CONTROLLER_STORAGE_SIZE > IOLINK_MASTER_CONTROLLER_STORAGE_BUDGET_SIZE)
+    {
+        return 4;
+    }
+
     return 0;
 }

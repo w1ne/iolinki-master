@@ -16,7 +16,7 @@ Status definitions:
 | Area | Status | Evidence | Remaining Gap |
 | --- | --- | --- | --- |
 | Repository boundary | Implemented | [`CMakeLists.txt`](../CMakeLists.txt), [`README.md`](../README.md) | Keep avoiding full device-stack linkage as new shared helpers are needed. |
-| Public API shape | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`tests/test_master_public_header.c`](../tests/test_master_public_header.c) | Tune storage-size rationale and add more black-box tests that avoid private state. |
+| Public API shape | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`tests/test_master_public_header.c`](../tests/test_master_public_header.c) | Add more black-box tests that avoid private state. |
 | Opaque storage/private state | Implemented | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_internal.h`](../src/master_internal.h) | Tune the public storage sizes once the private state stops moving quickly. |
 | Port lifecycle | Implemented | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Add a public lifecycle example for downstream users. |
 | Startup and baudrate scan | Implemented | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Validate timing and retries against real hardware. |
@@ -48,6 +48,7 @@ and gap detail.
 - [x] Compile only narrow shared helper sources from the local `iolinki` checkout.
 - [x] Public opaque caller-owned port/controller storage.
 - [x] Public named result codes and documented function return contracts.
+- [x] Public opaque storage-size rationale and budget checks.
 - [x] Private master state under `src/`.
 - [x] Port lifecycle states: inactive, startup, preoperate, operate, error.
 - [x] Startup wake-up, Type 0 idle, transition command, and operate entry.

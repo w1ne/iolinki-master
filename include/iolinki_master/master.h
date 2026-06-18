@@ -126,6 +126,14 @@ typedef struct
     uint32_t device_id;
 } iolink_master_device_info_t;
 
+/*
+ * Opaque storage budgets keep the public ABI caller-owned and heap-free while
+ * giving embedded users a fixed RAM ceiling to audit. Port storage carries the
+ * protocol buffers and service state; controller storage only tracks a port
+ * array reference plus port count.
+ */
+#define IOLINK_MASTER_PORT_STORAGE_BUDGET_SIZE 1024U
+#define IOLINK_MASTER_CONTROLLER_STORAGE_BUDGET_SIZE 32U
 #define IOLINK_MASTER_PORT_STORAGE_SIZE 1024U
 #define IOLINK_MASTER_CONTROLLER_STORAGE_SIZE 32U
 

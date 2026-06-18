@@ -47,7 +47,7 @@ Still missing:
 
 - [x] named public result codes instead of magic integer returns
 - [x] documented return contract for every function
-- [ ] storage-size rationale and size-budget tests
+- [x] storage-size rationale and size-budget tests
 - [ ] more black-box tests that avoid reaching into `src/master_internal.h`
 
 This layer matters because every later feature becomes harder to change once
