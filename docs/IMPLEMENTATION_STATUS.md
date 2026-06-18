@@ -76,6 +76,7 @@ and gap detail.
 - [x] Response timeout counter in public diagnostics.
 - [x] Cycle-slip counter in public diagnostics.
 - [x] Last/max cycle-jitter diagnostics in 100us units.
+- [x] Last service-level result code in public diagnostics.
 - [x] Last ISDU service error in public diagnostics.
 - [x] Multi-port controller init/tick helper.
 - [x] Event-driven tick dispatch for none, cycle-due, and response-timeout events.

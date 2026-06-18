@@ -174,7 +174,7 @@ Required direction:
 - [x] add Data Storage restore sequencing wrapper
 - [x] add block parameterization download/upload/store system-command helpers
 - [x] add block parameterization readback verification
-- [ ] add service-level diagnostics and result codes
+- [x] add service-level diagnostics and result codes
 
 ### 8. Hardware Validation and Conformance
 

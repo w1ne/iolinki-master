@@ -464,6 +464,7 @@ static void test_public_parameter_upload_and_store_helpers_write_system_commands
 static void test_public_parameter_block_write_sequences_commands_and_readback(void** state)
 {
     iolink_master_port_t port;
+    iolink_master_diagnostics_t diagnostics;
     const uint8_t value[] = {0x12U, 0x34U};
 
     (void)state;
@@ -557,11 +558,14 @@ static void test_public_parameter_block_write_sequences_commands_and_readback(vo
                                                         value,
                                                         sizeof(value)),
                      IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_int_equal(diagnostics.last_service_result, IOLINK_MASTER_STATUS_OK);
 }
 
 static void test_public_parameter_block_write_reports_readback_mismatch(void** state)
 {
     iolink_master_port_t port;
+    iolink_master_diagnostics_t diagnostics;
     const uint8_t value[] = {0x12U, 0x34U};
 
     (void)state;
@@ -658,6 +662,9 @@ static void test_public_parameter_block_write_reports_readback_mismatch(void** s
                                                         0x01U,
                                                         value,
                                                         sizeof(value)),
+                     IOLINK_MASTER_ISDU_ERR_VERIFY_FAILED);
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_int_equal(diagnostics.last_service_result,
                      IOLINK_MASTER_ISDU_ERR_VERIFY_FAILED);
 
     assert_int_equal(iolink_master_write_parameter_block(&port,
