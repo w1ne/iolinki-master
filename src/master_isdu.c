@@ -395,6 +395,13 @@ int iolink_master_write_data_storage(iolink_master_port_t* port,
     return iolink_master_write_isdu(port, IOLINK_IDX_DATA_STORAGE, 0U, data, len);
 }
 
+int iolink_master_restore_data_storage(iolink_master_port_t* port,
+                                       const uint8_t* data,
+                                       uint8_t len)
+{
+    return iolink_master_write_parameter_block(port, IOLINK_IDX_DATA_STORAGE, 0U, data, len);
+}
+
 int iolink_master_verify_isdu(iolink_master_port_t* port,
                               uint16_t index,
                               uint8_t subindex,

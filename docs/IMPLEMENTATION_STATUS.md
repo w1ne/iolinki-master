@@ -31,7 +31,7 @@ Status definitions:
 | SIO DI/DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_sio_public.c`](../tests/test_master_sio_public.c) | Validate SIO and mode transitions against real adapters. |
 | Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`tests/test_master_public_flow.c`](../tests/test_master_public_flow.c) | Define the full scheduler ownership model and validate timing against hardware. |
 | Events | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Validate event flows against real devices. |
-| Data Storage | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Add master-side parameter-server restore sequencing. |
+| Data Storage | Implemented | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c), [`tests/test_master_fake_device.c`](../tests/test_master_fake_device.c) | Validate Data Storage restore flows against real devices. |
 | Block parameterization | Implemented | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Validate block flows against real devices. |
 | Hardware PHY adapters | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) consumes the dependency PHY contract | Add real master-port hardware adapters outside the protocol core. |
 | Conformance | Open | Local tests only | Run official IO-Link master conformance testing. |
@@ -59,6 +59,7 @@ and gap detail.
 - [x] ISDU read/write transfer in local tests.
 - [x] Data Storage ISDU read/write wrappers.
 - [x] Data Storage readback verification wrapper.
+- [x] Data Storage restore sequencing wrapper.
 - [x] Event-code ISDU read wrapper.
 - [x] Detailed Device Status event-detail decode wrapper.
 - [x] Explicit event ack wrapper.
@@ -120,7 +121,7 @@ and gap detail.
 - [x] Requested configuration validation against device capability profile.
 - [x] DI input API/PHY support.
 - [x] Dynamic SIO/IO-Link mode transitions.
-- [ ] Data Storage parameter-server restore sequencing.
+- [x] Data Storage parameter-server restore sequencing.
 - [x] Full block parameterization readback sequencing policy.
 - [ ] Expand fake-device harness into a conformance-style matrix.
 - [ ] Real hardware PHY adapter.

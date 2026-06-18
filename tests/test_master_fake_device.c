@@ -374,6 +374,54 @@ static void test_fake_device_verifies_written_data_storage(void** state)
                      IOLINK_MASTER_STATUS_OK);
 }
 
+static void test_fake_device_restores_data_storage_block(void** state)
+{
+    iolink_master_port_t port;
+    const uint8_t initial_value[] = {0xAAU, 0x55U};
+    const uint8_t restored_value[] = {0x21U, 0x43U, 0x65U};
+    int ret;
+    uint8_t i;
+
+    (void)state;
+
+    fake_iolink_device_set_data_storage(initial_value, sizeof(initial_value));
+
+    assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &g_config), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+    ret = iolink_master_restore_data_storage(&port, restored_value, sizeof(restored_value));
+    assert_int_equal(ret, IOLINK_MASTER_STATUS_PENDING);
+
+    for(i = 0U; i < 96U; i++)
+    {
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+        (void)iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE);
+        ret = iolink_master_restore_data_storage(&port, restored_value, sizeof(restored_value));
+        if(ret == IOLINK_MASTER_STATUS_OK)
+        {
+            break;
+        }
+        assert_int_equal(ret, IOLINK_MASTER_STATUS_PENDING);
+    }
+
+    assert_int_equal(ret, IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_verify_data_storage(&port, restored_value, sizeof(restored_value)),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    for(i = 0U; i < 24U; i++)
+    {
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    }
+
+    assert_int_equal(iolink_master_verify_data_storage(&port, restored_value, sizeof(restored_value)),
+                     IOLINK_MASTER_STATUS_OK);
+}
+
 static void test_fake_device_serves_startup_device_validation_page(void** state)
 {
     iolink_master_port_t port;
@@ -538,6 +586,8 @@ int main(void)
         cmocka_unit_test_setup(test_fake_device_accepts_isdu_object_dictionary_write,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_verifies_written_data_storage,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_fake_device_restores_data_storage_block,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_serves_startup_device_validation_page,
                                reset_fixture),

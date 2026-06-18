@@ -85,7 +85,7 @@ Still missing:
 - [x] initial Data Storage ISDU read/write wrappers
 - [x] Data Storage readback verification wrapper
 - [x] initial block-parameterization system-command helpers
-- [ ] Data Storage parameter-server restore sequencing
+- [x] Data Storage parameter-server restore sequencing
 - [x] ISDU readback verification helper
 - [x] full block parameterization readback sequencing policy
 - [ ] protocol behavior validated against real devices
@@ -171,6 +171,7 @@ Required direction:
 - [x] add event detail decoding
 - [x] add explicit event ack wrapper
 - [x] add Data Storage service wrappers
+- [x] add Data Storage restore sequencing wrapper
 - [x] add block parameterization download/upload/store system-command helpers
 - [x] add block parameterization readback verification
 - [ ] add service-level diagnostics and result codes
@@ -252,6 +253,7 @@ Add services above the cyclic transport:
 - [ ] event read/ack
 - [x] Data Storage ISDU read/write wrappers
 - [x] Data Storage readback verification wrapper
+- [x] Data Storage restore sequencing wrapper
 - [x] block parameterization download/upload/store system-command helpers
 - [x] parameter readback verification helper
 - [x] full block write/readback sequencing policy

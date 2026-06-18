@@ -268,6 +268,10 @@ int iolink_master_read_data_storage(iolink_master_port_t* port,
 int iolink_master_write_data_storage(iolink_master_port_t* port,
                                      const uint8_t* data,
                                      uint8_t len);
+/* Returns OK after Data Storage download, write, end, and readback verification complete. */
+int iolink_master_restore_data_storage(iolink_master_port_t* port,
+                                       const uint8_t* data,
+                                       uint8_t len);
 /* Returns OK when readback matches, PENDING while active, INVALID_ARG, VERIFY_FAILED, or an ISDU error. */
 int iolink_master_verify_isdu(iolink_master_port_t* port,
                               uint16_t index,
