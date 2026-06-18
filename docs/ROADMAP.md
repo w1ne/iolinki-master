@@ -269,7 +269,7 @@ Add hardware adapters and validate against real devices before calling this a
 real master stack.
 
 - [x] define first fake-device PHY harness
-- [ ] expand fake-device harness into a conformance-style matrix
+- [x] expand fake-device harness into a conformance-style matrix
 - [ ] add first hardware PHY adapter
 - [ ] test one known sensor
 - [ ] test one known actuator

@@ -63,6 +63,55 @@ static void test_fake_device_drives_startup_and_paced_pd_cycle(void** state)
     assert_int_equal(fake_iolink_device_operate_cycle_count(), 2U);
 }
 
+static void test_fake_device_conformance_matrix_nominal_profiles(void** state)
+{
+    static const struct
+    {
+        iolink_master_m_seq_type_t m_seq_type;
+        uint8_t pd_in_len;
+        uint8_t pd_out_len;
+        uint8_t od_len;
+        uint8_t pd_value;
+    } cases[] = {
+        {IOLINK_MASTER_M_SEQ_TYPE_1_1, 1U, 0U, 1U, 0x11U},
+        {IOLINK_MASTER_M_SEQ_TYPE_1_2, 2U, 1U, 1U, 0x22U},
+        {IOLINK_MASTER_M_SEQ_TYPE_2_2, 2U, 2U, 2U, 0x33U},
+        {IOLINK_MASTER_M_SEQ_TYPE_2_V, 4U, 3U, 4U, 0x44U},
+    };
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+    uint8_t pd[4] = {0U};
+    uint8_t len = 0U;
+    size_t i;
+    uint8_t j;
+
+    (void)state;
+
+    for(i = 0U; i < (sizeof(cases) / sizeof(cases[0])); i++)
+    {
+        fake_iolink_device_reset(cases[i].pd_value, cases[i].pd_in_len, cases[i].od_len);
+        config.m_seq_type = cases[i].m_seq_type;
+        config.pd_in_len = cases[i].pd_in_len;
+        config.pd_out_len = cases[i].pd_out_len;
+
+        assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &config), 0);
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+        assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+        assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U), 0);
+        assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_NONE, 101U), 1);
+        assert_int_equal(iolink_master_get_pd_in(&port, pd, sizeof(pd), &len), 0);
+        assert_int_equal(len, cases[i].pd_in_len);
+        for(j = 0U; j < len; j++)
+        {
+            assert_int_equal(pd[j], cases[i].pd_value);
+        }
+    }
+}
+
 static void test_fake_device_can_inject_bad_operate_checksum(void** state)
 {
     iolink_master_port_t port;
@@ -574,6 +623,8 @@ int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup(test_fake_device_drives_startup_and_paced_pd_cycle,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_fake_device_conformance_matrix_nominal_profiles,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_can_inject_bad_operate_checksum,
                                reset_fixture),
