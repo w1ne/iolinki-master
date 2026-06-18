@@ -107,7 +107,8 @@ static void test_fake_device_can_drop_response_for_timeout_path(void** state)
     assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U), 0);
     assert_int_equal(fake_iolink_device_operate_cycle_count(), 1U);
     assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_NONE, 101U), 0);
-    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_RESPONSE_TIMEOUT, 120U), 0);
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_RESPONSE_TIMEOUT, 120U),
+                     IOLINK_MASTER_STATUS_PENDING);
 
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
     assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
@@ -135,7 +136,8 @@ static void test_fake_device_truncated_response_is_discarded_after_timeout(void*
 
     assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U), 0);
     assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_NONE, 101U), 0);
-    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_RESPONSE_TIMEOUT, 120U), 0);
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_RESPONSE_TIMEOUT, 120U),
+                     IOLINK_MASTER_STATUS_PENDING);
     assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
     assert_int_equal(diagnostics.response_timeouts, 1U);
 

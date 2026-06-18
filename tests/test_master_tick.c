@@ -187,6 +187,23 @@ static void test_tick_event_response_timeout_applies_before_transmit(void** stat
     assert_int_equal(g_send_calls, 0);
 }
 
+static void test_tick_event_response_timeout_reports_pending_retry(void** state)
+{
+    iolink_master_port_t port;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_RESPONSE_TIMEOUT),
+                     IOLINK_MASTER_STATUS_PENDING);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.response_timeouts, 1U);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.rx_retry_count, 1U);
+    assert_int_equal(g_send_calls, 0);
+}
+
 static void test_tick_at_paces_operate_cycles_by_min_cycle_time(void** state)
 {
     iolink_master_port_t port;
@@ -285,6 +302,8 @@ int main(void)
                                reset_fixture),
         cmocka_unit_test_setup(test_tick_event_cycle_due_transmits_after_rx, reset_fixture),
         cmocka_unit_test_setup(test_tick_event_response_timeout_applies_before_transmit,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_tick_event_response_timeout_reports_pending_retry,
                                reset_fixture),
         cmocka_unit_test_setup(test_tick_at_paces_operate_cycles_by_min_cycle_time,
                                reset_fixture),

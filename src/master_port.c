@@ -119,7 +119,7 @@ static int iolink_master_tick_common(iolink_master_port_t* port,
 
         state->awaiting_response = false;
         timeout_ret = iolink_master_on_timeout(port);
-        if(timeout_ret < 0)
+        if(timeout_ret != IOLINK_MASTER_STATUS_OK)
         {
             return timeout_ret;
         }

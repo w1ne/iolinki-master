@@ -105,6 +105,7 @@ Required direction:
 - [x] make `min_cycle_time` affect port-level OPERATE cycle pacing
 - [x] represent response deadlines explicitly instead of only accepting a boolean
   timeout flag
+- [x] return pending retry status through scheduler-visible timeout ticks
 - [ ] keep the scheduler hardware-independent
 - [x] make port-level cycle pacing testable without wall-clock sleeps
 - [x] track response timeout counts in public diagnostics

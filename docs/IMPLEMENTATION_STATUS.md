@@ -77,6 +77,7 @@ and gap detail.
 - [x] Last ISDU service error in public diagnostics.
 - [x] Multi-port controller init/tick helper.
 - [x] Event-driven tick dispatch for none, cycle-due, and response-timeout events.
+- [x] Scheduler-visible pending retry result for response-timeout ticks.
 - [x] Port-level `min_cycle_time` pacing with fake monotonic 100us ticks.
 - [x] Public scheduler-visible timing snapshot API.
 - [x] Per-port controller tick events.
