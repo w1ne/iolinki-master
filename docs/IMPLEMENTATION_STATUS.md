@@ -98,6 +98,7 @@ and gap detail.
 - [x] Fake-device event ack/code read path.
 - [x] Fake-device ISDU write/readback path.
 - [x] Fake-device Data Storage write/readback verification path.
+- [x] Fake-device bad-checksum injection path.
 
 ### In Progress
 

@@ -130,6 +130,7 @@ Required direction:
 - [x] add fake-device startup device-validation coverage
 - [x] add multi-object fake-device ISDU dictionary coverage
 - [x] add fake-device Direct Parameter Page 1 capability profiles
+- [x] add fake-device bad-checksum injection coverage
 - [ ] expand the fake-device harness into a conformance-style matrix
 - [ ] keep board support out of `src/master_*.c`
 
