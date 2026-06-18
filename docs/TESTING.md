@@ -49,6 +49,7 @@ still intentionally small.
 
 - [ ] capability-matrix fake devices for M-sequence and PD-size negotiation
 - [x] fake-device ISDU object dictionary
+- [x] fake-device ISDU write/readback path
 - [x] fake-device event-pending OD status injection
 - [x] fake-device event-detail injection
 - [ ] fake-device event ack tests

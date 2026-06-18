@@ -63,6 +63,21 @@ static fake_iolink_device_object_t* fake_iolink_device_find_object(uint16_t inde
     return NULL;
 }
 
+static fake_iolink_device_object_t* fake_iolink_device_find_or_create_object(uint16_t index, uint8_t subindex)
+{
+    fake_iolink_device_object_t* object;
+
+    object = fake_iolink_device_find_object(index, subindex);
+    if((object == NULL) && (g_device.object_count < FAKE_IOLINK_DEVICE_OBJECT_MAX_COUNT))
+    {
+        object = &g_device.objects[g_device.object_count++];
+        object->index = index;
+        object->subindex = subindex;
+    }
+
+    return object;
+}
+
 static void fake_iolink_device_prepare_isdu_error(uint8_t error)
 {
     g_device.isdu_response[0] = 0x80U;
@@ -72,11 +87,20 @@ static void fake_iolink_device_prepare_isdu_error(uint8_t error)
     g_device.isdu_response_active = true;
 }
 
+static void fake_iolink_device_prepare_isdu_ack(void)
+{
+    g_device.isdu_response[0] = 0x00U;
+    g_device.isdu_response_len = 1U;
+    g_device.isdu_response_pos = 0U;
+    g_device.isdu_response_active = true;
+}
+
 static void fake_iolink_device_prepare_isdu_response(void)
 {
     uint8_t service;
     uint16_t index;
     uint8_t subindex;
+    uint8_t len;
     fake_iolink_device_object_t* object;
 
     if(g_device.isdu_request_len < 4U)
@@ -89,23 +113,47 @@ static void fake_iolink_device_prepare_isdu_response(void)
     index = (uint16_t)(((uint16_t)g_device.isdu_request[1] << 8) | g_device.isdu_request[2]);
     subindex = g_device.isdu_request[3];
 
-    if(service != IOLINK_ISDU_SERVICE_READ)
+    if(service == IOLINK_ISDU_SERVICE_READ)
     {
-        fake_iolink_device_prepare_isdu_error(IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+        object = fake_iolink_device_find_object(index, subindex);
+        if(object == NULL)
+        {
+            fake_iolink_device_prepare_isdu_error(IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+            return;
+        }
+
+        memcpy(g_device.isdu_response, object->data, object->len);
+        g_device.isdu_response_len = object->len;
+        g_device.isdu_response_pos = 0U;
+        g_device.isdu_response_active = true;
         return;
     }
 
-    object = fake_iolink_device_find_object(index, subindex);
-    if(object == NULL)
+    if(service == IOLINK_ISDU_SERVICE_WRITE)
     {
-        fake_iolink_device_prepare_isdu_error(IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+        len = (uint8_t)(g_device.isdu_request[0] & 0x0FU);
+        if((len == 0x0FU) || (g_device.isdu_request_len < (uint8_t)(4U + len)) ||
+           (len > FAKE_IOLINK_DEVICE_OBJECT_MAX_LEN))
+        {
+            fake_iolink_device_prepare_isdu_error(IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+            return;
+        }
+
+        object = fake_iolink_device_find_or_create_object(index, subindex);
+        if(object == NULL)
+        {
+            fake_iolink_device_prepare_isdu_error(IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+            return;
+        }
+
+        memcpy(object->data, &g_device.isdu_request[4], len);
+        object->len = len;
+        object->valid = true;
+        fake_iolink_device_prepare_isdu_ack();
         return;
     }
 
-    memcpy(g_device.isdu_response, object->data, object->len);
-    g_device.isdu_response_len = object->len;
-    g_device.isdu_response_pos = 0U;
-    g_device.isdu_response_active = true;
+    fake_iolink_device_prepare_isdu_error(IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
 }
 
 static void fake_iolink_device_on_master_od(uint8_t od)
@@ -282,14 +330,7 @@ void fake_iolink_device_set_isdu_object(uint16_t index, uint8_t subindex, const 
         return;
     }
 
-    object = fake_iolink_device_find_object(index, subindex);
-    if((object == NULL) && (g_device.object_count < FAKE_IOLINK_DEVICE_OBJECT_MAX_COUNT))
-    {
-        object = &g_device.objects[g_device.object_count++];
-        object->index = index;
-        object->subindex = subindex;
-    }
-
+    object = fake_iolink_device_find_or_create_object(index, subindex);
     if(object == NULL)
     {
         return;
