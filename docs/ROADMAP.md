@@ -126,9 +126,9 @@ integration without leaking board details into the core.
 
 Required direction:
 
-- [ ] define the minimum PHY operations needed for IO-Link, DI, and DQ modes
+- [x] define the minimum PHY operations needed for IO-Link, DI, and DQ modes
 - [x] decide whether DI needs a new `read_cq_line`-style hook
-- [ ] separate transceiver control, UART/USART byte transport, and timing source
+- [x] separate transceiver control, UART/USART byte transport, and timing source
 - [x] add a first fake-device PHY harness before adding board-specific adapters
 - [x] add fake-device ISDU object-dictionary read coverage
 - [x] add fake-device startup device-validation coverage
@@ -138,7 +138,7 @@ Required direction:
 - [x] add fake-device dropped-response timeout coverage
 - [x] add fake-device truncated-frame timeout recovery coverage
 - [x] expand capability selection into a conformance-style matrix
-- [ ] keep board support out of `src/master_*.c`
+- [x] keep board support out of `src/master_*.c`
 
 ### 6. Controller and Multi-Port Runtime
 
@@ -188,7 +188,7 @@ testing and eventual official conformance validation.
 
 Required direction:
 
-- [ ] define a repeatable hardware test matrix
+- [x] define a repeatable hardware test matrix
 - [ ] run at least one known sensor and one known actuator
 - [ ] add long-running timing/error tests
 - [ ] compare captured frames against expected IO-Link behavior

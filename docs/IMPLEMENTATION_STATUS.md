@@ -127,6 +127,7 @@ and gap detail.
 - [x] Data Storage parameter-server restore sequencing.
 - [x] Full block parameterization readback sequencing policy.
 - [ ] Expand fake-device harness into a conformance-style matrix.
+- [x] Define PHY adapter boundary and hardware validation matrix.
 - [ ] Real hardware PHY adapter.
 - [ ] Real-device sensor/actuator test matrix.
 - [ ] Official IO-Link master conformance validation.

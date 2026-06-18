@@ -80,6 +80,13 @@ still intentionally small.
 - `test_master_public_header`
 - `test_master_fake_device`
 
+## Hardware Validation
+
+The repeatable hardware matrix is defined in
+[`HARDWARE_VALIDATION.md`](HARDWARE_VALIDATION.md). It is a required checklist
+for future PHY adapter and real-device runs, not evidence that those runs have
+already happened.
+
 ## Verification Loop
 
 Use this before committing:
