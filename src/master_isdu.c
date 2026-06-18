@@ -402,6 +402,32 @@ int iolink_master_read_detailed_device_status(iolink_master_port_t* port,
     return iolink_master_read_isdu(port, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0U, data, len);
 }
 
+int iolink_master_read_event_code(iolink_master_port_t* port, uint16_t* event_code)
+{
+    uint8_t data[2] = {0U};
+    uint8_t len = sizeof(data);
+    int ret;
+
+    if(event_code == NULL)
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    ret = iolink_master_read_isdu(port, IOLINK_IDX_SYSTEM_COMMAND, 0U, data, &len);
+    if(ret != IOLINK_MASTER_STATUS_OK)
+    {
+        return ret;
+    }
+
+    if(len < sizeof(data))
+    {
+        return IOLINK_MASTER_ISDU_ERR_DEVICE;
+    }
+
+    *event_code = (uint16_t)(((uint16_t)data[0] << 8U) | data[1]);
+    return IOLINK_MASTER_STATUS_OK;
+}
+
 static int iolink_master_write_system_command(iolink_master_port_t* port, uint8_t command)
 {
     return iolink_master_write_isdu(port, IOLINK_IDX_SYSTEM_COMMAND, 0U, &command, 1U);

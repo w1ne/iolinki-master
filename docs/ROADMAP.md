@@ -78,7 +78,8 @@ Still missing:
 
 - [x] initial capability-driven M-sequence and PD-size selection
 - [ ] full M-sequence variant coverage
-- [ ] complete event read/ack flow
+- [x] initial event-code read wrapper
+- [ ] complete event detail/ack flow
 - [x] initial Data Storage ISDU read/write wrappers
 - [x] initial block-parameterization system-command helpers
 - [ ] Data Storage parameter-server restore behavior
@@ -156,7 +157,8 @@ branches.
 Required direction:
 
 - [x] keep ISDU state machine independent from startup policy
-- [ ] add event service read/ack
+- [x] add event-code read wrapper
+- [ ] add event detail decoding and explicit ack policy
 - [x] add Data Storage service wrappers
 - [x] add block parameterization start/end helpers
 - [ ] add block parameterization readback verification
