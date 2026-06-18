@@ -68,7 +68,8 @@ typedef enum
     IOLINK_MASTER_ERR_BUFFER_TOO_SMALL = -2,
     IOLINK_MASTER_ERR_CHECKSUM = -3,
     IOLINK_MASTER_ERR_SERVICE = -4,
-    IOLINK_MASTER_ERR_INVALID_STATE = -5
+    IOLINK_MASTER_ERR_INVALID_STATE = -5,
+    IOLINK_MASTER_ERR_UNSUPPORTED_PHY = -6
 } iolink_master_result_t;
 
 typedef enum
@@ -106,6 +107,7 @@ typedef struct
     bool auto_baudrate;
     bool validate_device_info;
     int (*read_cq_line)(void);
+    int (*wake_up)(void);
 } iolink_master_config_t;
 
 typedef struct
@@ -119,6 +121,8 @@ typedef struct
     uint32_t cycle_slips;
     uint32_t last_cycle_jitter_100us;
     uint32_t max_cycle_jitter_100us;
+    int supply_voltage_mv;
+    bool short_circuit;
     uint8_t link_quality_percent;
     int last_service_result;
     uint8_t last_event_count;
@@ -188,6 +192,9 @@ typedef union
 int iolink_master_init(iolink_master_port_t* port,
                        const iolink_phy_api_t* phy,
                        const iolink_master_config_t* config);
+/* Returns OK when the PHY/config pair has all operations needed for real hardware use. */
+int iolink_master_validate_phy_contract(const iolink_phy_api_t* phy,
+                                        const iolink_master_config_t* config);
 /* Returns OK or INVALID_ARG. */
 int iolink_master_restart(iolink_master_port_t* port);
 /* Sends one pending startup, preoperate, or operate action. Invalid arguments are ignored. */

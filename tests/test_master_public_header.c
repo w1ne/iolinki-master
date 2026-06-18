@@ -15,6 +15,7 @@ int main(void)
 
     memset(&port, 0, sizeof(port));
     memset(&controller, 0, sizeof(controller));
+    (void)iolink_master_validate_phy_contract(NULL, NULL);
     (void)iolink_master_tick_at(&port, event, 0U);
     (void)iolink_master_get_next_tick_time(&port, 0U, NULL);
     (void)iolink_master_controller_tick_at(&controller, 0U);

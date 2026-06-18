@@ -39,6 +39,28 @@ static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* d
     return false;
 }
 
+static bool iolink_master_wake_up(iolink_master_port_t* port)
+{
+    iolink_master_port_state_t* state = iolink_master_port_state(port);
+    int ret;
+
+    if(state->config.wake_up == NULL)
+    {
+        state->tx_buf[0] = 0x55U;
+        return iolink_master_send_full(port, state->tx_buf, 1U);
+    }
+
+    ret = state->config.wake_up();
+    if(ret == IOLINK_MASTER_STATUS_OK)
+    {
+        return true;
+    }
+
+    state->diagnostics.send_errors++;
+    state->state = IOLINK_MASTER_STATE_ERROR;
+    return false;
+}
+
 static bool iolink_master_cycle_due_at(const iolink_master_port_t* port, uint32_t now_100us)
 {
     const iolink_master_port_state_t* state = iolink_master_port_const_state(port);
@@ -274,6 +296,47 @@ int iolink_master_init(iolink_master_port_t* port,
     return IOLINK_MASTER_STATUS_OK;
 }
 
+int iolink_master_validate_phy_contract(const iolink_phy_api_t* phy,
+                                        const iolink_master_config_t* config)
+{
+    if((phy == NULL) || (config == NULL) ||
+       (config->port_mode > IOLINK_MASTER_PORT_MODE_DEACTIVATED))
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    switch(config->port_mode)
+    {
+    case IOLINK_MASTER_PORT_MODE_IOLINK:
+        if((phy->send == NULL) || (phy->recv_byte == NULL) || (phy->set_mode == NULL) ||
+           (phy->set_baudrate == NULL) || (config->wake_up == NULL))
+        {
+            return IOLINK_MASTER_ERR_UNSUPPORTED_PHY;
+        }
+        return IOLINK_MASTER_STATUS_OK;
+    case IOLINK_MASTER_PORT_MODE_DI:
+        if((phy->set_mode == NULL) || (config->read_cq_line == NULL))
+        {
+            return IOLINK_MASTER_ERR_UNSUPPORTED_PHY;
+        }
+        return IOLINK_MASTER_STATUS_OK;
+    case IOLINK_MASTER_PORT_MODE_DQ:
+        if((phy->set_mode == NULL) || (phy->set_cq_line == NULL))
+        {
+            return IOLINK_MASTER_ERR_UNSUPPORTED_PHY;
+        }
+        return IOLINK_MASTER_STATUS_OK;
+    case IOLINK_MASTER_PORT_MODE_DEACTIVATED:
+        if(phy->set_mode == NULL)
+        {
+            return IOLINK_MASTER_ERR_UNSUPPORTED_PHY;
+        }
+        return IOLINK_MASTER_STATUS_OK;
+    default:
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+}
+
 int iolink_master_restart(iolink_master_port_t* port)
 {
     const iolink_phy_api_t* phy;
@@ -375,8 +438,7 @@ void iolink_master_process(iolink_master_port_t* port)
     {
         if(iolink_master_port_state(port)->startup.step == 0U)
         {
-            iolink_master_port_state(port)->tx_buf[0] = 0x55U;
-            if(iolink_master_send_full(port, iolink_master_port_state(port)->tx_buf, 1U))
+            if(iolink_master_wake_up(port))
             {
                 iolink_master_port_state(port)->startup.step++;
             }
@@ -771,6 +833,14 @@ int iolink_master_get_diagnostics(const iolink_master_port_t* port,
 
     state = iolink_master_port_const_state(port);
     *diagnostics = state->diagnostics;
+    diagnostics->supply_voltage_mv =
+        ((state->phy != NULL) && (state->phy->get_voltage_mv != NULL))
+            ? state->phy->get_voltage_mv()
+            : 0;
+    diagnostics->short_circuit =
+        ((state->phy != NULL) && (state->phy->is_short_circuit != NULL))
+            ? state->phy->is_short_circuit()
+            : false;
     error_count = diagnostics->checksum_errors + diagnostics->send_errors +
                   diagnostics->response_timeouts;
     total_count = state->cycle_count + error_count;

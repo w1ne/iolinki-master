@@ -6,6 +6,8 @@ matrix below before claiming real-device support.
 ## Required Setup
 
 - One IO-Link master PHY adapter wired through `iolink_phy_api_t`.
+- `iolink_master_validate_phy_contract()` passing for the selected
+  PHY/config pair before the run starts.
 - One known sensor with cyclic PD input.
 - One known actuator or output module with cyclic PD output.
 - Capture path for UART frames or a logic analyzer on the PHY side.

@@ -19,15 +19,16 @@ The master core is board-agnostic. Board support must live outside
 
 ### IO-Link Mode
 
-Required:
+Required for strict hardware validation:
 
 - `send`: transmit a complete encoded frame buffer.
 - `recv_byte`: non-blocking byte receive from UART/USART.
+- `set_mode`: switch the transceiver into SDCI mode.
+- `set_baudrate`: apply COM1, COM2, or COM3 during fixed or auto-baud startup.
+- `wake_up` in `iolink_master_config_t`: generate the master wake-up pulse.
 
 Recommended:
 
-- `set_mode`: switch the transceiver into SDCI mode.
-- `set_baudrate`: apply COM1, COM2, or COM3 during fixed or auto-baud startup.
 - `get_voltage_mv`: expose L+ diagnostics when the transceiver supports it.
 - `is_short_circuit`: expose hard line faults when available.
 
@@ -73,6 +74,9 @@ Recommended:
 - Do not hide UART framing errors. Return a negative value from `recv_byte`.
 - Do not partially report successful sends. `send` must return the exact length
   or a negative/short result so the core can enter error handling.
+- Real hardware adapters should pass `iolink_master_validate_phy_contract()`.
+  `iolink_master_init()` remains permissive for unit tests and partial fake PHYs.
 - Keep adapter fault policy explicit: line faults may be surfaced through PHY
   callbacks and public diagnostics, but must not mutate core state behind its
-  back.
+  back. `iolink_master_get_diagnostics()` samples `get_voltage_mv` and
+  `is_short_circuit` when those hooks are present.

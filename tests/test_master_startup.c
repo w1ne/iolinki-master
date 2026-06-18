@@ -17,6 +17,10 @@ static int g_set_mode_calls;
 static int g_set_baudrate_calls;
 static int g_send_calls;
 static int g_set_cq_line_calls;
+static int g_wake_up_calls;
+static int g_wake_up_result;
+static int g_voltage_mv;
+static bool g_short_circuit;
 static int g_forced_send_return;
 static uint8_t g_recv_bytes[8];
 static uint8_t g_recv_len;
@@ -52,6 +56,22 @@ static void fake_phy_set_cq_line(uint8_t state)
 {
     g_set_cq_line_calls++;
     g_last_cq_line = state;
+}
+
+static int fake_wake_up(void)
+{
+    g_wake_up_calls++;
+    return g_wake_up_result;
+}
+
+static int fake_phy_get_voltage_mv(void)
+{
+    return g_voltage_mv;
+}
+
+static bool fake_phy_is_short_circuit(void)
+{
+    return g_short_circuit;
 }
 
 static int fake_phy_send(const uint8_t* data, size_t len)
@@ -92,6 +112,8 @@ static const iolink_phy_api_t g_fake_phy = {
     .send = fake_phy_send,
     .recv_byte = fake_phy_recv_byte,
     .set_cq_line = fake_phy_set_cq_line,
+    .get_voltage_mv = fake_phy_get_voltage_mv,
+    .is_short_circuit = fake_phy_is_short_circuit,
 };
 
 static const iolink_master_config_t g_config = {
@@ -110,6 +132,10 @@ static int reset_fake_phy(void** state)
     g_set_baudrate_calls = 0;
     g_send_calls = 0;
     g_set_cq_line_calls = 0;
+    g_wake_up_calls = 0;
+    g_wake_up_result = IOLINK_MASTER_STATUS_OK;
+    g_voltage_mv = 24100;
+    g_short_circuit = false;
     g_forced_send_return = INT_MIN;
     g_recv_len = 0U;
     g_recv_pos = 0U;
@@ -148,6 +174,43 @@ static void test_valid_init_sets_startup_state(void** state)
     assert_int_equal(g_last_baudrate, IOLINK_BAUDRATE_COM3);
     assert_int_equal(g_set_mode_calls, 1);
     assert_int_equal(g_last_mode, IOLINK_PHY_MODE_SDCI);
+}
+
+static void test_validate_phy_contract_rejects_missing_hardware_ops(void** state)
+{
+    iolink_master_config_t config = g_config;
+    iolink_phy_api_t phy = g_fake_phy;
+
+    (void)state;
+
+    config.wake_up = fake_wake_up;
+    assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
+                     IOLINK_MASTER_STATUS_OK);
+
+    config.wake_up = NULL;
+    assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
+                     IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
+
+    config.wake_up = fake_wake_up;
+    phy.recv_byte = NULL;
+    assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
+                     IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
+
+    phy = g_fake_phy;
+    phy.set_baudrate = NULL;
+    assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
+                     IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
+
+    config.port_mode = IOLINK_MASTER_PORT_MODE_DQ;
+    phy = g_fake_phy;
+    phy.set_cq_line = NULL;
+    assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
+                     IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
+
+    config.port_mode = IOLINK_MASTER_PORT_MODE_DI;
+    config.read_cq_line = NULL;
+    assert_int_equal(iolink_master_validate_phy_contract(&g_fake_phy, &config),
+                     IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
 }
 
 static void test_init_sets_od_length_from_m_sequence_type(void** state)
@@ -350,6 +413,22 @@ static void test_restart_reenters_startup_and_clears_runtime_state(void** state)
     assert_int_equal(g_last_mode, IOLINK_PHY_MODE_SDCI);
 }
 
+static void test_get_diagnostics_samples_hardware_fault_hooks(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_diagnostics_t diagnostics;
+
+    (void)state;
+
+    g_voltage_mv = 23600;
+    g_short_circuit = true;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_int_equal(diagnostics.supply_voltage_mv, 23600);
+    assert_true(diagnostics.short_circuit);
+}
+
 static void test_restart_rejects_invalid_args(void** state)
 {
     (void)state;
@@ -510,6 +589,42 @@ static void test_process_startup_waits_for_type0_response_before_preoperate(void
     assert_int_equal(iolink_master_port_state(&port)->cycle_count, 1U);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
     assert_true(g_send_calls >= 4);
+}
+
+static void test_process_startup_uses_configured_wake_up_hook(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.wake_up = fake_wake_up;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    iolink_master_process(&port);
+
+    assert_int_equal(g_wake_up_calls, 1);
+    assert_int_equal(g_send_calls, 0);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 1U);
+}
+
+static void test_process_startup_reports_failed_wake_up_hook(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.wake_up = fake_wake_up;
+    g_wake_up_result = IOLINK_MASTER_ERR_SERVICE;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    iolink_master_process(&port);
+
+    assert_int_equal(g_wake_up_calls, 1);
+    assert_int_equal(g_send_calls, 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.send_errors, 1U);
 }
 
 static void feed_preoperate_isdu_response_bytes(iolink_master_port_t* port,
@@ -689,6 +804,8 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup(test_init_rejects_null_args, reset_fake_phy),
         cmocka_unit_test_setup(test_valid_init_sets_startup_state, reset_fake_phy),
+        cmocka_unit_test_setup(test_validate_phy_contract_rejects_missing_hardware_ops,
+                               reset_fake_phy),
         cmocka_unit_test_setup(test_init_sets_od_length_from_m_sequence_type, reset_fake_phy),
         cmocka_unit_test_setup(test_init_deactivated_port_sets_inactive_phy_and_does_not_send,
                                reset_fake_phy),
@@ -703,6 +820,8 @@ int main(void)
                                reset_fake_phy),
         cmocka_unit_test_setup(test_restart_reenters_startup_and_clears_runtime_state,
                                reset_fake_phy),
+        cmocka_unit_test_setup(test_get_diagnostics_samples_hardware_fault_hooks,
+                               reset_fake_phy),
         cmocka_unit_test_setup(test_restart_rejects_invalid_args, reset_fake_phy),
         cmocka_unit_test_setup(test_init_rejects_oversized_pd_in_len, reset_fake_phy),
         cmocka_unit_test_setup(test_init_rejects_oversized_pd_out_len, reset_fake_phy),
@@ -712,6 +831,10 @@ int main(void)
         cmocka_unit_test_setup(test_get_pd_in_too_small_exposes_required_length, reset_fake_phy),
         cmocka_unit_test_setup(test_get_pd_in_invalid_does_not_copy_stale_data, reset_fake_phy),
         cmocka_unit_test_setup(test_process_startup_waits_for_type0_response_before_preoperate,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_process_startup_uses_configured_wake_up_hook,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_process_startup_reports_failed_wake_up_hook,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_startup_can_validate_device_info_before_operate,
                                reset_fake_phy),
