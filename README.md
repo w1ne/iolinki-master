@@ -32,13 +32,15 @@ The build compiles only the narrow shared helper sources from the local `iolinki
 checkout into the master build. It should not link or expose the full device
 stack.
 
-`iolink_master_get_pd_in()` returns `-1` for invalid arguments, `-2` when the
-caller buffer is too small, `1` when process data is not valid yet, and `0` when
-valid data was copied. For `-2` and `1`, `out_len` is set to the required
-process-data length.
+Public APIs return named integer-compatible result constants such as
+`IOLINK_MASTER_STATUS_OK`, `IOLINK_MASTER_STATUS_PENDING`, and
+`IOLINK_MASTER_ERR_INVALID_ARG`.
 
-Several public APIs still use integer status codes. Converting those to named
-public result constants is the next API-hardening slice.
+Runnable examples are built by default:
+
+- `master_loopback_demo`: one IO-Link port startup and cyclic process-data flow.
+- `master_4port_controller_demo`: mixed 4-port controller setup with IO-Link,
+  DI, DQ, and deactivated ports.
 
 To point at another local `iolinki` checkout:
 

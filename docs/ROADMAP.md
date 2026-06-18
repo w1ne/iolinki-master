@@ -135,7 +135,7 @@ Required direction:
 - [x] expose per-port diagnostics without hiding individual port failures
 - [x] keep one failed port from corrupting unrelated ports
 - [x] allow independent per-port tick events
-- [ ] add examples for common 1-port and 4-port master usage
+- [x] add examples for common 1-port and 4-port master usage
 
 ### 7. Services Layer
 

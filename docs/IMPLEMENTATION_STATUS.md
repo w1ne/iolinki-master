@@ -27,7 +27,7 @@ Status definitions:
 | Direct Parameter Page 1 | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`tests/test_master_parameters.c`](../tests/test_master_parameters.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c) | Use parsed capability data for automatic master configuration. |
 | Startup device validation | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Expand validation once automatic negotiation exists. |
 | Diagnostics | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c) | Add event detail, link-quality metrics, and stable public error taxonomy. |
-| Multi-port controller | Partial | [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Add scheduler ownership, port-level timing policy, and examples. |
+| Multi-port controller | Partial | [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`examples/master_4port_controller_demo.c`](../examples/master_4port_controller_demo.c) | Define scheduler ownership and port-level runtime policy. |
 | SIO DI/DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_sio_public.c`](../tests/test_master_sio_public.c) | Validate SIO and mode transitions against real adapters. |
 | Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Define the full scheduler ownership model and validate timing against hardware. |
 | Events | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) | Implement event read/ack and expose decoded event detail. |
@@ -35,7 +35,7 @@ Status definitions:
 | Block parameterization | Open | None | Add block write/readback workflows and verification policy. |
 | Hardware PHY adapters | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) consumes the dependency PHY contract | Add real master-port hardware adapters outside the protocol core. |
 | Conformance | Open | Local tests only | Run official IO-Link master conformance testing. |
-| Documentation/examples | Partial | [`README.md`](../README.md), [`docs/ROADMAP.md`](ROADMAP.md), [`docs/TESTING.md`](TESTING.md) | Add focused examples for startup, cyclic PD, ISDU, SIO, and controller use. |
+| Documentation/examples | Partial | [`README.md`](../README.md), [`docs/ROADMAP.md`](ROADMAP.md), [`docs/TESTING.md`](TESTING.md), [`examples/master_loopback_demo.c`](../examples/master_loopback_demo.c), [`examples/master_4port_controller_demo.c`](../examples/master_4port_controller_demo.c) | Add focused examples for ISDU and service workflows as those APIs mature. |
 
 ## Checkable Ledger
 
@@ -69,6 +69,7 @@ and gap detail.
 - [x] Per-port controller tick events.
 - [x] Controller time-aware tick fan-out for per-port cycle pacing.
 - [x] Controller-owned response-deadline timeout scheduling across ports.
+- [x] 1-port loopback and 4-port mixed-controller runnable examples.
 - [x] SIO DQ output through `set_cq_line`.
 - [x] SIO DI input through configured `read_cq_line`.
 - [x] Dynamic SIO/IO-Link/deactivated mode transitions.
@@ -81,7 +82,7 @@ and gap detail.
 
 - [ ] Complete M-sequence variant coverage.
 - [ ] Expand diagnostics into a stable master health model.
-- [ ] Add controller examples and clearer multi-port runtime policy.
+- [ ] Add clearer multi-port runtime policy.
 
 ### Not Started
 
@@ -113,6 +114,7 @@ Local CTest currently exercises these targets when CMocka is available:
 - `test_master_sio_public`
 - `test_master_public_header`
 - `master_loopback_demo`
+- `master_4port_controller_demo`
 - `test_master_fake_device`
 
 Use this verification loop before committing master-stack changes:
