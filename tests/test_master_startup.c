@@ -319,6 +319,8 @@ static void test_restart_reenters_startup_and_clears_runtime_state(void** state)
     iolink_master_port_state(&port)->diagnostics.send_errors = 3U;
     iolink_master_port_state(&port)->diagnostics.response_timeouts = 4U;
     iolink_master_port_state(&port)->diagnostics.cycle_slips = 6U;
+    iolink_master_port_state(&port)->diagnostics.last_cycle_jitter_100us = 7U;
+    iolink_master_port_state(&port)->diagnostics.max_cycle_jitter_100us = 8U;
     iolink_master_port_state(&port)->cycle_count = 11U;
 
     assert_int_equal(iolink_master_restart(&port), 0);
@@ -330,6 +332,8 @@ static void test_restart_reenters_startup_and_clears_runtime_state(void** state)
     assert_int_equal(iolink_master_port_state(&port)->diagnostics.send_errors, 0U);
     assert_int_equal(iolink_master_port_state(&port)->diagnostics.response_timeouts, 0U);
     assert_int_equal(iolink_master_port_state(&port)->diagnostics.cycle_slips, 0U);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.last_cycle_jitter_100us, 0U);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.max_cycle_jitter_100us, 0U);
     assert_int_equal(iolink_master_port_state(&port)->cycle_count, 0U);
     assert_int_equal(g_set_baudrate_calls, 2);
     assert_int_equal(g_baudrate_history[1], IOLINK_BAUDRATE_COM3);

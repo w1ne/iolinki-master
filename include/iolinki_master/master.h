@@ -108,6 +108,8 @@ typedef struct
     uint32_t send_errors;
     uint32_t response_timeouts;
     uint32_t cycle_slips;
+    uint32_t last_cycle_jitter_100us;
+    uint32_t max_cycle_jitter_100us;
 } iolink_master_diagnostics_t;
 
 typedef struct

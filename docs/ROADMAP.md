@@ -99,7 +99,7 @@ Required direction:
 - [x] make port-level cycle pacing testable without wall-clock sleeps
 - [x] track response timeout counts in public diagnostics
 - [x] track cycle-slip counts in public diagnostics
-- [ ] track jitter diagnostics
+- [x] track jitter diagnostics
 
 This should be the next major architecture slice after the docs checkpoint.
 

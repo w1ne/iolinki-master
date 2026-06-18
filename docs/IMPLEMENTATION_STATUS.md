@@ -29,7 +29,7 @@ Status definitions:
 | Diagnostics | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c) | Add event detail, link-quality metrics, and stable public error taxonomy. |
 | Multi-port controller | Partial | [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Add scheduler ownership, port-level timing policy, and examples. |
 | SIO DI/DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_sio_public.c`](../tests/test_master_sio_public.c) | Add dynamic mode-transition behavior and real adapter validation. |
-| Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Implement min-cycle-time pacing, timer integration, and jitter/error accounting. |
+| Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Define the full scheduler ownership model and validate timing against hardware. |
 | Events | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) | Implement event read/ack and expose decoded event detail. |
 | Data Storage | Open | None | Add master-side parameter storage and restore behavior. |
 | Block parameterization | Open | None | Add block write/readback workflows and verification policy. |
@@ -62,6 +62,7 @@ and gap detail.
 - [x] Basic diagnostics API.
 - [x] Response timeout counter in public diagnostics.
 - [x] Cycle-slip counter in public diagnostics.
+- [x] Last/max cycle-jitter diagnostics in 100us units.
 - [x] Multi-port controller init/tick helper.
 - [x] Event-driven tick dispatch for none, cycle-due, and response-timeout events.
 - [x] Port-level `min_cycle_time` pacing with fake monotonic 100us ticks.
@@ -76,15 +77,14 @@ and gap detail.
 
 ### In Progress
 
-- [ ] Add more public black-box tests for ISDU and SIO.
-- [ ] Tune or justify public opaque storage sizes.
+- [ ] Add more public black-box tests for ISDU.
 - [ ] Complete M-sequence variant coverage.
 - [ ] Expand diagnostics into a stable master health model.
 - [ ] Add controller examples and clearer multi-port runtime policy.
 
 ### Not Started
 
-- [ ] Full scheduler/timing model with jitter diagnostics.
+- [ ] Full scheduler/timing model.
 - [ ] Capability-matrix fake devices.
 - [ ] Fake-device ISDU object dictionary.
 - [ ] Capability-driven M-sequence and PD-size selection.
