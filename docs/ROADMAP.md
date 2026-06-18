@@ -232,8 +232,8 @@ configuration:
 
 - [x] parse Direct Parameter Page 1 capability data
 - [x] select compatible M-sequence and PD sizes for currently mapped capability codes
-- [ ] validate requested configuration against the device capability profile
-- [ ] fail with named diagnostics when no compatible mode exists
+- [x] validate requested configuration against the device capability profile
+- [x] fail with named result codes when no compatible mode exists
 
 ### Phase 4: Standard Services
 

@@ -67,6 +67,7 @@ and gap detail.
 - [x] Detailed Device Status read wrapper.
 - [x] Direct Parameter Page 1 parse/apply/get/validate.
 - [x] Initial capability-driven config selection from Direct Parameter Page 1.
+- [x] Public requested-config validation against Direct Parameter Page 1.
 - [x] Optional startup device-info validation.
 - [x] Basic diagnostics API.
 - [x] Response timeout counter in public diagnostics.
@@ -106,6 +107,7 @@ and gap detail.
 - [ ] Full scheduler/timing model.
 - [ ] Capability-matrix fake devices.
 - [x] Capability-driven M-sequence and PD-size selection for currently mapped codes.
+- [x] Requested configuration validation against device capability profile.
 - [x] DI input API/PHY support.
 - [x] Dynamic SIO/IO-Link mode transitions.
 - [ ] Data Storage parameter-server restore sequencing.

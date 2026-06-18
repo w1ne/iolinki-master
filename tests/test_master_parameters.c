@@ -217,6 +217,35 @@ static void test_select_config_from_device_info_applies_capability_profile(void*
     assert_int_equal(config.m_seq_type, IOLINK_MASTER_M_SEQ_TYPE_2_V);
 }
 
+static void test_validate_config_against_device_info_rejects_incompatible_request(void** state)
+{
+    iolink_master_device_info_t info;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_parse_direct_parameter_page1(g_page1, sizeof(g_page1), &info),
+                     IOLINK_MASTER_STATUS_OK);
+
+    config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_2_V;
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_STATUS_OK);
+
+    config.min_cycle_time = 9U;
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_PARAM_ERR_CYCLE_TIME);
+
+    config = g_config;
+    config.pd_out_len = 3U;
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_PARAM_ERR_PD_SIZE);
+
+    config = g_config;
+    config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_1_1;
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_PARAM_ERR_M_SEQUENCE);
+}
+
 static void test_select_config_from_device_info_rejects_invalid_inputs(void** state)
 {
     iolink_master_device_info_t info = {0};
@@ -249,6 +278,7 @@ int main(void)
         cmocka_unit_test(test_validate_device_info_rejects_missing_or_invalid_info),
         cmocka_unit_test(test_validate_device_info_rejects_incompatible_cycle_pd_and_mseq),
         cmocka_unit_test(test_select_config_from_device_info_applies_capability_profile),
+        cmocka_unit_test(test_validate_config_against_device_info_rejects_incompatible_request),
         cmocka_unit_test(test_select_config_from_device_info_rejects_invalid_inputs),
     };
 

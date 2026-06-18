@@ -126,7 +126,6 @@ int iolink_master_get_device_info(const iolink_master_port_t* port,
 int iolink_master_validate_device_info(const iolink_master_port_t* port)
 {
     const iolink_master_port_state_t* state;
-    const iolink_master_device_info_t* info;
 
     if(port == NULL)
     {
@@ -134,7 +133,17 @@ int iolink_master_validate_device_info(const iolink_master_port_t* port)
     }
 
     state = iolink_master_port_const_state(port);
-    info = &state->device_info;
+    return iolink_master_validate_config_against_device_info(&state->device_info, &state->config);
+}
+
+int iolink_master_validate_config_against_device_info(const iolink_master_device_info_t* info,
+                                                      const iolink_master_config_t* config)
+{
+    if((info == NULL) || (config == NULL))
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
     if(!info->valid)
     {
         return IOLINK_MASTER_STATUS_PENDING;
@@ -145,18 +154,17 @@ int iolink_master_validate_device_info(const iolink_master_port_t* port)
         return IOLINK_MASTER_PARAM_ERR_REVISION;
     }
 
-    if(state->config.min_cycle_time < info->min_cycle_time)
+    if(config->min_cycle_time < info->min_cycle_time)
     {
         return IOLINK_MASTER_PARAM_ERR_CYCLE_TIME;
     }
 
-    if((state->config.pd_in_len != info->pd_in_len) ||
-       (state->config.pd_out_len != info->pd_out_len))
+    if((config->pd_in_len != info->pd_in_len) || (config->pd_out_len != info->pd_out_len))
     {
         return IOLINK_MASTER_PARAM_ERR_PD_SIZE;
     }
 
-    if(iolink_master_mseq_capability_code(state->config.m_seq_type) != info->operate_mseq_code)
+    if(iolink_master_mseq_capability_code(config->m_seq_type) != info->operate_mseq_code)
     {
         return IOLINK_MASTER_PARAM_ERR_M_SEQUENCE;
     }
