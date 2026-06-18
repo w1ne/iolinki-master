@@ -62,10 +62,47 @@ static void test_fake_device_drives_startup_and_paced_pd_cycle(void** state)
     assert_int_equal(fake_iolink_device_operate_cycle_count(), 2U);
 }
 
+static void test_fake_device_serves_isdu_object_dictionary_read(void** state)
+{
+    iolink_master_port_t port;
+    uint8_t data[8] = {0U};
+    uint8_t len = sizeof(data);
+    const uint8_t object_value[] = {0x4FU, 0x4BU};
+    uint8_t i;
+
+    (void)state;
+
+    fake_iolink_device_set_isdu_object(0x0010U, 0U, object_value, sizeof(object_value));
+
+    assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &g_config), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+    assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    for(i = 0U; i < 11U; i++)
+    {
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    }
+
+    assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(len, 2U);
+    assert_int_equal(data[0], 0x4FU);
+    assert_int_equal(data[1], 0x4BU);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup(test_fake_device_drives_startup_and_paced_pd_cycle,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_fake_device_serves_isdu_object_dictionary_read,
                                reset_fixture),
     };
 

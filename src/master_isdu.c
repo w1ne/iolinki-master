@@ -193,6 +193,13 @@ void iolink_master_isdu_on_od(iolink_master_port_t* port, const uint8_t* od, uin
     {
         byte = od[i];
 
+        if(!iolink_master_port_state(port)->isdu.request_sent &&
+           iolink_master_port_state(port)->isdu.response_expect_control &&
+           (iolink_master_port_state(port)->isdu.response_len == 0U) && ((byte & IOLINK_ISDU_CTRL_START) == 0U))
+        {
+            continue;
+        }
+
         if(iolink_master_port_state(port)->isdu.response_expect_control)
         {
             if((byte & IOLINK_ISDU_CTRL_START) != 0U)

@@ -23,7 +23,7 @@ Status definitions:
 | M-sequence handling | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_parameters.c`](../src/master_parameters.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_parameters.c`](../tests/test_master_parameters.c) | Expand capability mapping to full variant coverage. |
 | Cyclic process data | Implemented | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_public_flow.c`](../tests/test_master_public_flow.c) | Add more black-box coverage for configured PD sizes and invalid user buffers. |
 | RX path and retries | Implemented | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c) | Add line-noise and long-running soak tests with a real PHY. |
-| ISDU read/write | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Verify behavior against real devices. |
+| ISDU read/write | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c), [`tests/test_master_fake_device.c`](../tests/test_master_fake_device.c) | Verify behavior against real devices. |
 | Direct Parameter Page 1 | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`tests/test_master_parameters.c`](../tests/test_master_parameters.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c) | Expand automatic configuration once full M-sequence coverage exists. |
 | Startup device validation | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Expand validation once automatic negotiation exists. |
 | Diagnostics | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_port.c`](../src/master_port.c), [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c) | Add event detail and link-quality metrics. |
@@ -83,6 +83,7 @@ and gap detail.
 - [x] Public black-box startup/process-data flow test.
 - [x] Public black-box ISDU read flow test.
 - [x] Fake-device harness for startup, transition, cyclic PD, and port pacing.
+- [x] Fake-device ISDU object-dictionary read path.
 
 ### In Progress
 
@@ -94,7 +95,6 @@ and gap detail.
 
 - [ ] Full scheduler/timing model.
 - [ ] Capability-matrix fake devices.
-- [ ] Fake-device ISDU object dictionary.
 - [x] Capability-driven M-sequence and PD-size selection for currently mapped codes.
 - [x] DI input API/PHY support.
 - [x] Dynamic SIO/IO-Link mode transitions.

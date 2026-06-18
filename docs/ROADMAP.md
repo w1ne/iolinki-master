@@ -69,6 +69,7 @@ Implemented locally:
 - [x] cyclic PD in/out
 - [x] RX accumulation, checksum handling, and retry counters
 - [x] ISDU read/write transfer over OD bytes
+- [x] fake-device ISDU object-dictionary read coverage
 - [x] Direct Parameter Page 1 parsing and optional startup validation
 
 Still missing:
@@ -119,6 +120,7 @@ Required direction:
 - [x] decide whether DI needs a new `read_cq_line`-style hook
 - [ ] separate transceiver control, UART/USART byte transport, and timing source
 - [x] add a first fake-device PHY harness before adding board-specific adapters
+- [x] add fake-device ISDU object-dictionary read coverage
 - [ ] expand the fake-device harness into a conformance-style matrix
 - [ ] keep board support out of `src/master_*.c`
 
