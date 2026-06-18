@@ -21,6 +21,10 @@ static int g_checked_set_mode_result;
 static int g_checked_set_baudrate_result;
 static int g_flush_rx_calls;
 static int g_flush_rx_result;
+static int g_prepare_tx_calls;
+static int g_prepare_rx_calls;
+static int g_prepare_tx_result;
+static int g_prepare_rx_result;
 static int g_send_calls;
 static int g_set_cq_line_calls;
 static int g_wake_up_calls;
@@ -35,6 +39,8 @@ static uint8_t g_last_cq_line;
 static iolink_phy_mode_t g_last_mode;
 static iolink_baudrate_t g_last_baudrate;
 static iolink_baudrate_t g_baudrate_history[8];
+static char g_io_direction_log[24];
+static uint8_t g_io_direction_log_len;
 static uint8_t g_sent[8][64];
 static size_t g_sent_len[8];
 
@@ -80,6 +86,27 @@ static int fake_flush_rx(void)
     return g_flush_rx_result;
 }
 
+static void append_io_direction_log(char event)
+{
+    assert_in_range(g_io_direction_log_len, 0, sizeof(g_io_direction_log) - 1U);
+    g_io_direction_log[g_io_direction_log_len++] = event;
+    g_io_direction_log[g_io_direction_log_len] = '\0';
+}
+
+static int fake_prepare_tx(void)
+{
+    g_prepare_tx_calls++;
+    append_io_direction_log('T');
+    return g_prepare_tx_result;
+}
+
+static int fake_prepare_rx(void)
+{
+    g_prepare_rx_calls++;
+    append_io_direction_log('R');
+    return g_prepare_rx_result;
+}
+
 static void fake_phy_set_cq_line(uint8_t state)
 {
     g_set_cq_line_calls++;
@@ -111,6 +138,7 @@ static int fake_phy_send(const uint8_t* data, size_t len)
     memcpy(g_sent[g_send_calls], data, len);
     g_sent_len[g_send_calls] = len;
     g_send_calls++;
+    append_io_direction_log('S');
 
     if(g_forced_send_return != INT_MIN)
     {
@@ -164,6 +192,10 @@ static int reset_fake_phy(void** state)
     g_checked_set_baudrate_result = IOLINK_MASTER_STATUS_OK;
     g_flush_rx_calls = 0;
     g_flush_rx_result = IOLINK_MASTER_STATUS_OK;
+    g_prepare_tx_calls = 0;
+    g_prepare_rx_calls = 0;
+    g_prepare_tx_result = IOLINK_MASTER_STATUS_OK;
+    g_prepare_rx_result = IOLINK_MASTER_STATUS_OK;
     g_send_calls = 0;
     g_set_cq_line_calls = 0;
     g_wake_up_calls = 0;
@@ -176,6 +208,8 @@ static int reset_fake_phy(void** state)
     g_last_cq_line = 0U;
     g_last_mode = IOLINK_PHY_MODE_INACTIVE;
     g_last_baudrate = IOLINK_BAUDRATE_COM1;
+    g_io_direction_log_len = 0U;
+    memset(g_io_direction_log, 0, sizeof(g_io_direction_log));
     memset(g_baudrate_history, 0, sizeof(g_baudrate_history));
     memset(g_sent, 0, sizeof(g_sent));
     memset(g_sent_len, 0, sizeof(g_sent_len));
@@ -221,6 +255,8 @@ static void test_validate_phy_contract_rejects_missing_hardware_ops(void** state
     config.set_mode_checked = fake_checked_set_mode;
     config.set_baudrate_checked = fake_checked_set_baudrate;
     config.flush_rx = fake_flush_rx;
+    config.prepare_tx = fake_prepare_tx;
+    config.prepare_rx = fake_prepare_rx;
     assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
                      IOLINK_MASTER_STATUS_OK);
 
@@ -249,6 +285,16 @@ static void test_validate_phy_contract_rejects_missing_hardware_ops(void** state
                      IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
 
     config.flush_rx = fake_flush_rx;
+    config.prepare_tx = NULL;
+    assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
+                     IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
+
+    config.prepare_tx = fake_prepare_tx;
+    config.prepare_rx = NULL;
+    assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
+                     IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
+
+    config.prepare_rx = fake_prepare_rx;
     config.port_mode = IOLINK_MASTER_PORT_MODE_DQ;
     phy = g_fake_phy;
     phy.set_cq_line = NULL;
@@ -782,6 +828,70 @@ static void test_process_startup_uses_configured_wake_up_hook(void** state)
     assert_int_equal(iolink_master_port_state(&port)->startup.step, 1U);
 }
 
+static void test_process_wraps_core_send_with_half_duplex_direction_hooks(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.prepare_tx = fake_prepare_tx;
+    config.prepare_rx = fake_prepare_rx;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    iolink_master_process(&port);
+
+    assert_int_equal(g_prepare_tx_calls, 1);
+    assert_int_equal(g_prepare_rx_calls, 1);
+    assert_int_equal(g_send_calls, 1);
+    assert_string_equal(g_io_direction_log, "TSR");
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, 1U);
+}
+
+static void test_process_reports_prepare_tx_failure_before_send(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.prepare_tx = fake_prepare_tx;
+    config.prepare_rx = fake_prepare_rx;
+    g_prepare_tx_result = IOLINK_MASTER_ERR_SERVICE;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    iolink_master_process(&port);
+
+    assert_int_equal(g_prepare_tx_calls, 1);
+    assert_int_equal(g_prepare_rx_calls, 0);
+    assert_int_equal(g_send_calls, 0);
+    assert_string_equal(g_io_direction_log, "T");
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.send_errors, 1U);
+}
+
+static void test_process_reports_prepare_rx_failure_after_send(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.prepare_tx = fake_prepare_tx;
+    config.prepare_rx = fake_prepare_rx;
+    g_prepare_rx_result = IOLINK_MASTER_ERR_SERVICE;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
+    iolink_master_process(&port);
+
+    assert_int_equal(g_prepare_tx_calls, 1);
+    assert_int_equal(g_prepare_rx_calls, 1);
+    assert_int_equal(g_send_calls, 1);
+    assert_string_equal(g_io_direction_log, "TSR");
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.send_errors, 1U);
+}
+
 static void test_process_startup_reports_failed_wake_up_hook(void** state)
 {
     iolink_master_port_t port;
@@ -1022,6 +1132,13 @@ int main(void)
         cmocka_unit_test_setup(test_process_startup_waits_for_type0_response_before_preoperate,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_process_startup_uses_configured_wake_up_hook,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(
+            test_process_wraps_core_send_with_half_duplex_direction_hooks,
+            reset_fake_phy),
+        cmocka_unit_test_setup(test_process_reports_prepare_tx_failure_before_send,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_process_reports_prepare_rx_failure_after_send,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_process_startup_reports_failed_wake_up_hook,
                                reset_fake_phy),

@@ -53,6 +53,7 @@ and gap detail.
 - [x] Port lifecycle states: inactive, startup, preoperate, operate, error.
 - [x] Fallible checked mode and baudrate adapter hooks for strict hardware validation.
 - [x] Adapter RX flush hook before IO-Link startup and startup baudrate retries.
+- [x] Half-duplex TX/RX prepare hooks around core-driven frame sends.
 - [x] Startup wake-up, Type 0 idle, transition command, and operate entry.
 - [x] Fixed-baudrate startup.
 - [x] Auto-baudrate scan across COM3/COM2/COM1.

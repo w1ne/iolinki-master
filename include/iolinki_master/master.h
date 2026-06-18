@@ -111,6 +111,8 @@ typedef struct
     int (*set_baudrate_checked)(iolink_baudrate_t baudrate);
     int (*read_cq_line_checked)(void);
     int (*flush_rx)(void);
+    int (*prepare_tx)(void);
+    int (*prepare_rx)(void);
     int (*read_cq_line)(void);
     int (*wake_up)(void);
 } iolink_master_config_t;

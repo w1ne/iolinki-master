@@ -84,7 +84,32 @@ static int iolink_master_flush_rx(iolink_master_port_t* port)
 static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* data, size_t len)
 {
     iolink_master_port_state_t* state = iolink_master_port_state(port);
-    int sent = state->phy->send(data, len);
+    int sent;
+    int ret;
+
+    if(state->config.prepare_tx != NULL)
+    {
+        ret = state->config.prepare_tx();
+        if(ret != IOLINK_MASTER_STATUS_OK)
+        {
+            state->diagnostics.send_errors++;
+            state->state = IOLINK_MASTER_STATE_ERROR;
+            return false;
+        }
+    }
+
+    sent = state->phy->send(data, len);
+
+    if(state->config.prepare_rx != NULL)
+    {
+        ret = state->config.prepare_rx();
+        if(ret != IOLINK_MASTER_STATUS_OK)
+        {
+            state->diagnostics.send_errors++;
+            state->state = IOLINK_MASTER_STATE_ERROR;
+            return false;
+        }
+    }
 
     if(sent == (int)len)
     {
@@ -383,6 +408,7 @@ int iolink_master_validate_phy_contract(const iolink_phy_api_t* phy,
         if((phy->send == NULL) || (phy->recv_byte == NULL) ||
            (config->set_mode_checked == NULL) ||
            (config->set_baudrate_checked == NULL) || (config->flush_rx == NULL) ||
+           (config->prepare_tx == NULL) || (config->prepare_rx == NULL) ||
            (config->wake_up == NULL))
         {
             return IOLINK_MASTER_ERR_UNSUPPORTED_PHY;

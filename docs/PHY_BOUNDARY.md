@@ -29,6 +29,8 @@ Required for strict hardware validation:
   COM3 during fixed or auto-baud startup and report adapter failures.
 - `flush_rx` in `iolink_master_config_t`: clear the adapter/UART receive FIFO
   before startup begins and before startup retries or baudrate changes.
+- `prepare_tx` and `prepare_rx` in `iolink_master_config_t`: switch the
+  half-duplex adapter direction before and after each core-driven frame send.
 - `wake_up` in `iolink_master_config_t`: generate the master wake-up pulse.
 
 Recommended:
@@ -88,6 +90,10 @@ Required for strict hardware validation:
 - Flush stale adapter RX bytes explicitly. The core always clears its internal
   RX accumulator, and real adapters should implement `flush_rx` so stale UART
   bytes cannot bleed across startup attempts or baudrate changes.
+- Keep half-duplex direction explicit. Core-driven frame sends call
+  `prepare_tx`, then `send`, then `prepare_rx`; adapters that cannot switch
+  direction must return a nonzero error so the core can stop instead of
+  listening in the wrong state.
 - Keep adapter fault policy explicit: line faults may be surfaced through PHY
   callbacks and public diagnostics, but must not mutate core state behind its
   back. `iolink_master_get_diagnostics()` samples `get_voltage_mv` and
