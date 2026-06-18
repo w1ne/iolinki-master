@@ -26,6 +26,7 @@ typedef struct
     uint8_t pd_in_value;
     uint8_t pd_in_len;
     uint8_t od_len;
+    bool event_pending;
     uint8_t rx_queue[16];
     uint8_t rx_len;
     uint8_t rx_pos;
@@ -190,7 +191,8 @@ static void fake_iolink_device_queue_operate_response(void)
     uint8_t pos = 0U;
     uint8_t i;
 
-    g_device.rx_queue[pos++] = IOLINK_OD_STATUS_PD_VALID | IOLINK_DEVICE_STATUS_OK;
+    g_device.rx_queue[pos++] = IOLINK_OD_STATUS_PD_VALID | IOLINK_DEVICE_STATUS_OK |
+                               (g_device.event_pending ? IOLINK_OD_STATUS_EVENT : 0U);
 
     for(i = 0U; i < g_device.pd_in_len; i++)
     {
@@ -296,6 +298,11 @@ void fake_iolink_device_set_isdu_object(uint16_t index, uint8_t subindex, const 
     memcpy(object->data, data, len);
     object->len = len;
     object->valid = true;
+}
+
+void fake_iolink_device_set_event_pending(bool pending)
+{
+    g_device.event_pending = pending;
 }
 
 const iolink_phy_api_t* fake_iolink_device_phy(void)

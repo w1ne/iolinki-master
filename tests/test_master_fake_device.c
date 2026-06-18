@@ -63,6 +63,30 @@ static void test_fake_device_drives_startup_and_paced_pd_cycle(void** state)
     assert_int_equal(fake_iolink_device_operate_cycle_count(), 2U);
 }
 
+static void test_fake_device_exposes_event_pending_status(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_diagnostics_t diagnostics;
+
+    (void)state;
+
+    fake_iolink_device_set_event_pending(true);
+
+    assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &g_config), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_true(diagnostics.event_pending);
+    assert_true((diagnostics.od_status & IOLINK_OD_STATUS_EVENT) != 0U);
+}
+
 static void test_fake_device_serves_isdu_object_dictionary_read(void** state)
 {
     iolink_master_port_t port;
@@ -212,6 +236,8 @@ int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup(test_fake_device_drives_startup_and_paced_pd_cycle,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_fake_device_exposes_event_pending_status,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_serves_isdu_object_dictionary_read,
                                reset_fixture),

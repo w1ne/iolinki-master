@@ -88,6 +88,7 @@ and gap detail.
 - [x] Fake-device ISDU object-dictionary read path.
 - [x] Fake-device Type 0 startup device-validation path.
 - [x] Multi-object fake-device ISDU dictionary.
+- [x] Fake-device event-pending OD status injection.
 
 ### In Progress
 
