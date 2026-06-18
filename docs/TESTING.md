@@ -48,9 +48,10 @@ still intentionally small.
 ### Missing Test Layers
 
 - [ ] capability-matrix fake devices for M-sequence and PD-size negotiation
-- [ ] fake-device ISDU object dictionary
+- [x] fake-device ISDU object dictionary
 - [x] fake-device event-pending OD status injection
-- [ ] fake-device event-detail injection and event ack tests
+- [x] fake-device event-detail injection
+- [ ] fake-device event ack tests
 - [ ] fake-device Data Storage behavior
 - [ ] line-noise, bad CRC, dropped byte, and timeout injection
 - [ ] long-running soak tests

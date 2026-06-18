@@ -87,6 +87,44 @@ static void test_fake_device_exposes_event_pending_status(void** state)
     assert_true((diagnostics.od_status & IOLINK_OD_STATUS_EVENT) != 0U);
 }
 
+static void test_fake_device_serves_event_details(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_event_t events[1];
+    uint8_t count = 0U;
+    const uint8_t details[] = {0xE2U, 0x42U, 0x10U};
+    uint8_t i;
+
+    (void)state;
+
+    memset(events, 0, sizeof(events));
+    fake_iolink_device_set_event_pending(true);
+    fake_iolink_device_set_isdu_object(IOLINK_IDX_DETAILED_DEVICE_STATUS, 0U, details, sizeof(details));
+
+    assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &g_config), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+    assert_int_equal(iolink_master_read_event_details(&port, events, 1U, &count),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    for(i = 0U; i < 13U; i++)
+    {
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    }
+
+    assert_int_equal(iolink_master_read_event_details(&port, events, 1U, &count),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(count, 1U);
+    assert_int_equal(events[0].qualifier, 0xE2U);
+    assert_int_equal(events[0].type, IOLINK_MASTER_EVENT_TYPE_WARNING);
+    assert_int_equal(events[0].code, 0x4210U);
+}
+
 static void test_fake_device_serves_isdu_object_dictionary_read(void** state)
 {
     iolink_master_port_t port;
@@ -238,6 +276,8 @@ int main(void)
         cmocka_unit_test_setup(test_fake_device_drives_startup_and_paced_pd_cycle,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_exposes_event_pending_status,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_fake_device_serves_event_details,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_serves_isdu_object_dictionary_read,
                                reset_fixture),
