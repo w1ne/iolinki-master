@@ -203,7 +203,8 @@ static int fake_iolink_device_send(const uint8_t* data, size_t len)
             return (int)len;
         }
 
-        fake_iolink_device_queue_type0(0x00U);
+        fake_iolink_device_on_master_od(data[0]);
+        fake_iolink_device_queue_type0(fake_iolink_device_next_response_od());
         return (int)len;
     }
 

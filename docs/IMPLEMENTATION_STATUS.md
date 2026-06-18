@@ -84,6 +84,7 @@ and gap detail.
 - [x] Public black-box ISDU read flow test.
 - [x] Fake-device harness for startup, transition, cyclic PD, and port pacing.
 - [x] Fake-device ISDU object-dictionary read path.
+- [x] Fake-device Type 0 startup device-validation path.
 
 ### In Progress
 

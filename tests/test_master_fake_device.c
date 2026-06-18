@@ -7,6 +7,7 @@
 #include <cmocka.h>
 
 #include "fake_iolink_device.h"
+#include "iolinki/protocol.h"
 #include "iolinki_master/master.h"
 
 static const iolink_master_config_t g_config = {
@@ -97,12 +98,62 @@ static void test_fake_device_serves_isdu_object_dictionary_read(void** state)
     assert_int_equal(data[1], 0x4BU);
 }
 
+static void test_fake_device_serves_startup_device_validation_page(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+    iolink_master_device_info_t info;
+    const uint8_t page1[] = {
+        0x00U,
+        0x00U,
+        10U,
+        0x03U, /* ISDU supported, operate M-sequence code 1. */
+        0x11U,
+        0x08U,
+        0x00U,
+        0x12U,
+        0x34U,
+        0x56U,
+        0x78U,
+        0x9AU,
+        0x00U,
+        0x00U,
+        0x00U,
+        0x00U,
+    };
+    uint8_t i;
+
+    (void)state;
+
+    config.validate_device_info = true;
+    fake_iolink_device_set_isdu_object(IOLINK_IDX_DIRECT_PARAMETERS_1, 0U, page1, sizeof(page1));
+
+    assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &config), 0);
+
+    for(i = 0U; i < 64U; i++)
+    {
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+        (void)iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE);
+        if(iolink_master_get_state(&port) == IOLINK_MASTER_STATE_OPERATE)
+        {
+            break;
+        }
+    }
+
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+    assert_int_equal(iolink_master_get_device_info(&port, &info), IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(info.vendor_id, 0x1234U);
+    assert_int_equal(info.device_id, 0x56789AU);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup(test_fake_device_drives_startup_and_paced_pd_cycle,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_serves_isdu_object_dictionary_read,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_fake_device_serves_startup_device_validation_page,
                                reset_fixture),
     };
 
