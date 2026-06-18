@@ -19,6 +19,8 @@ static int g_checked_set_mode_calls;
 static int g_checked_set_baudrate_calls;
 static int g_checked_set_mode_result;
 static int g_checked_set_baudrate_result;
+static int g_flush_rx_calls;
+static int g_flush_rx_result;
 static int g_send_calls;
 static int g_set_cq_line_calls;
 static int g_wake_up_calls;
@@ -70,6 +72,12 @@ static int fake_checked_set_baudrate(iolink_baudrate_t baudrate)
     g_checked_set_baudrate_calls++;
     g_last_baudrate = baudrate;
     return g_checked_set_baudrate_result;
+}
+
+static int fake_flush_rx(void)
+{
+    g_flush_rx_calls++;
+    return g_flush_rx_result;
 }
 
 static void fake_phy_set_cq_line(uint8_t state)
@@ -154,6 +162,8 @@ static int reset_fake_phy(void** state)
     g_checked_set_baudrate_calls = 0;
     g_checked_set_mode_result = IOLINK_MASTER_STATUS_OK;
     g_checked_set_baudrate_result = IOLINK_MASTER_STATUS_OK;
+    g_flush_rx_calls = 0;
+    g_flush_rx_result = IOLINK_MASTER_STATUS_OK;
     g_send_calls = 0;
     g_set_cq_line_calls = 0;
     g_wake_up_calls = 0;
@@ -210,6 +220,7 @@ static void test_validate_phy_contract_rejects_missing_hardware_ops(void** state
     config.wake_up = fake_wake_up;
     config.set_mode_checked = fake_checked_set_mode;
     config.set_baudrate_checked = fake_checked_set_baudrate;
+    config.flush_rx = fake_flush_rx;
     assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
                      IOLINK_MASTER_STATUS_OK);
 
@@ -233,6 +244,11 @@ static void test_validate_phy_contract_rejects_missing_hardware_ops(void** state
                      IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
 
     config.set_mode_checked = fake_checked_set_mode;
+    config.flush_rx = NULL;
+    assert_int_equal(iolink_master_validate_phy_contract(&phy, &config),
+                     IOLINK_MASTER_ERR_UNSUPPORTED_PHY);
+
+    config.flush_rx = fake_flush_rx;
     config.port_mode = IOLINK_MASTER_PORT_MODE_DQ;
     phy = g_fake_phy;
     phy.set_cq_line = NULL;
@@ -298,6 +314,38 @@ static void test_init_propagates_checked_baudrate_failure(void** state)
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
     assert_int_equal(g_checked_set_baudrate_calls, 1);
     assert_int_equal(g_checked_set_mode_calls, 0);
+}
+
+static void test_init_flushes_adapter_rx_before_iolink_startup(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.flush_rx = fake_flush_rx;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(g_flush_rx_calls, 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
+}
+
+static void test_init_propagates_adapter_rx_flush_failure(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.flush_rx = fake_flush_rx;
+    g_flush_rx_result = IOLINK_MASTER_ERR_FRAME;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config),
+                     IOLINK_MASTER_ERR_FRAME);
+    assert_int_equal(g_flush_rx_calls, 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(g_set_baudrate_calls, 0);
+    assert_int_equal(g_set_mode_calls, 0);
 }
 
 static void test_init_sets_od_length_from_m_sequence_type(void** state)
@@ -437,6 +485,45 @@ static void test_auto_baudrate_startup_timeout_scans_com3_com2_com1_then_errors(
     assert_int_equal(iolink_master_on_timeout(&port), -2);
     assert_int_equal(g_set_baudrate_calls, 3);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+}
+
+static void test_auto_baudrate_timeout_flushes_adapter_rx_before_baud_change(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.auto_baudrate = true;
+    config.flush_rx = fake_flush_rx;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(g_flush_rx_calls, 1);
+
+    iolink_master_process(&port);
+    assert_int_equal(iolink_master_on_timeout(&port), IOLINK_MASTER_STATUS_PENDING);
+    assert_int_equal(g_flush_rx_calls, 2);
+    assert_int_equal(g_baudrate_history[1], IOLINK_BAUDRATE_COM2);
+}
+
+static void test_auto_baudrate_timeout_propagates_adapter_rx_flush_failure(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    config.auto_baudrate = true;
+    config.flush_rx = fake_flush_rx;
+
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), IOLINK_MASTER_STATUS_OK);
+    g_flush_rx_result = IOLINK_MASTER_ERR_FRAME;
+
+    iolink_master_process(&port);
+    assert_int_equal(iolink_master_on_timeout(&port), IOLINK_MASTER_ERR_FRAME);
+    assert_int_equal(g_flush_rx_calls, 2);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(g_set_baudrate_calls, 1);
 }
 
 static void test_fixed_baudrate_startup_timeout_enters_error(void** state)
@@ -898,6 +985,10 @@ int main(void)
         cmocka_unit_test_setup(test_init_propagates_checked_mode_failure, reset_fake_phy),
         cmocka_unit_test_setup(test_init_propagates_checked_baudrate_failure,
                                reset_fake_phy),
+        cmocka_unit_test_setup(test_init_flushes_adapter_rx_before_iolink_startup,
+                               reset_fake_phy),
+        cmocka_unit_test_setup(test_init_propagates_adapter_rx_flush_failure,
+                               reset_fake_phy),
         cmocka_unit_test_setup(test_init_sets_od_length_from_m_sequence_type, reset_fake_phy),
         cmocka_unit_test_setup(test_init_deactivated_port_sets_inactive_phy_and_does_not_send,
                                reset_fake_phy),
@@ -907,6 +998,12 @@ int main(void)
                                reset_fake_phy),
         cmocka_unit_test_setup(
             test_auto_baudrate_startup_timeout_scans_com3_com2_com1_then_errors,
+            reset_fake_phy),
+        cmocka_unit_test_setup(
+            test_auto_baudrate_timeout_flushes_adapter_rx_before_baud_change,
+            reset_fake_phy),
+        cmocka_unit_test_setup(
+            test_auto_baudrate_timeout_propagates_adapter_rx_flush_failure,
             reset_fake_phy),
         cmocka_unit_test_setup(test_fixed_baudrate_startup_timeout_enters_error,
                                reset_fake_phy),

@@ -52,6 +52,7 @@ and gap detail.
 - [x] Private master state under `src/`.
 - [x] Port lifecycle states: inactive, startup, preoperate, operate, error.
 - [x] Fallible checked mode and baudrate adapter hooks for strict hardware validation.
+- [x] Adapter RX flush hook before IO-Link startup and startup baudrate retries.
 - [x] Startup wake-up, Type 0 idle, transition command, and operate entry.
 - [x] Fixed-baudrate startup.
 - [x] Auto-baudrate scan across COM3/COM2/COM1.

@@ -9,7 +9,7 @@ matrix below before claiming real-device support.
 - `iolink_master_validate_phy_contract()` passing for the selected
   PHY/config pair before the run starts.
 - Adapter config hooks for fallible hardware operations:
-  `set_mode_checked`, `set_baudrate_checked`, `wake_up`, and
+  `set_mode_checked`, `set_baudrate_checked`, `flush_rx`, `wake_up`, and
   `read_cq_line_checked` for DI-mode validation.
 - One known sensor with cyclic PD input.
 - One known actuator or output module with cyclic PD output.
@@ -20,7 +20,7 @@ matrix below before claiming real-device support.
 
 | Area | Sensor | Actuator | Evidence |
 | --- | --- | --- | --- |
-| Adapter contract | Checked mode changes, baudrate changes, wake pulse, UART direction | Checked mode changes, baudrate changes, wake pulse, UART direction | Adapter logs plus captured pins/register state |
+| Adapter contract | Checked mode changes, baudrate changes, RX flush, wake pulse, UART direction | Checked mode changes, baudrate changes, RX flush, wake pulse, UART direction | Adapter logs plus captured pins/register state |
 | Startup | Wake-up, baudrate, PREOPERATE, OPERATE | Wake-up, baudrate, PREOPERATE, OPERATE | Captured startup frames and final state |
 | Cycle timing | Min cycle and response timeout respected for 10k cycles | Min cycle and response timeout respected for 10k cycles | Timing log with max jitter, slips, and timeout deadlines |
 | PD input | PD valid and stable under nominal operation | Status input if available | Captured PD bytes and API readback |

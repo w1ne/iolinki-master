@@ -27,6 +27,8 @@ Required for strict hardware validation:
   SDCI mode and report adapter failures.
 - `set_baudrate_checked` in `iolink_master_config_t`: apply COM1, COM2, or
   COM3 during fixed or auto-baud startup and report adapter failures.
+- `flush_rx` in `iolink_master_config_t`: clear the adapter/UART receive FIFO
+  before startup begins and before startup retries or baudrate changes.
 - `wake_up` in `iolink_master_config_t`: generate the master wake-up pulse.
 
 Recommended:
@@ -83,6 +85,9 @@ Required for strict hardware validation:
 - Keep response timeout separate from cycle pacing when the adapter can support
   it. `response_timeout_100us` controls the deadline while `min_cycle_time`
   controls cycle spacing; a zero response timeout falls back to `min_cycle_time`.
+- Flush stale adapter RX bytes explicitly. The core always clears its internal
+  RX accumulator, and real adapters should implement `flush_rx` so stale UART
+  bytes cannot bleed across startup attempts or baudrate changes.
 - Keep adapter fault policy explicit: line faults may be surfaced through PHY
   callbacks and public diagnostics, but must not mutate core state behind its
   back. `iolink_master_get_diagnostics()` samples `get_voltage_mv` and

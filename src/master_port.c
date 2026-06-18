@@ -68,6 +68,19 @@ static int iolink_master_set_baudrate(iolink_master_port_t* port, iolink_baudrat
     return IOLINK_MASTER_STATUS_OK;
 }
 
+static int iolink_master_flush_rx(iolink_master_port_t* port)
+{
+    iolink_master_port_state_t* state = iolink_master_port_state(port);
+
+    state->rx.len = 0U;
+    if(state->config.flush_rx == NULL)
+    {
+        return IOLINK_MASTER_STATUS_OK;
+    }
+
+    return state->config.flush_rx();
+}
+
 static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* data, size_t len)
 {
     iolink_master_port_state_t* state = iolink_master_port_state(port);
@@ -331,6 +344,13 @@ int iolink_master_init(iolink_master_port_t* port,
         return IOLINK_MASTER_STATUS_OK;
     }
 
+    ret = iolink_master_flush_rx(port);
+    if(ret != IOLINK_MASTER_STATUS_OK)
+    {
+        iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
+        return ret;
+    }
+
     ret = iolink_master_set_baudrate(port, iolink_master_startup_baudrate(port));
     if(ret != IOLINK_MASTER_STATUS_OK)
     {
@@ -362,7 +382,8 @@ int iolink_master_validate_phy_contract(const iolink_phy_api_t* phy,
     case IOLINK_MASTER_PORT_MODE_IOLINK:
         if((phy->send == NULL) || (phy->recv_byte == NULL) ||
            (config->set_mode_checked == NULL) ||
-           (config->set_baudrate_checked == NULL) || (config->wake_up == NULL))
+           (config->set_baudrate_checked == NULL) || (config->flush_rx == NULL) ||
+           (config->wake_up == NULL))
         {
             return IOLINK_MASTER_ERR_UNSUPPORTED_PHY;
         }
@@ -415,7 +436,12 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
         return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
-    iolink_master_port_state(port)->rx.len = 0U;
+    ret = iolink_master_flush_rx(port);
+    if(ret != IOLINK_MASTER_STATUS_OK)
+    {
+        iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
+        return ret;
+    }
 
     if(iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_STARTUP)
     {
