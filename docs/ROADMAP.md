@@ -114,7 +114,7 @@ integration without leaking board details into the core.
 Required direction:
 
 - [ ] define the minimum PHY operations needed for IO-Link, DI, and DQ modes
-- [ ] decide whether DI needs a new `read_cq_line`-style hook
+- [x] decide whether DI needs a new `read_cq_line`-style hook
 - [ ] separate transceiver control, UART/USART byte transport, and timing source
 - [x] add a first fake-device PHY harness before adding board-specific adapters
 - [ ] expand the fake-device harness into a conformance-style matrix

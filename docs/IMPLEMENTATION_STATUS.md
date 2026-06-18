@@ -28,7 +28,7 @@ Status definitions:
 | Startup device validation | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Expand validation once automatic negotiation exists. |
 | Diagnostics | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c) | Add event detail, link-quality metrics, and stable public error taxonomy. |
 | Multi-port controller | Partial | [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Add scheduler ownership, port-level timing policy, and examples. |
-| SIO DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Add DI input and dynamic mode-transition behavior. |
+| SIO DI/DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_sio_public.c`](../tests/test_master_sio_public.c) | Add dynamic mode-transition behavior and real adapter validation. |
 | Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Implement min-cycle-time pacing, timer integration, and jitter/error accounting. |
 | Events | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) | Implement event read/ack and expose decoded event detail. |
 | Data Storage | Open | None | Add master-side parameter storage and restore behavior. |
@@ -69,6 +69,7 @@ and gap detail.
 - [x] Controller time-aware tick fan-out for per-port cycle pacing.
 - [x] Controller-owned response-deadline timeout scheduling across ports.
 - [x] SIO DQ output through `set_cq_line`.
+- [x] SIO DI input through configured `read_cq_line`.
 - [x] Public header compile test.
 - [x] Public black-box startup/process-data flow test.
 - [x] Fake-device harness for startup, transition, cyclic PD, and port pacing.
@@ -87,7 +88,7 @@ and gap detail.
 - [ ] Capability-matrix fake devices.
 - [ ] Fake-device ISDU object dictionary.
 - [ ] Capability-driven M-sequence and PD-size selection.
-- [ ] DI input API/PHY support.
+- [x] DI input API/PHY support.
 - [ ] Dynamic SIO/IO-Link mode transitions.
 - [ ] Event read/ack and event-detail decoding.
 - [ ] Data Storage / parameter server behavior.
@@ -108,6 +109,7 @@ Local CTest currently exercises these targets when CMocka is available:
 - `test_master_controller`
 - `test_master_parameters`
 - `test_master_public_flow`
+- `test_master_sio_public`
 - `test_master_public_header`
 - `master_loopback_demo`
 - `test_master_fake_device`
