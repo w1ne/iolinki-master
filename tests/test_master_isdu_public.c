@@ -461,6 +461,213 @@ static void test_public_parameter_upload_and_store_helpers_write_system_commands
     assert_next_type0_request(&port, IOLINK_CMD_PARAM_DOWNLOAD_STORE);
 }
 
+static void test_public_parameter_block_write_sequences_commands_and_readback(void** state)
+{
+    iolink_master_port_t port;
+    const uint8_t value[] = {0x12U, 0x34U};
+
+    (void)state;
+
+    enter_type0_operate(&port);
+
+    assert_int_equal(iolink_master_write_parameter_block(&port,
+                                                        0x0040U,
+                                                        0x01U,
+                                                        value,
+                                                        sizeof(value)),
+                     IOLINK_MASTER_STATUS_PENDING);
+    assert_next_type0_request(&port, IOLINK_ISDU_CTRL_START);
+    assert_next_type0_request(&port, (uint8_t)((IOLINK_ISDU_SERVICE_WRITE << 4) | 1U));
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x03U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x04U));
+    assert_next_type0_request(&port, IOLINK_CMD_PARAM_DOWNLOAD_START);
+
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_START | IOLINK_ISDU_CTRL_LAST));
+    feed_type0_byte(&port, 0x00U);
+    assert_int_equal(iolink_master_write_parameter_block(&port,
+                                                        0x0040U,
+                                                        0x01U,
+                                                        value,
+                                                        sizeof(value)),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    assert_next_type0_request(&port, IOLINK_ISDU_CTRL_START);
+    assert_next_type0_request(&port, (uint8_t)((IOLINK_ISDU_SERVICE_WRITE << 4) | 2U));
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x40U);
+    assert_next_type0_request(&port, 0x03U);
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x04U);
+    assert_next_type0_request(&port, 0x12U);
+    assert_next_type0_request(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x05U));
+    assert_next_type0_request(&port, 0x34U);
+
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_START | IOLINK_ISDU_CTRL_LAST));
+    feed_type0_byte(&port, 0x00U);
+    assert_int_equal(iolink_master_write_parameter_block(&port,
+                                                        0x0040U,
+                                                        0x01U,
+                                                        value,
+                                                        sizeof(value)),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    assert_next_type0_request(&port, IOLINK_ISDU_CTRL_START);
+    assert_next_type0_request(&port, (uint8_t)((IOLINK_ISDU_SERVICE_WRITE << 4) | 1U));
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x03U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x04U));
+    assert_next_type0_request(&port, IOLINK_CMD_PARAM_DOWNLOAD_END);
+
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_START | IOLINK_ISDU_CTRL_LAST));
+    feed_type0_byte(&port, 0x00U);
+    assert_int_equal(iolink_master_write_parameter_block(&port,
+                                                        0x0040U,
+                                                        0x01U,
+                                                        value,
+                                                        sizeof(value)),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    assert_next_type0_request(&port, IOLINK_ISDU_CTRL_START);
+    assert_next_type0_request(&port, IOLINK_ISDU_SERVICE_READ << 4);
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x40U);
+    assert_next_type0_request(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x03U));
+    assert_next_type0_request(&port, 0x01U);
+
+    feed_type0_byte(&port, IOLINK_ISDU_CTRL_START);
+    feed_type0_byte(&port, 0x12U);
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x01U));
+    feed_type0_byte(&port, 0x34U);
+    assert_int_equal(iolink_master_write_parameter_block(&port,
+                                                        0x0040U,
+                                                        0x01U,
+                                                        value,
+                                                        sizeof(value)),
+                     IOLINK_MASTER_STATUS_OK);
+}
+
+static void test_public_parameter_block_write_reports_readback_mismatch(void** state)
+{
+    iolink_master_port_t port;
+    const uint8_t value[] = {0x12U, 0x34U};
+
+    (void)state;
+
+    enter_type0_operate(&port);
+
+    assert_int_equal(iolink_master_write_parameter_block(&port,
+                                                        0x0040U,
+                                                        0x01U,
+                                                        value,
+                                                        sizeof(value)),
+                     IOLINK_MASTER_STATUS_PENDING);
+    assert_int_equal(iolink_master_write_parameter_block(&port,
+                                                        0x0040U,
+                                                        0x02U,
+                                                        value,
+                                                        sizeof(value)),
+                     IOLINK_MASTER_ISDU_ERR_BUSY);
+
+    assert_next_type0_request(&port, IOLINK_ISDU_CTRL_START);
+    assert_next_type0_request(&port, (uint8_t)((IOLINK_ISDU_SERVICE_WRITE << 4) | 1U));
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x03U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x04U));
+    assert_next_type0_request(&port, IOLINK_CMD_PARAM_DOWNLOAD_START);
+
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_START | IOLINK_ISDU_CTRL_LAST));
+    feed_type0_byte(&port, 0x00U);
+    assert_int_equal(iolink_master_write_parameter_block(&port,
+                                                        0x0040U,
+                                                        0x01U,
+                                                        value,
+                                                        sizeof(value)),
+                     IOLINK_MASTER_STATUS_PENDING);
+    assert_next_type0_request(&port, IOLINK_ISDU_CTRL_START);
+    assert_next_type0_request(&port, (uint8_t)((IOLINK_ISDU_SERVICE_WRITE << 4) | 2U));
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x40U);
+    assert_next_type0_request(&port, 0x03U);
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x04U);
+    assert_next_type0_request(&port, 0x12U);
+    assert_next_type0_request(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x05U));
+    assert_next_type0_request(&port, 0x34U);
+
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_START | IOLINK_ISDU_CTRL_LAST));
+    feed_type0_byte(&port, 0x00U);
+    assert_int_equal(iolink_master_write_parameter_block(&port,
+                                                        0x0040U,
+                                                        0x01U,
+                                                        value,
+                                                        sizeof(value)),
+                     IOLINK_MASTER_STATUS_PENDING);
+    assert_next_type0_request(&port, IOLINK_ISDU_CTRL_START);
+    assert_next_type0_request(&port, (uint8_t)((IOLINK_ISDU_SERVICE_WRITE << 4) | 1U));
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x03U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x04U));
+    assert_next_type0_request(&port, IOLINK_CMD_PARAM_DOWNLOAD_END);
+
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_START | IOLINK_ISDU_CTRL_LAST));
+    feed_type0_byte(&port, 0x00U);
+    assert_int_equal(iolink_master_write_parameter_block(&port,
+                                                        0x0040U,
+                                                        0x01U,
+                                                        value,
+                                                        sizeof(value)),
+                     IOLINK_MASTER_STATUS_PENDING);
+    assert_next_type0_request(&port, IOLINK_ISDU_CTRL_START);
+    assert_next_type0_request(&port, IOLINK_ISDU_SERVICE_READ << 4);
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x40U);
+    assert_next_type0_request(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x03U));
+    assert_next_type0_request(&port, 0x01U);
+
+    feed_type0_byte(&port, IOLINK_ISDU_CTRL_START);
+    feed_type0_byte(&port, 0x12U);
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x01U));
+    feed_type0_byte(&port, 0x35U);
+    assert_int_equal(iolink_master_write_parameter_block(&port,
+                                                        0x0040U,
+                                                        0x01U,
+                                                        value,
+                                                        sizeof(value)),
+                     IOLINK_MASTER_ISDU_ERR_VERIFY_FAILED);
+
+    assert_int_equal(iolink_master_write_parameter_block(&port,
+                                                        0x0040U,
+                                                        0x02U,
+                                                        value,
+                                                        sizeof(value)),
+                     IOLINK_MASTER_STATUS_PENDING);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -483,6 +690,11 @@ int main(void)
         cmocka_unit_test_setup(test_public_parameter_download_helpers_write_system_commands,
                                reset_fixture),
         cmocka_unit_test_setup(test_public_parameter_upload_and_store_helpers_write_system_commands,
+                               reset_fixture),
+        cmocka_unit_test_setup(
+            test_public_parameter_block_write_sequences_commands_and_readback,
+            reset_fixture),
+        cmocka_unit_test_setup(test_public_parameter_block_write_reports_readback_mismatch,
                                reset_fixture),
     };
 

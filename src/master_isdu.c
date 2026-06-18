@@ -558,3 +558,99 @@ int iolink_master_store_parameter_download(iolink_master_port_t* port)
 {
     return iolink_master_write_system_command(port, IOLINK_CMD_PARAM_DOWNLOAD_STORE);
 }
+
+static bool iolink_master_block_matches(const iolink_master_port_t* port,
+                                        uint16_t index,
+                                        uint8_t subindex,
+                                        const uint8_t* data,
+                                        uint8_t len)
+{
+    const iolink_master_block_state_t* block = &iolink_master_port_const_state(port)->block;
+
+    return (block->index == index) && (block->subindex == subindex) && (block->len == len) &&
+           ((len == 0U) || (memcmp(block->data, data, len) == 0));
+}
+
+static void iolink_master_block_clear(iolink_master_port_t* port)
+{
+    memset(&iolink_master_port_state(port)->block, 0, sizeof(iolink_master_port_state(port)->block));
+}
+
+int iolink_master_write_parameter_block(iolink_master_port_t* port,
+                                        uint16_t index,
+                                        uint8_t subindex,
+                                        const uint8_t* data,
+                                        uint8_t len)
+{
+    iolink_master_block_state_t* block;
+    int ret;
+
+    if((port == NULL) || ((data == NULL) && (len > 0U)))
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    if(len > (uint8_t)(IOLINK_ISDU_BUFFER_SIZE - 5U))
+    {
+        return IOLINK_MASTER_ISDU_ERR_BUFFER_TOO_SMALL;
+    }
+
+    block = &iolink_master_port_state(port)->block;
+    if(block->step == IOLINK_MASTER_BLOCK_STEP_NONE)
+    {
+        block->step = IOLINK_MASTER_BLOCK_STEP_BEGIN_DOWNLOAD;
+        block->index = index;
+        block->subindex = subindex;
+        block->len = len;
+        if(len > 0U)
+        {
+            memcpy(block->data, data, len);
+        }
+    }
+    else if(!iolink_master_block_matches(port, index, subindex, data, len))
+    {
+        return IOLINK_MASTER_ISDU_ERR_BUSY;
+    }
+
+    if(block->step == IOLINK_MASTER_BLOCK_STEP_BEGIN_DOWNLOAD)
+    {
+        ret = iolink_master_begin_parameter_download(port);
+        if(ret != IOLINK_MASTER_STATUS_OK)
+        {
+            return ret;
+        }
+        block->step = IOLINK_MASTER_BLOCK_STEP_WRITE;
+    }
+
+    if(block->step == IOLINK_MASTER_BLOCK_STEP_WRITE)
+    {
+        ret = iolink_master_write_isdu(port, block->index, block->subindex, block->data, block->len);
+        if(ret != IOLINK_MASTER_STATUS_OK)
+        {
+            return ret;
+        }
+        block->step = IOLINK_MASTER_BLOCK_STEP_END_DOWNLOAD;
+    }
+
+    if(block->step == IOLINK_MASTER_BLOCK_STEP_END_DOWNLOAD)
+    {
+        ret = iolink_master_end_parameter_download(port);
+        if(ret != IOLINK_MASTER_STATUS_OK)
+        {
+            return ret;
+        }
+        block->step = IOLINK_MASTER_BLOCK_STEP_VERIFY;
+    }
+
+    ret = iolink_master_verify_isdu(port, block->index, block->subindex, block->data, block->len);
+    if(ret == IOLINK_MASTER_STATUS_OK)
+    {
+        iolink_master_block_clear(port);
+    }
+    else if(ret < 0)
+    {
+        iolink_master_block_clear(port);
+    }
+
+    return ret;
+}

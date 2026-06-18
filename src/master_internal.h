@@ -35,6 +35,24 @@ typedef struct
     uint8_t len;
 } iolink_master_rx_state_t;
 
+typedef enum
+{
+    IOLINK_MASTER_BLOCK_STEP_NONE = 0,
+    IOLINK_MASTER_BLOCK_STEP_BEGIN_DOWNLOAD = 1,
+    IOLINK_MASTER_BLOCK_STEP_WRITE = 2,
+    IOLINK_MASTER_BLOCK_STEP_END_DOWNLOAD = 3,
+    IOLINK_MASTER_BLOCK_STEP_VERIFY = 4
+} iolink_master_block_step_t;
+
+typedef struct
+{
+    iolink_master_block_step_t step;
+    uint16_t index;
+    uint8_t subindex;
+    uint8_t data[IOLINK_ISDU_BUFFER_SIZE];
+    uint8_t len;
+} iolink_master_block_state_t;
+
 typedef struct
 {
     const iolink_phy_api_t* phy;
@@ -51,6 +69,7 @@ typedef struct
     iolink_master_diagnostics_t diagnostics;
     iolink_master_device_info_t device_info;
     iolink_master_isdu_state_t isdu;
+    iolink_master_block_state_t block;
     iolink_master_rx_state_t rx;
     uint32_t cycle_count;
     uint32_t last_cycle_start_100us;

@@ -87,7 +87,7 @@ Still missing:
 - [x] initial block-parameterization system-command helpers
 - [ ] Data Storage parameter-server restore sequencing
 - [x] ISDU readback verification helper
-- [ ] full block parameterization readback sequencing policy
+- [x] full block parameterization readback sequencing policy
 - [ ] protocol behavior validated against real devices
 
 ### 4. Timing and Scheduler Core
@@ -172,7 +172,7 @@ Required direction:
 - [x] add explicit event ack wrapper
 - [x] add Data Storage service wrappers
 - [x] add block parameterization download/upload/store system-command helpers
-- [ ] add block parameterization readback verification
+- [x] add block parameterization readback verification
 - [ ] add service-level diagnostics and result codes
 
 ### 8. Hardware Validation and Conformance
@@ -254,7 +254,7 @@ Add services above the cyclic transport:
 - [x] Data Storage readback verification wrapper
 - [x] block parameterization download/upload/store system-command helpers
 - [x] parameter readback verification helper
-- [ ] full block write/readback sequencing policy
+- [x] full block write/readback sequencing policy
 
 ### Phase 5: Hardware and Conformance
 

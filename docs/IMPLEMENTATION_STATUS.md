@@ -32,7 +32,7 @@ Status definitions:
 | Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`tests/test_master_public_flow.c`](../tests/test_master_public_flow.c) | Define the full scheduler ownership model and validate timing against hardware. |
 | Events | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Validate event flows against real devices. |
 | Data Storage | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Add master-side parameter-server restore sequencing. |
-| Block parameterization | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Add full block write/readback sequencing policy. |
+| Block parameterization | Implemented | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Validate block flows against real devices. |
 | Hardware PHY adapters | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) consumes the dependency PHY contract | Add real master-port hardware adapters outside the protocol core. |
 | Conformance | Open | Local tests only | Run official IO-Link master conformance testing. |
 | Documentation/examples | Partial | [`README.md`](../README.md), [`docs/ROADMAP.md`](ROADMAP.md), [`docs/TESTING.md`](TESTING.md), [`examples/master_loopback_demo.c`](../examples/master_loopback_demo.c), [`examples/master_4port_controller_demo.c`](../examples/master_4port_controller_demo.c) | Add focused examples for ISDU and service workflows as those APIs mature. |
@@ -63,6 +63,7 @@ and gap detail.
 - [x] Detailed Device Status event-detail decode wrapper.
 - [x] Explicit event ack wrapper.
 - [x] Block parameterization download/upload/store system-command helpers.
+- [x] Block parameterization write sequencing with readback verification.
 - [x] ISDU readback verification helper.
 - [x] Detailed Device Status read wrapper.
 - [x] Direct Parameter Page 1 parse/apply/get/validate.
@@ -120,7 +121,7 @@ and gap detail.
 - [x] DI input API/PHY support.
 - [x] Dynamic SIO/IO-Link mode transitions.
 - [ ] Data Storage parameter-server restore sequencing.
-- [ ] Full block parameterization readback sequencing policy.
+- [x] Full block parameterization readback sequencing policy.
 - [ ] Expand fake-device harness into a conformance-style matrix.
 - [ ] Real hardware PHY adapter.
 - [ ] Real-device sensor/actuator test matrix.

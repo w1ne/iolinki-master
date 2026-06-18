@@ -161,9 +161,9 @@ typedef struct
  * protocol buffers and service state; controller storage only tracks a port
  * array reference plus port count.
  */
-#define IOLINK_MASTER_PORT_STORAGE_BUDGET_SIZE 1024U
+#define IOLINK_MASTER_PORT_STORAGE_BUDGET_SIZE 1152U
 #define IOLINK_MASTER_CONTROLLER_STORAGE_BUDGET_SIZE 32U
-#define IOLINK_MASTER_PORT_STORAGE_SIZE 1024U
+#define IOLINK_MASTER_PORT_STORAGE_SIZE 1152U
 #define IOLINK_MASTER_CONTROLLER_STORAGE_SIZE 32U
 
 typedef union
@@ -301,6 +301,12 @@ int iolink_master_begin_parameter_upload(iolink_master_port_t* port);
 int iolink_master_end_parameter_upload(iolink_master_port_t* port);
 /* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
 int iolink_master_store_parameter_download(iolink_master_port_t* port);
+/* Returns OK after download start, write, download end, and readback verification complete. */
+int iolink_master_write_parameter_block(iolink_master_port_t* port,
+                                        uint16_t index,
+                                        uint8_t subindex,
+                                        const uint8_t* data,
+                                        uint8_t len);
 /* Returns OK, INVALID_ARG, or the first per-port init error. */
 int iolink_master_controller_init(iolink_master_controller_t* controller,
                                   iolink_master_port_t* ports,
