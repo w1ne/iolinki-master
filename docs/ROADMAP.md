@@ -252,7 +252,7 @@ Status: open.
 
 Add services above the cyclic transport:
 
-- [ ] event read/ack
+- [x] event read/ack
 - [x] Data Storage ISDU read/write wrappers
 - [x] Data Storage readback verification wrapper
 - [x] Data Storage restore sequencing wrapper
