@@ -464,6 +464,11 @@ int iolink_master_read_event_code(iolink_master_port_t* port, uint16_t* event_co
     return IOLINK_MASTER_STATUS_OK;
 }
 
+int iolink_master_ack_event(iolink_master_port_t* port, uint16_t* event_code)
+{
+    return iolink_master_read_event_code(port, event_code);
+}
+
 static iolink_master_event_type_t iolink_master_event_type_from_qualifier(uint8_t qualifier)
 {
     switch((uint8_t)((qualifier >> 4U) & 0x03U))

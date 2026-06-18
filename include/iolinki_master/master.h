@@ -281,6 +281,8 @@ int iolink_master_read_detailed_device_status(iolink_master_port_t* port,
                                               uint8_t* len);
 /* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
 int iolink_master_read_event_code(iolink_master_port_t* port, uint16_t* event_code);
+/* Returns OK when the device's event-code read completes; this read is the explicit ack policy. */
+int iolink_master_ack_event(iolink_master_port_t* port, uint16_t* event_code);
 /* Returns OK when complete, PENDING while active, INVALID_ARG, BUFFER_TOO_SMALL, or an ISDU error. */
 int iolink_master_read_event_details(iolink_master_port_t* port,
                                      iolink_master_event_t* events,

@@ -222,6 +222,36 @@ static void test_public_event_code_read_uses_standard_index_and_decodes(void** s
     assert_int_equal(event_code, 0x1803U);
 }
 
+static void test_public_event_ack_reads_and_returns_event_code(void** state)
+{
+    iolink_master_port_t port;
+    uint16_t event_code = 0U;
+
+    (void)state;
+
+    enter_type0_operate(&port);
+
+    assert_int_equal(iolink_master_ack_event(&port, &event_code),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    assert_next_type0_request(&port, IOLINK_ISDU_CTRL_START);
+    assert_next_type0_request(&port, IOLINK_ISDU_SERVICE_READ << 4);
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x03U));
+    assert_next_type0_request(&port, 0x00U);
+
+    feed_type0_byte(&port, IOLINK_ISDU_CTRL_START);
+    feed_type0_byte(&port, 0x18U);
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x01U));
+    feed_type0_byte(&port, 0x03U);
+
+    assert_int_equal(iolink_master_ack_event(&port, &event_code), IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(event_code, 0x1803U);
+}
+
 static void test_public_event_details_read_decodes_detailed_device_status(void** state)
 {
     iolink_master_port_t port;
@@ -386,6 +416,8 @@ int main(void)
         cmocka_unit_test_setup(test_public_detailed_device_status_read_uses_standard_index,
                                reset_fixture),
         cmocka_unit_test_setup(test_public_event_code_read_uses_standard_index_and_decodes,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_public_event_ack_reads_and_returns_event_code,
                                reset_fixture),
         cmocka_unit_test_setup(test_public_event_details_read_decodes_detailed_device_status,
                                reset_fixture),

@@ -80,7 +80,7 @@ Still missing:
 - [ ] full M-sequence variant coverage
 - [x] initial event-code read wrapper
 - [x] event detail decode wrapper
-- [ ] explicit event ack policy
+- [x] explicit event ack wrapper
 - [x] initial Data Storage ISDU read/write wrappers
 - [x] Data Storage readback verification wrapper
 - [x] initial block-parameterization system-command helpers
@@ -162,7 +162,7 @@ Required direction:
 - [x] keep ISDU state machine independent from startup policy
 - [x] add event-code read wrapper
 - [x] add event detail decoding
-- [ ] add explicit event ack policy
+- [x] add explicit event ack wrapper
 - [x] add Data Storage service wrappers
 - [x] add block parameterization start/end helpers
 - [ ] add block parameterization readback verification
