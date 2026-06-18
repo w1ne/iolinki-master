@@ -222,6 +222,50 @@ static void test_public_event_code_read_uses_standard_index_and_decodes(void** s
     assert_int_equal(event_code, 0x1803U);
 }
 
+static void test_public_event_details_read_decodes_detailed_device_status(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_event_t events[2];
+    uint8_t count = 0U;
+
+    (void)state;
+
+    memset(events, 0, sizeof(events));
+    enter_type0_operate(&port);
+
+    assert_int_equal(iolink_master_read_event_details(&port,
+                                                      events,
+                                                      (uint8_t)(sizeof(events) / sizeof(events[0])),
+                                                      &count),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    assert_next_type0_request(&port, IOLINK_ISDU_CTRL_START);
+    assert_next_type0_request(&port, IOLINK_ISDU_SERVICE_READ << 4);
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x1CU);
+    assert_next_type0_request(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x03U));
+    assert_next_type0_request(&port, 0x00U);
+
+    feed_type0_byte(&port, IOLINK_ISDU_CTRL_START);
+    feed_type0_byte(&port, 0xE2U);
+    feed_type0_byte(&port, 0x01U);
+    feed_type0_byte(&port, 0x42U);
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x02U));
+    feed_type0_byte(&port, 0x10U);
+
+    assert_int_equal(iolink_master_read_event_details(&port,
+                                                      events,
+                                                      (uint8_t)(sizeof(events) / sizeof(events[0])),
+                                                      &count),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(count, 1U);
+    assert_int_equal(events[0].qualifier, 0xE2U);
+    assert_int_equal(events[0].type, IOLINK_MASTER_EVENT_TYPE_WARNING);
+    assert_int_equal(events[0].code, 0x4210U);
+}
+
 static void test_public_parameter_download_helpers_write_system_commands(void** state)
 {
     iolink_master_port_t port;
@@ -270,6 +314,8 @@ int main(void)
         cmocka_unit_test_setup(test_public_detailed_device_status_read_uses_standard_index,
                                reset_fixture),
         cmocka_unit_test_setup(test_public_event_code_read_uses_standard_index_and_decodes,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_public_event_details_read_decodes_detailed_device_status,
                                reset_fixture),
         cmocka_unit_test_setup(test_public_parameter_download_helpers_write_system_commands,
                                reset_fixture),

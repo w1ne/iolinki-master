@@ -45,6 +45,14 @@ typedef enum
 
 typedef enum
 {
+    IOLINK_MASTER_EVENT_TYPE_UNKNOWN = 0U,
+    IOLINK_MASTER_EVENT_TYPE_NOTIFICATION = 1U,
+    IOLINK_MASTER_EVENT_TYPE_WARNING = 2U,
+    IOLINK_MASTER_EVENT_TYPE_ERROR = 3U
+} iolink_master_event_type_t;
+
+typedef enum
+{
     IOLINK_MASTER_TICK_NONE = 0,
     IOLINK_MASTER_TICK_CYCLE_DUE = 1,
     IOLINK_MASTER_TICK_RESPONSE_TIMEOUT = 2
@@ -138,6 +146,13 @@ typedef struct
     uint16_t vendor_id;
     uint32_t device_id;
 } iolink_master_device_info_t;
+
+typedef struct
+{
+    uint8_t qualifier;
+    iolink_master_event_type_t type;
+    uint16_t code;
+} iolink_master_event_t;
 
 /*
  * Opaque storage budgets keep the public ABI caller-owned and heap-free while
@@ -255,6 +270,11 @@ int iolink_master_read_detailed_device_status(iolink_master_port_t* port,
                                               uint8_t* len);
 /* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
 int iolink_master_read_event_code(iolink_master_port_t* port, uint16_t* event_code);
+/* Returns OK when complete, PENDING while active, INVALID_ARG, BUFFER_TOO_SMALL, or an ISDU error. */
+int iolink_master_read_event_details(iolink_master_port_t* port,
+                                     iolink_master_event_t* events,
+                                     uint8_t max_events,
+                                     uint8_t* out_count);
 /* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
 int iolink_master_begin_parameter_download(iolink_master_port_t* port);
 /* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */

@@ -30,7 +30,7 @@ Status definitions:
 | Multi-port controller | Partial | [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`examples/master_4port_controller_demo.c`](../examples/master_4port_controller_demo.c) | Define scheduler ownership and port-level runtime policy. |
 | SIO DI/DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_sio_public.c`](../tests/test_master_sio_public.c) | Validate SIO and mode transitions against real adapters. |
 | Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`tests/test_master_public_flow.c`](../tests/test_master_public_flow.c) | Define the full scheduler ownership model and validate timing against hardware. |
-| Events | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Add event qualifier/detail decoding and explicit ack policy. |
+| Events | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Add explicit event ack policy. |
 | Data Storage | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Add master-side parameter-server restore behavior. |
 | Block parameterization | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Add block write/readback verification policy. |
 | Hardware PHY adapters | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) consumes the dependency PHY contract | Add real master-port hardware adapters outside the protocol core. |
@@ -59,6 +59,7 @@ and gap detail.
 - [x] ISDU read/write transfer in local tests.
 - [x] Data Storage ISDU read/write wrappers.
 - [x] Event-code ISDU read wrapper.
+- [x] Detailed Device Status event-detail decode wrapper.
 - [x] Block parameterization start/end system-command helpers.
 - [x] Detailed Device Status read wrapper.
 - [x] Direct Parameter Page 1 parse/apply/get/validate.
@@ -101,7 +102,7 @@ and gap detail.
 - [x] Capability-driven M-sequence and PD-size selection for currently mapped codes.
 - [x] DI input API/PHY support.
 - [x] Dynamic SIO/IO-Link mode transitions.
-- [ ] Event qualifier/detail decoding and explicit ack policy.
+- [ ] Explicit event ack policy.
 - [ ] Data Storage parameter-server restore behavior.
 - [ ] Block parameterization readback verification.
 - [ ] Expand fake-device harness into a conformance-style matrix.

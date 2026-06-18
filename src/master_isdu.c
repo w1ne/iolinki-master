@@ -428,6 +428,66 @@ int iolink_master_read_event_code(iolink_master_port_t* port, uint16_t* event_co
     return IOLINK_MASTER_STATUS_OK;
 }
 
+static iolink_master_event_type_t iolink_master_event_type_from_qualifier(uint8_t qualifier)
+{
+    switch((uint8_t)((qualifier >> 4U) & 0x03U))
+    {
+    case 1U:
+        return IOLINK_MASTER_EVENT_TYPE_NOTIFICATION;
+    case 2U:
+        return IOLINK_MASTER_EVENT_TYPE_WARNING;
+    case 3U:
+        return IOLINK_MASTER_EVENT_TYPE_ERROR;
+    default:
+        return IOLINK_MASTER_EVENT_TYPE_UNKNOWN;
+    }
+}
+
+int iolink_master_read_event_details(iolink_master_port_t* port,
+                                     iolink_master_event_t* events,
+                                     uint8_t max_events,
+                                     uint8_t* out_count)
+{
+    uint8_t data[24] = {0U};
+    uint8_t len = sizeof(data);
+    uint8_t count;
+    uint8_t i;
+    int ret;
+
+    if((events == NULL) || (out_count == NULL))
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    ret = iolink_master_read_detailed_device_status(port, data, &len);
+    if(ret != IOLINK_MASTER_STATUS_OK)
+    {
+        return ret;
+    }
+
+    if((len % 3U) != 0U)
+    {
+        return IOLINK_MASTER_ISDU_ERR_DEVICE;
+    }
+
+    count = (uint8_t)(len / 3U);
+    *out_count = count;
+    if(max_events < count)
+    {
+        return IOLINK_MASTER_ERR_BUFFER_TOO_SMALL;
+    }
+
+    for(i = 0U; i < count; i++)
+    {
+        events[i].qualifier = data[i * 3U];
+        events[i].type = iolink_master_event_type_from_qualifier(events[i].qualifier);
+        events[i].code = (uint16_t)(((uint16_t)data[(i * 3U) + 1U] << 8U) |
+                                    data[(i * 3U) + 2U]);
+    }
+
+    return IOLINK_MASTER_STATUS_OK;
+}
+
 static int iolink_master_write_system_command(iolink_master_port_t* port, uint8_t command)
 {
     return iolink_master_write_isdu(port, IOLINK_IDX_SYSTEM_COMMAND, 0U, &command, 1U);
