@@ -38,12 +38,12 @@ int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
 {
     if((page == NULL) || (info == NULL))
     {
-        return -1;
+        return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
     if(len < 16U)
     {
-        return -2;
+        return IOLINK_MASTER_PARAM_ERR_TOO_SHORT;
     }
 
     memset(info, 0, sizeof(*info));
@@ -61,7 +61,7 @@ int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
     info->vendor_id = (uint16_t)(((uint16_t)page[0x07] << 8U) | page[0x08]);
     info->device_id = ((uint32_t)page[0x09] << 16U) | ((uint32_t)page[0x0A] << 8U) |
                       (uint32_t)page[0x0B];
-    return 0;
+    return IOLINK_MASTER_STATUS_OK;
 }
 
 int iolink_master_apply_direct_parameter_page1(iolink_master_port_t* port,
@@ -72,7 +72,7 @@ int iolink_master_apply_direct_parameter_page1(iolink_master_port_t* port,
 
     if(port == NULL)
     {
-        return -1;
+        return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
     state = iolink_master_port_state(port);
@@ -86,17 +86,17 @@ int iolink_master_get_device_info(const iolink_master_port_t* port,
 
     if((port == NULL) || (info == NULL))
     {
-        return -1;
+        return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
     state = iolink_master_port_const_state(port);
     *info = state->device_info;
     if(!info->valid)
     {
-        return 1;
+        return IOLINK_MASTER_STATUS_PENDING;
     }
 
-    return 0;
+    return IOLINK_MASTER_STATUS_OK;
 }
 
 int iolink_master_validate_device_info(const iolink_master_port_t* port)
@@ -106,36 +106,36 @@ int iolink_master_validate_device_info(const iolink_master_port_t* port)
 
     if(port == NULL)
     {
-        return -1;
+        return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
     state = iolink_master_port_const_state(port);
     info = &state->device_info;
     if(!info->valid)
     {
-        return 1;
+        return IOLINK_MASTER_STATUS_PENDING;
     }
 
     if((info->revision_id != 0x10U) && (info->revision_id != 0x11U))
     {
-        return -2;
+        return IOLINK_MASTER_PARAM_ERR_REVISION;
     }
 
     if(state->config.min_cycle_time < info->min_cycle_time)
     {
-        return -3;
+        return IOLINK_MASTER_PARAM_ERR_CYCLE_TIME;
     }
 
     if((state->config.pd_in_len != info->pd_in_len) ||
        (state->config.pd_out_len != info->pd_out_len))
     {
-        return -4;
+        return IOLINK_MASTER_PARAM_ERR_PD_SIZE;
     }
 
     if(iolink_master_mseq_capability_code(state->config.m_seq_type) != info->operate_mseq_code)
     {
-        return -5;
+        return IOLINK_MASTER_PARAM_ERR_M_SEQUENCE;
     }
 
-    return 0;
+    return IOLINK_MASTER_STATUS_OK;
 }

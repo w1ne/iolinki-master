@@ -11,11 +11,23 @@ int main(void)
     iolink_master_port_t port;
     iolink_master_controller_t controller;
     iolink_master_tick_event_t event = IOLINK_MASTER_TICK_CYCLE_DUE;
+    iolink_master_result_t result = IOLINK_MASTER_STATUS_OK;
 
     memset(&port, 0, sizeof(port));
     memset(&controller, 0, sizeof(controller));
     (void)iolink_master_tick_at(&port, event, 0U);
     (void)iolink_master_controller_tick_at(&controller, 0U);
+    (void)result;
+
+    if(IOLINK_MASTER_STATUS_PENDING != 1)
+    {
+        return 1;
+    }
+
+    if(IOLINK_MASTER_ERR_CHECKSUM != -3)
+    {
+        return 2;
+    }
 
     return 0;
 }

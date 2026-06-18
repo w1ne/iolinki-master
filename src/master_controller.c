@@ -15,7 +15,7 @@ int iolink_master_controller_init(iolink_master_controller_t* controller,
     if((controller == NULL) || (ports == NULL) || (port_count == 0U) || (phys == NULL) ||
        (configs == NULL))
     {
-        return -1;
+        return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
     memset(controller, 0, sizeof(*controller));
@@ -33,7 +33,7 @@ int iolink_master_controller_init(iolink_master_controller_t* controller,
         }
     }
 
-    return 0;
+    return IOLINK_MASTER_STATUS_OK;
 }
 
 int iolink_master_controller_tick(iolink_master_controller_t* controller,
@@ -42,12 +42,12 @@ int iolink_master_controller_tick(iolink_master_controller_t* controller,
     iolink_master_controller_state_t* state;
     uint8_t i;
     int ret;
-    int first_error = 0;
+    int first_error = IOLINK_MASTER_STATUS_OK;
     iolink_master_tick_event_t event;
 
     if(controller == NULL)
     {
-        return -1;
+        return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
     state = iolink_master_controller_state(controller);
@@ -72,12 +72,12 @@ int iolink_master_controller_tick_events(iolink_master_controller_t* controller,
     iolink_master_controller_state_t* state;
     uint8_t i;
     int ret;
-    int first_error = 0;
+    int first_error = IOLINK_MASTER_STATUS_OK;
     iolink_master_tick_event_t event;
 
     if(controller == NULL)
     {
-        return -1;
+        return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
     state = iolink_master_controller_state(controller);
@@ -99,11 +99,11 @@ int iolink_master_controller_tick_at(iolink_master_controller_t* controller, uin
     iolink_master_controller_state_t* state;
     uint8_t i;
     int ret;
-    int first_error = 0;
+    int first_error = IOLINK_MASTER_STATUS_OK;
 
     if(controller == NULL)
     {
-        return -1;
+        return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
     state = iolink_master_controller_state(controller);

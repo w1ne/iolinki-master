@@ -69,20 +69,20 @@ static int iolink_master_isdu_finish_read(iolink_master_port_t* port,
     if(iolink_master_port_state(port)->isdu.error != IOLINK_ISDU_ERROR_NONE)
     {
         iolink_master_isdu_clear(port);
-        return -4;
+        return IOLINK_MASTER_ISDU_ERR_DEVICE;
     }
 
     if((result_len >= 2U) && (iolink_master_port_state(port)->isdu.response[0] == 0x80U))
     {
         iolink_master_port_state(port)->isdu.error = iolink_master_port_state(port)->isdu.response[1];
         iolink_master_isdu_clear(port);
-        return -4;
+        return IOLINK_MASTER_ISDU_ERR_DEVICE;
     }
 
     if(*len < result_len)
     {
         *len = (result_len > UINT8_MAX) ? UINT8_MAX : (uint8_t)result_len;
-        return -2;
+        return IOLINK_MASTER_ISDU_ERR_BUFFER_TOO_SMALL;
     }
 
     if(result_len > 0U)
@@ -91,7 +91,7 @@ static int iolink_master_isdu_finish_read(iolink_master_port_t* port,
     }
     *len = result_len;
     iolink_master_isdu_clear(port);
-    return 0;
+    return IOLINK_MASTER_STATUS_OK;
 }
 
 static int iolink_master_isdu_finish_write(iolink_master_port_t* port)
@@ -99,18 +99,18 @@ static int iolink_master_isdu_finish_write(iolink_master_port_t* port)
     if(iolink_master_port_state(port)->isdu.error != IOLINK_ISDU_ERROR_NONE)
     {
         iolink_master_isdu_clear(port);
-        return -4;
+        return IOLINK_MASTER_ISDU_ERR_DEVICE;
     }
 
     if((iolink_master_port_state(port)->isdu.response_len >= 2U) && (iolink_master_port_state(port)->isdu.response[0] == 0x80U))
     {
         iolink_master_port_state(port)->isdu.error = iolink_master_port_state(port)->isdu.response[1];
         iolink_master_isdu_clear(port);
-        return -4;
+        return IOLINK_MASTER_ISDU_ERR_DEVICE;
     }
 
     iolink_master_isdu_clear(port);
-    return 0;
+    return IOLINK_MASTER_STATUS_OK;
 }
 
 void iolink_master_isdu_fill_od(iolink_master_port_t* port, uint8_t* od, uint8_t od_len)
@@ -236,29 +236,29 @@ int iolink_master_read_isdu(iolink_master_port_t* port,
 {
     if((port == NULL) || (data == NULL) || (len == NULL))
     {
-        return -1;
+        return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
     if((iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_OPERATE) &&
        (iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_PREOPERATE))
     {
-        return -5;
+        return IOLINK_MASTER_ISDU_ERR_INVALID_STATE;
     }
 
     if(iolink_master_isdu_busy(port))
     {
         if(iolink_master_isdu_matches(port, IOLINK_MASTER_ISDU_OP_READ, index, subindex))
         {
-            return 1;
+            return IOLINK_MASTER_STATUS_PENDING;
         }
-        return -3;
+        return IOLINK_MASTER_ISDU_ERR_BUSY;
     }
 
     if(iolink_master_port_state(port)->isdu.done)
     {
         if(!iolink_master_isdu_matches(port, IOLINK_MASTER_ISDU_OP_READ, index, subindex))
         {
-            return -3;
+            return IOLINK_MASTER_ISDU_ERR_BUSY;
         }
         return iolink_master_isdu_finish_read(port, data, len);
     }
@@ -270,7 +270,7 @@ int iolink_master_read_isdu(iolink_master_port_t* port,
     iolink_master_port_state(port)->isdu.request[3] = subindex;
     iolink_master_port_state(port)->isdu.request_len = 4U;
 
-    return 1;
+    return IOLINK_MASTER_STATUS_PENDING;
 }
 
 int iolink_master_read_device_info(iolink_master_port_t* port)
@@ -281,7 +281,7 @@ int iolink_master_read_device_info(iolink_master_port_t* port)
 
     if(port == NULL)
     {
-        return -1;
+        return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
     ret = iolink_master_read_isdu(port, IOLINK_IDX_DIRECT_PARAMETERS_1, 0U, page, &len);
@@ -309,36 +309,36 @@ int iolink_master_write_isdu(iolink_master_port_t* port,
 
     if((port == NULL) || ((data == NULL) && (len > 0U)))
     {
-        return -1;
+        return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
     if((iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_OPERATE) &&
        (iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_PREOPERATE))
     {
-        return -5;
+        return IOLINK_MASTER_ISDU_ERR_INVALID_STATE;
     }
 
     if(iolink_master_isdu_busy(port))
     {
         if(iolink_master_isdu_matches(port, IOLINK_MASTER_ISDU_OP_WRITE, index, subindex))
         {
-            return 1;
+            return IOLINK_MASTER_STATUS_PENDING;
         }
-        return -3;
+        return IOLINK_MASTER_ISDU_ERR_BUSY;
     }
 
     if(iolink_master_port_state(port)->isdu.done)
     {
         if(!iolink_master_isdu_matches(port, IOLINK_MASTER_ISDU_OP_WRITE, index, subindex))
         {
-            return -3;
+            return IOLINK_MASTER_ISDU_ERR_BUSY;
         }
         return iolink_master_isdu_finish_write(port);
     }
 
     if(len > (uint8_t)(IOLINK_ISDU_BUFFER_SIZE - 5U))
     {
-        return -2;
+        return IOLINK_MASTER_ISDU_ERR_BUFFER_TOO_SMALL;
     }
 
     iolink_master_isdu_start(port, IOLINK_MASTER_ISDU_OP_WRITE, index, subindex);
@@ -365,5 +365,5 @@ int iolink_master_write_isdu(iolink_master_port_t* port,
 
     iolink_master_port_state(port)->isdu.request_len = pos;
 
-    return 1;
+    return IOLINK_MASTER_STATUS_PENDING;
 }

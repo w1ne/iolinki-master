@@ -45,8 +45,8 @@ port/controller storage, while private state lives under `src/`.
 
 Still missing:
 
-- [ ] named public result codes instead of magic integer returns
-- [ ] documented return contract for every function
+- [x] named public result codes instead of magic integer returns
+- [x] documented return contract for every function
 - [ ] storage-size rationale and size-budget tests
 - [ ] more black-box tests that avoid reaching into `src/master_internal.h`
 
@@ -201,7 +201,7 @@ Status: next.
 
 Build the missing runtime backbone before piling on more services:
 
-- [ ] define public result codes and API contracts
+- [x] define public result codes and API contracts
 - [x] add event-driven tick dispatch for none, cycle-due, and response-timeout events
 - [ ] define the full scheduler/timing model
 - [x] implement port-level min-cycle-time pacing without wall-clock sleeps in tests
