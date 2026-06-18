@@ -194,6 +194,8 @@ int iolink_master_get_diagnostics(const iolink_master_port_t* port,
 int iolink_master_set_dq(iolink_master_port_t* port, bool level);
 /* Returns OK, INVALID_ARG, SIO_WRONG_MODE, or SIO_UNSUPPORTED_PHY. */
 int iolink_master_get_di(const iolink_master_port_t* port, bool* level);
+/* Returns OK or INVALID_ARG; switching to IO-Link restarts startup on the port. */
+int iolink_master_set_port_mode(iolink_master_port_t* port, iolink_master_port_mode_t mode);
 /* Returns OK, INVALID_ARG, or PARAM_TOO_SHORT. */
 int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
                                                uint8_t len,

@@ -28,7 +28,7 @@ Status definitions:
 | Startup device validation | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Expand validation once automatic negotiation exists. |
 | Diagnostics | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c) | Add event detail, link-quality metrics, and stable public error taxonomy. |
 | Multi-port controller | Partial | [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Add scheduler ownership, port-level timing policy, and examples. |
-| SIO DI/DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_sio_public.c`](../tests/test_master_sio_public.c) | Add dynamic mode-transition behavior and real adapter validation. |
+| SIO DI/DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_sio_public.c`](../tests/test_master_sio_public.c) | Validate SIO and mode transitions against real adapters. |
 | Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Define the full scheduler ownership model and validate timing against hardware. |
 | Events | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) | Implement event read/ack and expose decoded event detail. |
 | Data Storage | Open | None | Add master-side parameter storage and restore behavior. |
@@ -71,6 +71,7 @@ and gap detail.
 - [x] Controller-owned response-deadline timeout scheduling across ports.
 - [x] SIO DQ output through `set_cq_line`.
 - [x] SIO DI input through configured `read_cq_line`.
+- [x] Dynamic SIO/IO-Link/deactivated mode transitions.
 - [x] Public header compile test.
 - [x] Public black-box startup/process-data flow test.
 - [x] Fake-device harness for startup, transition, cyclic PD, and port pacing.
@@ -89,7 +90,7 @@ and gap detail.
 - [ ] Fake-device ISDU object dictionary.
 - [ ] Capability-driven M-sequence and PD-size selection.
 - [x] DI input API/PHY support.
-- [ ] Dynamic SIO/IO-Link mode transitions.
+- [x] Dynamic SIO/IO-Link mode transitions.
 - [ ] Event read/ack and event-detail decoding.
 - [ ] Data Storage / parameter server behavior.
 - [ ] Block parameterization and readback verification.

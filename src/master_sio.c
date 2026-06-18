@@ -54,3 +54,21 @@ int iolink_master_get_di(const iolink_master_port_t* port, bool* level)
     *level = (cq_level != 0);
     return IOLINK_MASTER_STATUS_OK;
 }
+
+int iolink_master_set_port_mode(iolink_master_port_t* port, iolink_master_port_mode_t mode)
+{
+    const iolink_phy_api_t* phy;
+    iolink_master_config_t config;
+
+    if((port == NULL) || (mode > IOLINK_MASTER_PORT_MODE_DEACTIVATED) ||
+       (iolink_master_port_state(port)->phy == NULL))
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    phy = iolink_master_port_state(port)->phy;
+    config = iolink_master_port_state(port)->config;
+    config.port_mode = mode;
+
+    return iolink_master_init(port, phy, &config);
+}
