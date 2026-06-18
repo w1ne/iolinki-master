@@ -543,3 +543,18 @@ int iolink_master_end_parameter_download(iolink_master_port_t* port)
 {
     return iolink_master_write_system_command(port, IOLINK_CMD_PARAM_DOWNLOAD_END);
 }
+
+int iolink_master_begin_parameter_upload(iolink_master_port_t* port)
+{
+    return iolink_master_write_system_command(port, IOLINK_CMD_PARAM_UPLOAD_START);
+}
+
+int iolink_master_end_parameter_upload(iolink_master_port_t* port)
+{
+    return iolink_master_write_system_command(port, IOLINK_CMD_PARAM_UPLOAD_END);
+}
+
+int iolink_master_store_parameter_download(iolink_master_port_t* port)
+{
+    return iolink_master_write_system_command(port, IOLINK_CMD_PARAM_DOWNLOAD_STORE);
+}

@@ -62,7 +62,7 @@ and gap detail.
 - [x] Event-code ISDU read wrapper.
 - [x] Detailed Device Status event-detail decode wrapper.
 - [x] Explicit event ack wrapper.
-- [x] Block parameterization start/end system-command helpers.
+- [x] Block parameterization download/upload/store system-command helpers.
 - [x] ISDU readback verification helper.
 - [x] Detailed Device Status read wrapper.
 - [x] Direct Parameter Page 1 parse/apply/get/validate.

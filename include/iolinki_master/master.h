@@ -295,6 +295,12 @@ int iolink_master_read_event_details(iolink_master_port_t* port,
 int iolink_master_begin_parameter_download(iolink_master_port_t* port);
 /* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
 int iolink_master_end_parameter_download(iolink_master_port_t* port);
+/* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
+int iolink_master_begin_parameter_upload(iolink_master_port_t* port);
+/* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
+int iolink_master_end_parameter_upload(iolink_master_port_t* port);
+/* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
+int iolink_master_store_parameter_download(iolink_master_port_t* port);
 /* Returns OK, INVALID_ARG, or the first per-port init error. */
 int iolink_master_controller_init(iolink_master_controller_t* controller,
                                   iolink_master_port_t* ports,
