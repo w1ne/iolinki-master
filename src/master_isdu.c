@@ -395,6 +395,35 @@ int iolink_master_write_data_storage(iolink_master_port_t* port,
     return iolink_master_write_isdu(port, IOLINK_IDX_DATA_STORAGE, 0U, data, len);
 }
 
+int iolink_master_verify_isdu(iolink_master_port_t* port,
+                              uint16_t index,
+                              uint8_t subindex,
+                              const uint8_t* expected,
+                              uint8_t len)
+{
+    uint8_t data[IOLINK_ISDU_BUFFER_SIZE];
+    uint8_t read_len = UINT8_MAX;
+    int ret;
+
+    if((expected == NULL) && (len > 0U))
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    ret = iolink_master_read_isdu(port, index, subindex, data, &read_len);
+    if(ret != IOLINK_MASTER_STATUS_OK)
+    {
+        return ret;
+    }
+
+    if((read_len != len) || ((len > 0U) && (memcmp(data, expected, len) != 0)))
+    {
+        return IOLINK_MASTER_ISDU_ERR_VERIFY_FAILED;
+    }
+
+    return IOLINK_MASTER_STATUS_OK;
+}
+
 int iolink_master_read_detailed_device_status(iolink_master_port_t* port,
                                               uint8_t* data,
                                               uint8_t* len)

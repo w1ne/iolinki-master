@@ -266,6 +266,48 @@ static void test_public_event_details_read_decodes_detailed_device_status(void**
     assert_int_equal(events[0].code, 0x4210U);
 }
 
+static void test_public_isdu_verify_readback_compares_value(void** state)
+{
+    iolink_master_port_t port;
+    const uint8_t expected[] = {0x12U, 0x34U};
+    const uint8_t mismatch[] = {0x12U, 0x35U};
+
+    (void)state;
+
+    enter_type0_operate(&port);
+
+    assert_int_equal(iolink_master_verify_isdu(&port, 0x0010U, 0U, expected, sizeof(expected)),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    assert_next_type0_request(&port, IOLINK_ISDU_CTRL_START);
+    assert_next_type0_request(&port, IOLINK_ISDU_SERVICE_READ << 4);
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x10U);
+    assert_next_type0_request(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x03U));
+    assert_next_type0_request(&port, 0x00U);
+
+    feed_type0_byte(&port, IOLINK_ISDU_CTRL_START);
+    feed_type0_byte(&port, 0x12U);
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x01U));
+    feed_type0_byte(&port, 0x34U);
+
+    assert_int_equal(iolink_master_verify_isdu(&port, 0x0010U, 0U, expected, sizeof(expected)),
+                     IOLINK_MASTER_STATUS_OK);
+
+    assert_int_equal(iolink_master_verify_isdu(&port, 0x0010U, 0U, mismatch, sizeof(mismatch)),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    feed_type0_byte(&port, IOLINK_ISDU_CTRL_START);
+    feed_type0_byte(&port, 0x12U);
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x01U));
+    feed_type0_byte(&port, 0x34U);
+
+    assert_int_equal(iolink_master_verify_isdu(&port, 0x0010U, 0U, mismatch, sizeof(mismatch)),
+                     IOLINK_MASTER_ISDU_ERR_VERIFY_FAILED);
+}
+
 static void test_public_parameter_download_helpers_write_system_commands(void** state)
 {
     iolink_master_port_t port;
@@ -316,6 +358,8 @@ int main(void)
         cmocka_unit_test_setup(test_public_event_code_read_uses_standard_index_and_decodes,
                                reset_fixture),
         cmocka_unit_test_setup(test_public_event_details_read_decodes_detailed_device_status,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_public_isdu_verify_readback_compares_value,
                                reset_fixture),
         cmocka_unit_test_setup(test_public_parameter_download_helpers_write_system_commands,
                                reset_fixture),

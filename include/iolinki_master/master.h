@@ -85,7 +85,8 @@ typedef enum
     IOLINK_MASTER_ISDU_ERR_BUFFER_TOO_SMALL = -2,
     IOLINK_MASTER_ISDU_ERR_BUSY = -3,
     IOLINK_MASTER_ISDU_ERR_DEVICE = -4,
-    IOLINK_MASTER_ISDU_ERR_INVALID_STATE = -5
+    IOLINK_MASTER_ISDU_ERR_INVALID_STATE = -5,
+    IOLINK_MASTER_ISDU_ERR_VERIFY_FAILED = -6
 } iolink_master_isdu_result_t;
 
 typedef enum
@@ -264,6 +265,12 @@ int iolink_master_read_data_storage(iolink_master_port_t* port,
 int iolink_master_write_data_storage(iolink_master_port_t* port,
                                      const uint8_t* data,
                                      uint8_t len);
+/* Returns OK when readback matches, PENDING while active, INVALID_ARG, VERIFY_FAILED, or an ISDU error. */
+int iolink_master_verify_isdu(iolink_master_port_t* port,
+                              uint16_t index,
+                              uint8_t subindex,
+                              const uint8_t* expected,
+                              uint8_t len);
 /* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
 int iolink_master_read_detailed_device_status(iolink_master_port_t* port,
                                               uint8_t* data,
