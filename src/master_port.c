@@ -761,6 +761,8 @@ int iolink_master_get_diagnostics(const iolink_master_port_t* port,
                                   iolink_master_diagnostics_t* diagnostics)
 {
     const iolink_master_port_state_t* state;
+    uint32_t error_count;
+    uint32_t total_count;
 
     if((port == NULL) || (diagnostics == NULL))
     {
@@ -769,6 +771,13 @@ int iolink_master_get_diagnostics(const iolink_master_port_t* port,
 
     state = iolink_master_port_const_state(port);
     *diagnostics = state->diagnostics;
+    error_count = diagnostics->checksum_errors + diagnostics->send_errors +
+                  diagnostics->response_timeouts;
+    total_count = state->cycle_count + error_count;
+    diagnostics->link_quality_percent =
+        (total_count == 0U)
+            ? 100U
+            : (uint8_t)((state->cycle_count * 100U) / total_count);
     return IOLINK_MASTER_STATUS_OK;
 }
 

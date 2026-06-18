@@ -76,6 +76,7 @@ and gap detail.
 - [x] Response timeout counter in public diagnostics.
 - [x] Cycle-slip counter in public diagnostics.
 - [x] Last/max cycle-jitter diagnostics in 100us units.
+- [x] Derived link-quality percentage in public diagnostics.
 - [x] Last service-level result code in public diagnostics.
 - [x] Last event count/code diagnostics from event services.
 - [x] Last ISDU service error in public diagnostics.
@@ -112,7 +113,7 @@ and gap detail.
 ### In Progress
 
 - [x] Complete public M-sequence variant selection coverage.
-- [ ] Add link-quality metrics to diagnostics.
+- [x] Add link-quality metrics to diagnostics.
 - [x] Clear multi-port runtime policy with controller-computed next due time.
 
 ### Not Started

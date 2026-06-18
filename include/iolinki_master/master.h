@@ -119,6 +119,7 @@ typedef struct
     uint32_t cycle_slips;
     uint32_t last_cycle_jitter_100us;
     uint32_t max_cycle_jitter_100us;
+    uint8_t link_quality_percent;
     int last_service_result;
     uint8_t last_event_count;
     uint16_t last_event_code;

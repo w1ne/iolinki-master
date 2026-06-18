@@ -111,6 +111,7 @@ Required direction:
 - [x] track response timeout counts in public diagnostics
 - [x] track cycle-slip counts in public diagnostics
 - [x] track jitter diagnostics
+- [x] track derived link-quality diagnostics
 - [x] track last event count/code diagnostics from event services
 
 This should be the next major architecture slice after the docs checkpoint.

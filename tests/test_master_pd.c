@@ -159,6 +159,24 @@ static void test_on_rx_latches_od_status_for_diagnostics(void** state)
     assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
     assert_int_equal(diagnostics.od_status, 0xA3U);
     assert_true(diagnostics.event_pending);
+    assert_int_equal(diagnostics.link_quality_percent, 100U);
+}
+
+static void test_diagnostics_reports_derived_link_quality(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_diagnostics_t diagnostics;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_init(&port, &g_empty_phy, &g_config), 0);
+    iolink_master_port_state(&port)->cycle_count = 7U;
+    iolink_master_port_state(&port)->diagnostics.checksum_errors = 1U;
+    iolink_master_port_state(&port)->diagnostics.response_timeouts = 1U;
+    iolink_master_port_state(&port)->diagnostics.send_errors = 1U;
+
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_int_equal(diagnostics.link_quality_percent, 70U);
 }
 
 static void test_get_od_status_rejects_invalid_args(void** state)
@@ -349,6 +367,7 @@ int main(void)
         cmocka_unit_test(test_poll_rx_keeps_partial_response_until_complete),
         cmocka_unit_test(test_poll_rx_enters_error_on_phy_receive_error),
         cmocka_unit_test(test_on_rx_latches_od_status_for_diagnostics),
+        cmocka_unit_test(test_diagnostics_reports_derived_link_quality),
         cmocka_unit_test(test_get_od_status_rejects_invalid_args),
         cmocka_unit_test(test_get_device_status_returns_failure_for_null_port),
         cmocka_unit_test(test_on_rx_bad_checksum_returns_error_and_increments_count),

@@ -321,6 +321,7 @@ static void test_restart_reenters_startup_and_clears_runtime_state(void** state)
     iolink_master_port_state(&port)->diagnostics.cycle_slips = 6U;
     iolink_master_port_state(&port)->diagnostics.last_cycle_jitter_100us = 7U;
     iolink_master_port_state(&port)->diagnostics.max_cycle_jitter_100us = 8U;
+    iolink_master_port_state(&port)->diagnostics.link_quality_percent = 55U;
     iolink_master_port_state(&port)->diagnostics.last_service_result = -5;
     iolink_master_port_state(&port)->diagnostics.last_event_count = 2U;
     iolink_master_port_state(&port)->diagnostics.last_event_code = 0x1803U;
@@ -338,6 +339,7 @@ static void test_restart_reenters_startup_and_clears_runtime_state(void** state)
     assert_int_equal(iolink_master_port_state(&port)->diagnostics.cycle_slips, 0U);
     assert_int_equal(iolink_master_port_state(&port)->diagnostics.last_cycle_jitter_100us, 0U);
     assert_int_equal(iolink_master_port_state(&port)->diagnostics.max_cycle_jitter_100us, 0U);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.link_quality_percent, 0U);
     assert_int_equal(iolink_master_port_state(&port)->diagnostics.last_service_result, 0);
     assert_int_equal(iolink_master_port_state(&port)->diagnostics.last_event_count, 0U);
     assert_int_equal(iolink_master_port_state(&port)->diagnostics.last_event_code, 0U);
