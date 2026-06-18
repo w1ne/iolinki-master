@@ -207,15 +207,21 @@ static void test_tick_event_response_timeout_reports_pending_retry(void** state)
 static void test_tick_at_paces_operate_cycles_by_min_cycle_time(void** state)
 {
     iolink_master_port_t port;
+    uint32_t next_due = 0U;
 
     (void)state;
 
     assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
     iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
 
+    assert_int_equal(iolink_master_get_next_tick_time(&port, 100U, &next_due), 0);
+    assert_int_equal(next_due, 100U);
+
     assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U), 0);
     assert_int_equal(g_send_calls, 1);
     assert_int_equal(iolink_master_port_state(&port)->cycle_count, 1U);
+    assert_int_equal(iolink_master_get_next_tick_time(&port, 101U, &next_due), 0);
+    assert_int_equal(next_due, 120U);
 
     assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 119U), 0);
     assert_int_equal(g_send_calls, 1);
@@ -224,6 +230,30 @@ static void test_tick_at_paces_operate_cycles_by_min_cycle_time(void** state)
     assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 120U), 0);
     assert_int_equal(g_send_calls, 2);
     assert_int_equal(iolink_master_port_state(&port)->cycle_count, 2U);
+}
+
+static void test_next_tick_time_prefers_response_deadline_before_cycle_due(void** state)
+{
+    iolink_master_port_t port;
+    uint32_t next_due = 0U;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&port)->cycle_timer_valid = true;
+    iolink_master_port_state(&port)->last_cycle_start_100us = 100U;
+    iolink_master_port_state(&port)->response_deadline_100us = 110U;
+    iolink_master_port_state(&port)->awaiting_response = true;
+
+    assert_int_equal(iolink_master_get_next_tick_time(&port, 101U, &next_due), 0);
+    assert_int_equal(next_due, 110U);
+    assert_int_equal(iolink_master_get_next_tick_time(&port, 111U, &next_due), 0);
+    assert_int_equal(next_due, 111U);
+
+    iolink_master_port_state(&port)->awaiting_response = false;
+    assert_int_equal(iolink_master_get_next_tick_time(&port, 111U, &next_due), 0);
+    assert_int_equal(next_due, 120U);
 }
 
 static void test_tick_at_counts_late_cycle_slips(void** state)
@@ -306,6 +336,8 @@ int main(void)
         cmocka_unit_test_setup(test_tick_event_response_timeout_reports_pending_retry,
                                reset_fixture),
         cmocka_unit_test_setup(test_tick_at_paces_operate_cycles_by_min_cycle_time,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_next_tick_time_prefers_response_deadline_before_cycle_due,
                                reset_fixture),
         cmocka_unit_test_setup(test_tick_at_counts_late_cycle_slips, reset_fixture),
         cmocka_unit_test_setup(test_tick_at_tracks_cycle_jitter_diagnostics,

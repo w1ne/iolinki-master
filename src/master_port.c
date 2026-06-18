@@ -88,6 +88,47 @@ static uint32_t iolink_master_cycle_jitter_at(const iolink_master_port_t* port,
     return (uint32_t)(elapsed - (uint32_t)state->config.min_cycle_time);
 }
 
+int iolink_master_get_next_tick_time(const iolink_master_port_t* port,
+                                     uint32_t now_100us,
+                                     uint32_t* out_next_100us)
+{
+    const iolink_master_port_state_t* state;
+    uint32_t cycle_due;
+
+    if((port == NULL) || (out_next_100us == NULL))
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    state = iolink_master_port_const_state(port);
+    if((state->state == IOLINK_MASTER_STATE_INACTIVE) ||
+       (state->state == IOLINK_MASTER_STATE_ERROR))
+    {
+        *out_next_100us = now_100us;
+        return IOLINK_MASTER_STATUS_OK;
+    }
+
+    if(state->awaiting_response)
+    {
+        *out_next_100us = (now_100us >= state->response_deadline_100us)
+                              ? now_100us
+                              : state->response_deadline_100us;
+        return IOLINK_MASTER_STATUS_OK;
+    }
+
+    if((state->state != IOLINK_MASTER_STATE_OPERATE) || (state->config.min_cycle_time == 0U) ||
+       !state->cycle_timer_valid)
+    {
+        *out_next_100us = now_100us;
+        return IOLINK_MASTER_STATUS_OK;
+    }
+
+    cycle_due = (uint32_t)(state->last_cycle_start_100us +
+                           (uint32_t)state->config.min_cycle_time);
+    *out_next_100us = (now_100us >= cycle_due) ? now_100us : cycle_due;
+    return IOLINK_MASTER_STATUS_OK;
+}
+
 static int iolink_master_tick_common(iolink_master_port_t* port,
                                      iolink_master_tick_event_t event,
                                      bool pace_cycles,

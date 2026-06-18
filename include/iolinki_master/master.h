@@ -336,5 +336,13 @@ int iolink_master_controller_tick_events(iolink_master_controller_t* controller,
 /* Returns OK, INVALID_ARG, or the first negative per-port time-aware tick result. */
 int iolink_master_controller_tick_at(iolink_master_controller_t* controller,
                                      uint32_t now_100us);
+/* Returns OK or INVALID_ARG. Caller owns the hardware timer; output is the next due 100us tick. */
+int iolink_master_get_next_tick_time(const iolink_master_port_t* port,
+                                     uint32_t now_100us,
+                                     uint32_t* out_next_100us);
+/* Returns OK or INVALID_ARG. Output is the earliest next due 100us tick across all ports. */
+int iolink_master_controller_get_next_tick_time(const iolink_master_controller_t* controller,
+                                                uint32_t now_100us,
+                                                uint32_t* out_next_100us);
 
 #endif /* IOLINKI_MASTER_MASTER_H */

@@ -113,11 +113,11 @@ and gap detail.
 
 - [ ] Complete M-sequence variant coverage.
 - [ ] Add link-quality metrics to diagnostics.
-- [ ] Add clearer multi-port runtime policy.
+- [x] Clear multi-port runtime policy with controller-computed next due time.
 
 ### Not Started
 
-- [ ] Full scheduler/timing model.
+- [x] Full scheduler/timing model.
 - [ ] Broad capability-matrix fake devices.
 - [x] Capability-driven M-sequence and PD-size selection for currently mapped codes.
 - [x] Requested configuration validation against device capability profile.

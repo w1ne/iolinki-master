@@ -101,12 +101,12 @@ than a serious master runtime.
 
 Required direction:
 
-- [ ] define who owns cycle time: caller, controller helper, or a dedicated scheduler
+- [x] define who owns cycle time: caller supplies timer ticks, controller computes next due time
 - [x] make `min_cycle_time` affect port-level OPERATE cycle pacing
 - [x] represent response deadlines explicitly instead of only accepting a boolean
   timeout flag
 - [x] return pending retry status through scheduler-visible timeout ticks
-- [ ] keep the scheduler hardware-independent
+- [x] keep the scheduler hardware-independent
 - [x] make port-level cycle pacing testable without wall-clock sleeps
 - [x] track response timeout counts in public diagnostics
 - [x] track cycle-slip counts in public diagnostics
@@ -150,7 +150,7 @@ Required direction:
 
 - [x] fan one controller timestamp out to per-port cycle pacing
 - [x] make controller apply response deadlines before issuing another cycle
-- [ ] support independent port modes and cycle timings
+- [x] support independent port modes and cycle timings
 - [x] expose per-port diagnostics without hiding individual port failures
 - [x] expose public controller helpers for port count and per-port access
 - [x] keep one failed port from corrupting unrelated ports
@@ -228,7 +228,7 @@ Build the missing runtime backbone before piling on more services:
 
 - [x] define public result codes and API contracts
 - [x] add event-driven tick dispatch for none, cycle-due, and response-timeout events
-- [ ] define the full scheduler/timing model
+- [x] define the full scheduler/timing model
 - [x] implement port-level min-cycle-time pacing without wall-clock sleeps in tests
 - [x] add public black-box tests for scheduler-visible behavior
 - [x] keep the controller/helper boundary explicit for tick event fan-out
@@ -287,7 +287,7 @@ Deliverables:
 - [x] Add tests proving port frames are paced by configured cycle time.
 - [x] Add controller time input that lets each port enforce its own cycle deadline.
 - [x] Add controller-owned response-deadline scheduling.
-- [ ] Keep hardware timers outside the protocol core; tests should drive fake time.
+- [x] Keep hardware timers outside the protocol core; tests should drive fake time.
 
 The result-code enum remains important, but it is API cleanup. Timing is the
 architectural blocker between a protocol test harness and a real master runtime.

@@ -155,3 +155,40 @@ int iolink_master_controller_tick_at(iolink_master_controller_t* controller, uin
 
     return first_error;
 }
+
+int iolink_master_controller_get_next_tick_time(const iolink_master_controller_t* controller,
+                                                uint32_t now_100us,
+                                                uint32_t* out_next_100us)
+{
+    const iolink_master_controller_state_t* state;
+    uint8_t i;
+    uint32_t port_next;
+
+    if((controller == NULL) || (out_next_100us == NULL))
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    state = iolink_master_controller_const_state(controller);
+    if(state->port_count == 0U)
+    {
+        *out_next_100us = now_100us;
+        return IOLINK_MASTER_STATUS_OK;
+    }
+
+    *out_next_100us = UINT32_MAX;
+    for(i = 0U; i < state->port_count; i++)
+    {
+        if(iolink_master_get_next_tick_time(&state->ports[i], now_100us, &port_next) !=
+           IOLINK_MASTER_STATUS_OK)
+        {
+            return IOLINK_MASTER_ERR_INVALID_ARG;
+        }
+        if(port_next < *out_next_100us)
+        {
+            *out_next_100us = port_next;
+        }
+    }
+
+    return IOLINK_MASTER_STATUS_OK;
+}

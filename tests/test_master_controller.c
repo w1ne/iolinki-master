@@ -214,6 +214,36 @@ static void test_controller_tick_at_times_out_missing_response_before_next_cycle
     assert_int_equal(diagnostics.response_timeouts, 1U);
 }
 
+static void test_controller_next_tick_time_returns_earliest_port_deadline(void** state)
+{
+    iolink_master_controller_t controller;
+    iolink_master_port_t ports[2];
+    iolink_master_config_t configs[2];
+    uint32_t next_due = 0U;
+
+    (void)state;
+
+    configs[0] = g_configs[0];
+    configs[1] = g_configs[1];
+    configs[0].min_cycle_time = 20U;
+    configs[1].min_cycle_time = 40U;
+
+    assert_int_equal(iolink_master_controller_init(&controller, ports, 2U, g_phys, configs), 0);
+    iolink_master_port_state(&ports[0])->state = IOLINK_MASTER_STATE_OPERATE;
+    iolink_master_port_state(&ports[1])->state = IOLINK_MASTER_STATE_OPERATE;
+
+    assert_int_equal(iolink_master_controller_tick_at(&controller, 100U), 0);
+    assert_int_equal(iolink_master_controller_get_next_tick_time(&controller, 101U, &next_due),
+                     0);
+    assert_int_equal(next_due, 120U);
+
+    iolink_master_port_state(&ports[0])->awaiting_response = true;
+    iolink_master_port_state(&ports[0])->response_deadline_100us = 110U;
+    assert_int_equal(iolink_master_controller_get_next_tick_time(&controller, 101U, &next_due),
+                     0);
+    assert_int_equal(next_due, 110U);
+}
+
 static void test_controller_exposes_public_port_accessors(void** state)
 {
     iolink_master_controller_t controller;
@@ -270,6 +300,8 @@ int main(void)
         cmocka_unit_test_setup(
             test_controller_tick_at_times_out_missing_response_before_next_cycle,
             reset_fixture),
+        cmocka_unit_test_setup(test_controller_next_tick_time_returns_earliest_port_deadline,
+                               reset_fixture),
         cmocka_unit_test_setup(test_controller_exposes_public_port_accessors, reset_fixture),
         cmocka_unit_test_setup(test_controller_rejects_invalid_args, reset_fixture),
     };
