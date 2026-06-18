@@ -76,8 +76,10 @@ Still missing:
 - [x] initial capability-driven M-sequence and PD-size selection
 - [ ] full M-sequence variant coverage
 - [ ] complete event read/ack flow
-- [ ] Data Storage / parameter server behavior
-- [ ] block parameterization and readback verification
+- [x] initial Data Storage ISDU read/write wrappers
+- [x] initial block-parameterization system-command helpers
+- [ ] Data Storage parameter-server restore behavior
+- [ ] block parameterization readback verification
 - [ ] protocol behavior validated against real devices
 
 ### 4. Timing and Scheduler Core
@@ -149,8 +151,9 @@ Required direction:
 
 - [x] keep ISDU state machine independent from startup policy
 - [ ] add event service read/ack
-- [ ] add Data Storage service
-- [ ] add block parameterization workflows
+- [x] add Data Storage service wrappers
+- [x] add block parameterization start/end helpers
+- [ ] add block parameterization readback verification
 - [ ] add service-level diagnostics and result codes
 
 ### 8. Hardware Validation and Conformance
@@ -227,8 +230,8 @@ Status: open.
 Add services above the cyclic transport:
 
 - [ ] event read/ack
-- [ ] Data Storage
-- [ ] block parameterization
+- [x] Data Storage ISDU read/write wrappers
+- [x] block parameterization start/end system-command helpers
 - [ ] parameter write verification and readback
 
 ### Phase 5: Hardware and Conformance

@@ -367,3 +367,37 @@ int iolink_master_write_isdu(iolink_master_port_t* port,
 
     return IOLINK_MASTER_STATUS_PENDING;
 }
+
+int iolink_master_read_data_storage(iolink_master_port_t* port, uint8_t* data, uint8_t* len)
+{
+    return iolink_master_read_isdu(port, IOLINK_IDX_DATA_STORAGE, 0U, data, len);
+}
+
+int iolink_master_write_data_storage(iolink_master_port_t* port,
+                                     const uint8_t* data,
+                                     uint8_t len)
+{
+    return iolink_master_write_isdu(port, IOLINK_IDX_DATA_STORAGE, 0U, data, len);
+}
+
+int iolink_master_read_detailed_device_status(iolink_master_port_t* port,
+                                              uint8_t* data,
+                                              uint8_t* len)
+{
+    return iolink_master_read_isdu(port, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0U, data, len);
+}
+
+static int iolink_master_write_system_command(iolink_master_port_t* port, uint8_t command)
+{
+    return iolink_master_write_isdu(port, IOLINK_IDX_SYSTEM_COMMAND, 0U, &command, 1U);
+}
+
+int iolink_master_begin_parameter_download(iolink_master_port_t* port)
+{
+    return iolink_master_write_system_command(port, IOLINK_CMD_PARAM_DOWNLOAD_START);
+}
+
+int iolink_master_end_parameter_download(iolink_master_port_t* port)
+{
+    return iolink_master_write_system_command(port, IOLINK_CMD_PARAM_DOWNLOAD_END);
+}

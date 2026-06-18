@@ -31,8 +31,8 @@ Status definitions:
 | SIO DI/DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_sio_public.c`](../tests/test_master_sio_public.c) | Validate SIO and mode transitions against real adapters. |
 | Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Define the full scheduler ownership model and validate timing against hardware. |
 | Events | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) | Implement event read/ack and expose decoded event detail. |
-| Data Storage | Open | None | Add master-side parameter storage and restore behavior. |
-| Block parameterization | Open | None | Add block write/readback workflows and verification policy. |
+| Data Storage | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Add master-side parameter-server restore behavior. |
+| Block parameterization | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Add block write/readback verification policy. |
 | Hardware PHY adapters | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) consumes the dependency PHY contract | Add real master-port hardware adapters outside the protocol core. |
 | Conformance | Open | Local tests only | Run official IO-Link master conformance testing. |
 | Documentation/examples | Partial | [`README.md`](../README.md), [`docs/ROADMAP.md`](ROADMAP.md), [`docs/TESTING.md`](TESTING.md), [`examples/master_loopback_demo.c`](../examples/master_loopback_demo.c), [`examples/master_4port_controller_demo.c`](../examples/master_4port_controller_demo.c) | Add focused examples for ISDU and service workflows as those APIs mature. |
@@ -57,6 +57,9 @@ and gap detail.
 - [x] Configured cyclic PD input/output.
 - [x] RX accumulation, checksum handling, and retry tracking.
 - [x] ISDU read/write transfer in local tests.
+- [x] Data Storage ISDU read/write wrappers.
+- [x] Block parameterization start/end system-command helpers.
+- [x] Detailed Device Status read wrapper.
 - [x] Direct Parameter Page 1 parse/apply/get/validate.
 - [x] Initial capability-driven config selection from Direct Parameter Page 1.
 - [x] Optional startup device-info validation.
@@ -93,9 +96,9 @@ and gap detail.
 - [x] Capability-driven M-sequence and PD-size selection for currently mapped codes.
 - [x] DI input API/PHY support.
 - [x] Dynamic SIO/IO-Link mode transitions.
-- [ ] Event read/ack and event-detail decoding.
-- [ ] Data Storage / parameter server behavior.
-- [ ] Block parameterization and readback verification.
+- [ ] Event ack and event-detail decoding.
+- [ ] Data Storage parameter-server restore behavior.
+- [ ] Block parameterization readback verification.
 - [ ] Expand fake-device harness into a conformance-style matrix.
 - [ ] Real hardware PHY adapter.
 - [ ] Real-device sensor/actuator test matrix.

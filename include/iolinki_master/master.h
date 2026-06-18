@@ -228,6 +228,22 @@ int iolink_master_write_isdu(iolink_master_port_t* port,
                              uint8_t subindex,
                              const uint8_t* data,
                              uint8_t len);
+/* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
+int iolink_master_read_data_storage(iolink_master_port_t* port,
+                                    uint8_t* data,
+                                    uint8_t* len);
+/* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
+int iolink_master_write_data_storage(iolink_master_port_t* port,
+                                     const uint8_t* data,
+                                     uint8_t len);
+/* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
+int iolink_master_read_detailed_device_status(iolink_master_port_t* port,
+                                              uint8_t* data,
+                                              uint8_t* len);
+/* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
+int iolink_master_begin_parameter_download(iolink_master_port_t* port);
+/* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
+int iolink_master_end_parameter_download(iolink_master_port_t* port);
 /* Returns OK, INVALID_ARG, or the first per-port init error. */
 int iolink_master_controller_init(iolink_master_controller_t* controller,
                                   iolink_master_port_t* ports,
