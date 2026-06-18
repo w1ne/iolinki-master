@@ -43,6 +43,7 @@ Current coverage:
 - port-level `min_cycle_time` pacing through `iolink_master_tick_at()`
 - Direct Parameter Page 1 capability-profile injection
 - bad response checksum injection
+- dropped response timeout injection
 
 This is the first bridge between unit tests and a real conformance rig. It is
 still intentionally small.
@@ -58,7 +59,8 @@ still intentionally small.
 - [x] fake-device event ack tests
 - [x] fake-device Data Storage behavior
 - [x] fake-device bad CRC injection
-- [ ] fake-device dropped byte and timeout injection
+- [x] fake-device dropped response timeout injection
+- [ ] fake-device dropped byte/truncated frame injection
 - [ ] long-running soak tests
 - [ ] real hardware PHY adapter tests
 - [ ] real sensor/actuator test matrix

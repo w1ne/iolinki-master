@@ -34,6 +34,7 @@ typedef struct
     uint32_t transition_count;
     uint32_t operate_cycle_count;
     bool corrupt_next_response_checksum;
+    bool drop_next_response;
     fake_iolink_device_object_t objects[FAKE_IOLINK_DEVICE_OBJECT_MAX_COUNT];
     uint8_t object_count;
     uint8_t isdu_request[FAKE_IOLINK_DEVICE_ISDU_REQUEST_MAX_LEN];
@@ -229,6 +230,14 @@ static uint8_t fake_iolink_device_next_response_od(void)
 
 static void fake_iolink_device_queue_type0(uint8_t value)
 {
+    if(g_device.drop_next_response)
+    {
+        g_device.rx_len = 0U;
+        g_device.rx_pos = 0U;
+        g_device.drop_next_response = false;
+        return;
+    }
+
     g_device.rx_queue[0] = value;
     g_device.rx_queue[1] = iolink_checksum_ck(value, 0U);
     if(g_device.corrupt_next_response_checksum)
@@ -244,6 +253,14 @@ static void fake_iolink_device_queue_operate_response(void)
 {
     uint8_t pos = 0U;
     uint8_t i;
+
+    if(g_device.drop_next_response)
+    {
+        g_device.rx_len = 0U;
+        g_device.rx_pos = 0U;
+        g_device.drop_next_response = false;
+        return;
+    }
 
     g_device.rx_queue[pos++] = IOLINK_OD_STATUS_PD_VALID | IOLINK_DEVICE_STATUS_OK |
                                (g_device.event_pending ? IOLINK_OD_STATUS_EVENT : 0U);
@@ -397,6 +414,11 @@ void fake_iolink_device_set_event_code(uint16_t event_code)
 void fake_iolink_device_corrupt_next_response_checksum(void)
 {
     g_device.corrupt_next_response_checksum = true;
+}
+
+void fake_iolink_device_drop_next_response(void)
+{
+    g_device.drop_next_response = true;
 }
 
 const iolink_phy_api_t* fake_iolink_device_phy(void)
