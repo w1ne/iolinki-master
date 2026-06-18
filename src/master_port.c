@@ -256,6 +256,8 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
         return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
+    iolink_master_port_state(port)->rx.len = 0U;
+
     if(iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_STARTUP)
     {
         if(iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_OPERATE)

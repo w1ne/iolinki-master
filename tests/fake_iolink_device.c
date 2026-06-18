@@ -35,6 +35,7 @@ typedef struct
     uint32_t operate_cycle_count;
     bool corrupt_next_response_checksum;
     bool drop_next_response;
+    bool truncate_next_response;
     fake_iolink_device_object_t objects[FAKE_IOLINK_DEVICE_OBJECT_MAX_COUNT];
     uint8_t object_count;
     uint8_t isdu_request[FAKE_IOLINK_DEVICE_ISDU_REQUEST_MAX_LEN];
@@ -246,6 +247,11 @@ static void fake_iolink_device_queue_type0(uint8_t value)
         g_device.corrupt_next_response_checksum = false;
     }
     g_device.rx_len = IOLINK_M_SEQ_TYPE0_LEN;
+    if(g_device.truncate_next_response && (g_device.rx_len > 0U))
+    {
+        g_device.rx_len--;
+        g_device.truncate_next_response = false;
+    }
     g_device.rx_pos = 0U;
 }
 
@@ -282,6 +288,11 @@ static void fake_iolink_device_queue_operate_response(void)
         g_device.corrupt_next_response_checksum = false;
     }
     g_device.rx_len = (uint8_t)(pos + 1U);
+    if(g_device.truncate_next_response && (g_device.rx_len > 0U))
+    {
+        g_device.rx_len--;
+        g_device.truncate_next_response = false;
+    }
     g_device.rx_pos = 0U;
 }
 
@@ -419,6 +430,11 @@ void fake_iolink_device_corrupt_next_response_checksum(void)
 void fake_iolink_device_drop_next_response(void)
 {
     g_device.drop_next_response = true;
+}
+
+void fake_iolink_device_truncate_next_response(void)
+{
+    g_device.truncate_next_response = true;
 }
 
 const iolink_phy_api_t* fake_iolink_device_phy(void)

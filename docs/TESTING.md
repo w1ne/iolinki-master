@@ -44,6 +44,7 @@ Current coverage:
 - Direct Parameter Page 1 capability-profile injection
 - bad response checksum injection
 - dropped response timeout injection
+- truncated-frame timeout recovery
 
 This is the first bridge between unit tests and a real conformance rig. It is
 still intentionally small.
@@ -60,7 +61,7 @@ still intentionally small.
 - [x] fake-device Data Storage behavior
 - [x] fake-device bad CRC injection
 - [x] fake-device dropped response timeout injection
-- [ ] fake-device dropped byte/truncated frame injection
+- [x] fake-device dropped byte/truncated frame injection
 - [ ] long-running soak tests
 - [ ] real hardware PHY adapter tests
 - [ ] real sensor/actuator test matrix

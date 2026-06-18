@@ -132,6 +132,7 @@ Required direction:
 - [x] add fake-device Direct Parameter Page 1 capability profiles
 - [x] add fake-device bad-checksum injection coverage
 - [x] add fake-device dropped-response timeout coverage
+- [x] add fake-device truncated-frame timeout recovery coverage
 - [ ] expand the fake-device harness into a conformance-style matrix
 - [ ] keep board support out of `src/master_*.c`
 

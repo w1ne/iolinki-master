@@ -115,6 +115,38 @@ static void test_fake_device_can_drop_response_for_timeout_path(void** state)
     assert_int_equal(diagnostics.rx_retry_count, 1U);
 }
 
+static void test_fake_device_truncated_response_is_discarded_after_timeout(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_diagnostics_t diagnostics;
+    uint8_t pd[1] = {0U};
+    uint8_t len = 0U;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &g_config), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+    fake_iolink_device_truncate_next_response();
+
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U), 0);
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_NONE, 101U), 0);
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_RESPONSE_TIMEOUT, 120U), 0);
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_int_equal(diagnostics.response_timeouts, 1U);
+
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 140U), 0);
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_NONE, 141U), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+    assert_int_equal(iolink_master_get_pd_in(&port, pd, sizeof(pd), &len), 0);
+    assert_int_equal(len, 1U);
+    assert_int_equal(pd[0], 0xA5U);
+}
+
 static void test_fake_device_exposes_event_pending_status(void** state)
 {
     iolink_master_port_t port;
@@ -490,6 +522,8 @@ int main(void)
         cmocka_unit_test_setup(test_fake_device_can_inject_bad_operate_checksum,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_can_drop_response_for_timeout_path,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_fake_device_truncated_response_is_discarded_after_timeout,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_exposes_event_pending_status,
                                reset_fixture),

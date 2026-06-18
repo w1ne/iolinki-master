@@ -100,6 +100,7 @@ and gap detail.
 - [x] Fake-device Data Storage write/readback verification path.
 - [x] Fake-device bad-checksum injection path.
 - [x] Fake-device dropped-response timeout injection path.
+- [x] Fake-device truncated-frame timeout recovery path.
 
 ### In Progress
 

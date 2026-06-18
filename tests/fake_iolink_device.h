@@ -19,6 +19,7 @@ void fake_iolink_device_set_event_pending(bool pending);
 void fake_iolink_device_set_event_code(uint16_t event_code);
 void fake_iolink_device_corrupt_next_response_checksum(void);
 void fake_iolink_device_drop_next_response(void);
+void fake_iolink_device_truncate_next_response(void);
 const iolink_phy_api_t* fake_iolink_device_phy(void);
 uint32_t fake_iolink_device_wakeup_count(void);
 uint32_t fake_iolink_device_transition_count(void);
