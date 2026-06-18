@@ -71,6 +71,7 @@ Implemented locally:
 - [x] ISDU read/write transfer over OD bytes
 - [x] fake-device ISDU object-dictionary read coverage
 - [x] fake-device Type 0 startup device-validation coverage
+- [x] multi-object fake-device ISDU dictionary coverage
 - [x] Direct Parameter Page 1 parsing and optional startup validation
 
 Still missing:
@@ -123,6 +124,7 @@ Required direction:
 - [x] add a first fake-device PHY harness before adding board-specific adapters
 - [x] add fake-device ISDU object-dictionary read coverage
 - [x] add fake-device startup device-validation coverage
+- [x] add multi-object fake-device ISDU dictionary coverage
 - [ ] expand the fake-device harness into a conformance-style matrix
 - [ ] keep board support out of `src/master_*.c`
 

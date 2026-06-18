@@ -9,7 +9,17 @@
 #include <string.h>
 
 #define FAKE_IOLINK_DEVICE_OBJECT_MAX_LEN 16U
+#define FAKE_IOLINK_DEVICE_OBJECT_MAX_COUNT 4U
 #define FAKE_IOLINK_DEVICE_ISDU_REQUEST_MAX_LEN 8U
+
+typedef struct
+{
+    uint16_t index;
+    uint8_t subindex;
+    uint8_t data[FAKE_IOLINK_DEVICE_OBJECT_MAX_LEN];
+    uint8_t len;
+    bool valid;
+} fake_iolink_device_object_t;
 
 typedef struct
 {
@@ -22,11 +32,8 @@ typedef struct
     uint32_t wakeup_count;
     uint32_t transition_count;
     uint32_t operate_cycle_count;
-    uint16_t object_index;
-    uint8_t object_subindex;
-    uint8_t object_data[FAKE_IOLINK_DEVICE_OBJECT_MAX_LEN];
-    uint8_t object_len;
-    bool object_valid;
+    fake_iolink_device_object_t objects[FAKE_IOLINK_DEVICE_OBJECT_MAX_COUNT];
+    uint8_t object_count;
     uint8_t isdu_request[FAKE_IOLINK_DEVICE_ISDU_REQUEST_MAX_LEN];
     uint8_t isdu_request_len;
     bool isdu_request_expect_data;
@@ -38,6 +45,22 @@ typedef struct
 } fake_iolink_device_t;
 
 static fake_iolink_device_t g_device;
+
+static fake_iolink_device_object_t* fake_iolink_device_find_object(uint16_t index, uint8_t subindex)
+{
+    uint8_t i;
+
+    for(i = 0U; i < g_device.object_count; i++)
+    {
+        if(g_device.objects[i].valid && (g_device.objects[i].index == index) &&
+           (g_device.objects[i].subindex == subindex))
+        {
+            return &g_device.objects[i];
+        }
+    }
+
+    return NULL;
+}
 
 static void fake_iolink_device_prepare_isdu_error(uint8_t error)
 {
@@ -53,6 +76,7 @@ static void fake_iolink_device_prepare_isdu_response(void)
     uint8_t service;
     uint16_t index;
     uint8_t subindex;
+    fake_iolink_device_object_t* object;
 
     if(g_device.isdu_request_len < 4U)
     {
@@ -70,14 +94,15 @@ static void fake_iolink_device_prepare_isdu_response(void)
         return;
     }
 
-    if(!g_device.object_valid || (index != g_device.object_index) || (subindex != g_device.object_subindex))
+    object = fake_iolink_device_find_object(index, subindex);
+    if(object == NULL)
     {
         fake_iolink_device_prepare_isdu_error(IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
         return;
     }
 
-    memcpy(g_device.isdu_response, g_device.object_data, g_device.object_len);
-    g_device.isdu_response_len = g_device.object_len;
+    memcpy(g_device.isdu_response, object->data, object->len);
+    g_device.isdu_response_len = object->len;
     g_device.isdu_response_pos = 0U;
     g_device.isdu_response_active = true;
 }
@@ -248,16 +273,29 @@ void fake_iolink_device_reset(uint8_t pd_in_value, uint8_t pd_in_len, uint8_t od
 
 void fake_iolink_device_set_isdu_object(uint16_t index, uint8_t subindex, const uint8_t* data, uint8_t len)
 {
+    fake_iolink_device_object_t* object;
+
     if((data == NULL) || (len == 0U) || (len > FAKE_IOLINK_DEVICE_OBJECT_MAX_LEN))
     {
         return;
     }
 
-    g_device.object_index = index;
-    g_device.object_subindex = subindex;
-    memcpy(g_device.object_data, data, len);
-    g_device.object_len = len;
-    g_device.object_valid = true;
+    object = fake_iolink_device_find_object(index, subindex);
+    if((object == NULL) && (g_device.object_count < FAKE_IOLINK_DEVICE_OBJECT_MAX_COUNT))
+    {
+        object = &g_device.objects[g_device.object_count++];
+        object->index = index;
+        object->subindex = subindex;
+    }
+
+    if(object == NULL)
+    {
+        return;
+    }
+
+    memcpy(object->data, data, len);
+    object->len = len;
+    object->valid = true;
 }
 
 const iolink_phy_api_t* fake_iolink_device_phy(void)
