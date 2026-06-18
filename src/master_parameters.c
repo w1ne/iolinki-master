@@ -60,10 +60,12 @@ static bool iolink_master_mseq_type_from_capability_code(uint8_t code,
         }
         return true;
     case 1U:
-        *type = IOLINK_MASTER_M_SEQ_TYPE_1_1;
+        *type = isdu_supported ? IOLINK_MASTER_M_SEQ_TYPE_1_2
+                               : IOLINK_MASTER_M_SEQ_TYPE_1_1;
         return true;
     case 5U:
-        *type = IOLINK_MASTER_M_SEQ_TYPE_2_V;
+        *type = isdu_supported ? IOLINK_MASTER_M_SEQ_TYPE_2_V
+                               : IOLINK_MASTER_M_SEQ_TYPE_1_V;
         return true;
     default:
         return false;

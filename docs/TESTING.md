@@ -52,7 +52,7 @@ still intentionally small.
 ### Missing Test Layers
 
 - [x] fake-device Direct Parameter Page 1 capability profiles
-- [ ] broader capability-matrix fake devices for M-sequence and PD-size negotiation
+- [x] broader capability-matrix tests for M-sequence and PD-size negotiation
 - [x] fake-device ISDU object dictionary
 - [x] fake-device ISDU write/readback path
 - [x] fake-device event-pending OD status injection

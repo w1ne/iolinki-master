@@ -252,6 +252,54 @@ static void test_select_config_from_device_info_maps_fixed_type2_profiles(void**
                      IOLINK_MASTER_STATUS_OK);
 }
 
+static void test_select_config_from_device_info_maps_all_public_mseq_profiles(void** state)
+{
+    static const struct
+    {
+        uint8_t capability;
+        uint8_t pd_in_descriptor;
+        uint8_t pd_out_descriptor;
+        iolink_master_m_seq_type_t expected_type;
+        uint8_t expected_pd_in_len;
+        uint8_t expected_pd_out_len;
+    } cases[] = {
+        {0x00U, 0x00U, 0x00U, IOLINK_MASTER_M_SEQ_TYPE_0, 0U, 0U},
+        {0x00U, 0x08U, 0x08U, IOLINK_MASTER_M_SEQ_TYPE_2_1, 1U, 1U},
+        {0x01U, 0x10U, 0x10U, IOLINK_MASTER_M_SEQ_TYPE_2_2, 2U, 2U},
+        {0x02U, 0x08U, 0x08U, IOLINK_MASTER_M_SEQ_TYPE_1_1, 1U, 1U},
+        {0x03U, 0x10U, 0x10U, IOLINK_MASTER_M_SEQ_TYPE_1_2, 2U, 2U},
+        {0x0AU, 0x83U, 0x83U, IOLINK_MASTER_M_SEQ_TYPE_1_V, 4U, 4U},
+        {0x0BU, 0x84U, 0x84U, IOLINK_MASTER_M_SEQ_TYPE_2_V, 5U, 5U},
+    };
+    uint8_t page[16];
+    iolink_master_device_info_t info;
+    iolink_master_config_t config = {
+        .port_mode = IOLINK_MASTER_PORT_MODE_IOLINK,
+        .baudrate = IOLINK_BAUDRATE_COM3,
+    };
+    size_t i;
+
+    (void)state;
+
+    for(i = 0U; i < (sizeof(cases) / sizeof(cases[0])); i++)
+    {
+        memcpy(page, g_page1, sizeof(page));
+        page[0x03] = cases[i].capability;
+        page[0x05] = cases[i].pd_in_descriptor;
+        page[0x06] = cases[i].pd_out_descriptor;
+
+        assert_int_equal(iolink_master_parse_direct_parameter_page1(page, sizeof(page), &info),
+                         IOLINK_MASTER_STATUS_OK);
+        assert_int_equal(iolink_master_select_config_from_device_info(&info, &config),
+                         IOLINK_MASTER_STATUS_OK);
+        assert_int_equal(config.m_seq_type, cases[i].expected_type);
+        assert_int_equal(config.pd_in_len, cases[i].expected_pd_in_len);
+        assert_int_equal(config.pd_out_len, cases[i].expected_pd_out_len);
+        assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                         IOLINK_MASTER_STATUS_OK);
+    }
+}
+
 static void test_validate_config_against_device_info_rejects_incompatible_request(void** state)
 {
     iolink_master_device_info_t info;
@@ -314,6 +362,7 @@ int main(void)
         cmocka_unit_test(test_validate_device_info_rejects_incompatible_cycle_pd_and_mseq),
         cmocka_unit_test(test_select_config_from_device_info_applies_capability_profile),
         cmocka_unit_test(test_select_config_from_device_info_maps_fixed_type2_profiles),
+        cmocka_unit_test(test_select_config_from_device_info_maps_all_public_mseq_profiles),
         cmocka_unit_test(test_validate_config_against_device_info_rejects_incompatible_request),
         cmocka_unit_test(test_select_config_from_device_info_rejects_invalid_inputs),
     };

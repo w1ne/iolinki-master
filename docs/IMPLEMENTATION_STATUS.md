@@ -20,11 +20,11 @@ Status definitions:
 | Opaque storage/private state | Implemented | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_internal.h`](../src/master_internal.h) | Tune the public storage sizes once the private state stops moving quickly. |
 | Port lifecycle | Implemented | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Add a public lifecycle example for downstream users. |
 | Startup and baudrate scan | Implemented | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Validate timing and retries against real hardware. |
-| M-sequence handling | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_parameters.c`](../src/master_parameters.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_parameters.c`](../tests/test_master_parameters.c) | Expand capability mapping to full variant coverage. |
+| M-sequence handling | Implemented | [`src/master_port.c`](../src/master_port.c), [`src/master_parameters.c`](../src/master_parameters.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_parameters.c`](../tests/test_master_parameters.c) | Real-device validation remains open. |
 | Cyclic process data | Implemented | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_public_flow.c`](../tests/test_master_public_flow.c) | Add more black-box coverage for configured PD sizes and invalid user buffers. |
 | RX path and retries | Implemented | [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c) | Add line-noise and long-running soak tests with a real PHY. |
 | ISDU read/write | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c), [`tests/test_master_fake_device.c`](../tests/test_master_fake_device.c) | Verify behavior against real devices. |
-| Direct Parameter Page 1 | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`tests/test_master_parameters.c`](../tests/test_master_parameters.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c) | Expand automatic configuration once full M-sequence coverage exists. |
+| Direct Parameter Page 1 | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`tests/test_master_parameters.c`](../tests/test_master_parameters.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c) | Real-device validation remains open. |
 | Startup device validation | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Expand validation once automatic negotiation exists. |
 | Diagnostics | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_port.c`](../src/master_port.c), [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c) | Add event detail and link-quality metrics. |
 | Multi-port controller | Partial | [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`examples/master_4port_controller_demo.c`](../examples/master_4port_controller_demo.c) | Define scheduler ownership and port-level runtime policy. |
@@ -111,14 +111,14 @@ and gap detail.
 
 ### In Progress
 
-- [ ] Complete M-sequence variant coverage.
+- [x] Complete public M-sequence variant selection coverage.
 - [ ] Add link-quality metrics to diagnostics.
 - [x] Clear multi-port runtime policy with controller-computed next due time.
 
 ### Not Started
 
 - [x] Full scheduler/timing model.
-- [ ] Broad capability-matrix fake devices.
+- [x] Broad capability-matrix selection tests.
 - [x] Capability-driven M-sequence and PD-size selection for currently mapped codes.
 - [x] Requested configuration validation against device capability profile.
 - [x] DI input API/PHY support.
