@@ -55,7 +55,7 @@ still intentionally small.
 - [x] fake-device event-pending OD status injection
 - [x] fake-device event-detail injection
 - [ ] fake-device event ack tests
-- [ ] fake-device Data Storage behavior
+- [x] fake-device Data Storage behavior
 - [ ] line-noise, bad CRC, dropped byte, and timeout injection
 - [ ] long-running soak tests
 - [ ] real hardware PHY adapter tests

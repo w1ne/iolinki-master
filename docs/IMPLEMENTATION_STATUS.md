@@ -96,6 +96,7 @@ and gap detail.
 - [x] Fake-device event-pending OD status injection.
 - [x] Fake-device event-detail ISDU injection.
 - [x] Fake-device ISDU write/readback path.
+- [x] Fake-device Data Storage write/readback verification path.
 
 ### In Progress
 

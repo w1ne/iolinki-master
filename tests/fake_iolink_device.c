@@ -364,6 +364,11 @@ void fake_iolink_device_set_direct_parameter_page1(uint8_t min_cycle_time,
     fake_iolink_device_set_isdu_object(IOLINK_IDX_DIRECT_PARAMETERS_1, 0U, page, sizeof(page));
 }
 
+void fake_iolink_device_set_data_storage(const uint8_t* data, uint8_t len)
+{
+    fake_iolink_device_set_isdu_object(IOLINK_IDX_DATA_STORAGE, 0U, data, len);
+}
+
 void fake_iolink_device_set_event_pending(bool pending)
 {
     g_device.event_pending = pending;
