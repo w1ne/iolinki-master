@@ -68,6 +68,8 @@ static int iolink_master_isdu_finish_read(iolink_master_port_t* port,
 
     if(iolink_master_port_state(port)->isdu.error != IOLINK_ISDU_ERROR_NONE)
     {
+        iolink_master_port_state(port)->diagnostics.last_isdu_error =
+            iolink_master_port_state(port)->isdu.error;
         iolink_master_isdu_clear(port);
         return IOLINK_MASTER_ISDU_ERR_DEVICE;
     }
@@ -75,6 +77,8 @@ static int iolink_master_isdu_finish_read(iolink_master_port_t* port,
     if((result_len >= 2U) && (iolink_master_port_state(port)->isdu.response[0] == 0x80U))
     {
         iolink_master_port_state(port)->isdu.error = iolink_master_port_state(port)->isdu.response[1];
+        iolink_master_port_state(port)->diagnostics.last_isdu_error =
+            iolink_master_port_state(port)->isdu.error;
         iolink_master_isdu_clear(port);
         return IOLINK_MASTER_ISDU_ERR_DEVICE;
     }
@@ -98,6 +102,8 @@ static int iolink_master_isdu_finish_write(iolink_master_port_t* port)
 {
     if(iolink_master_port_state(port)->isdu.error != IOLINK_ISDU_ERROR_NONE)
     {
+        iolink_master_port_state(port)->diagnostics.last_isdu_error =
+            iolink_master_port_state(port)->isdu.error;
         iolink_master_isdu_clear(port);
         return IOLINK_MASTER_ISDU_ERR_DEVICE;
     }
@@ -105,6 +111,8 @@ static int iolink_master_isdu_finish_write(iolink_master_port_t* port)
     if((iolink_master_port_state(port)->isdu.response_len >= 2U) && (iolink_master_port_state(port)->isdu.response[0] == 0x80U))
     {
         iolink_master_port_state(port)->isdu.error = iolink_master_port_state(port)->isdu.response[1];
+        iolink_master_port_state(port)->diagnostics.last_isdu_error =
+            iolink_master_port_state(port)->isdu.error;
         iolink_master_isdu_clear(port);
         return IOLINK_MASTER_ISDU_ERR_DEVICE;
     }

@@ -528,6 +528,7 @@ static void test_isdu_rejects_second_request_while_busy(void** state)
 static void test_isdu_response_error_is_reported(void** state)
 {
     iolink_master_port_t port;
+    iolink_master_diagnostics_t diagnostics;
     uint8_t data[8] = {0U};
     uint8_t len = sizeof(data);
 
@@ -543,6 +544,8 @@ static void test_isdu_response_error_is_reported(void** state)
 
     len = sizeof(data);
     assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len), -4);
+    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
+    assert_int_equal(diagnostics.last_isdu_error, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
 }
 
 static void test_isdu_response_sequence_error_is_reported(void** state)

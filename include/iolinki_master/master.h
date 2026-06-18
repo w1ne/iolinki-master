@@ -110,6 +110,7 @@ typedef struct
     uint32_t cycle_slips;
     uint32_t last_cycle_jitter_100us;
     uint32_t max_cycle_jitter_100us;
+    uint8_t last_isdu_error;
 } iolink_master_diagnostics_t;
 
 typedef struct
