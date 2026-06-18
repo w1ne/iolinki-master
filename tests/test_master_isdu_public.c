@@ -308,6 +308,36 @@ static void test_public_isdu_verify_readback_compares_value(void** state)
                      IOLINK_MASTER_ISDU_ERR_VERIFY_FAILED);
 }
 
+static void test_public_data_storage_verify_uses_standard_index(void** state)
+{
+    iolink_master_port_t port;
+    const uint8_t expected[] = {0xDEU, 0xADU};
+
+    (void)state;
+
+    enter_type0_operate(&port);
+
+    assert_int_equal(iolink_master_verify_data_storage(&port, expected, sizeof(expected)),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    assert_next_type0_request(&port, IOLINK_ISDU_CTRL_START);
+    assert_next_type0_request(&port, IOLINK_ISDU_SERVICE_READ << 4);
+    assert_next_type0_request(&port, 0x01U);
+    assert_next_type0_request(&port, 0x00U);
+    assert_next_type0_request(&port, 0x02U);
+    assert_next_type0_request(&port, 0x03U);
+    assert_next_type0_request(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x03U));
+    assert_next_type0_request(&port, 0x00U);
+
+    feed_type0_byte(&port, IOLINK_ISDU_CTRL_START);
+    feed_type0_byte(&port, 0xDEU);
+    feed_type0_byte(&port, (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x01U));
+    feed_type0_byte(&port, 0xADU);
+
+    assert_int_equal(iolink_master_verify_data_storage(&port, expected, sizeof(expected)),
+                     IOLINK_MASTER_STATUS_OK);
+}
+
 static void test_public_parameter_download_helpers_write_system_commands(void** state)
 {
     iolink_master_port_t port;
@@ -360,6 +390,8 @@ int main(void)
         cmocka_unit_test_setup(test_public_event_details_read_decodes_detailed_device_status,
                                reset_fixture),
         cmocka_unit_test_setup(test_public_isdu_verify_readback_compares_value,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_public_data_storage_verify_uses_standard_index,
                                reset_fixture),
         cmocka_unit_test_setup(test_public_parameter_download_helpers_write_system_commands,
                                reset_fixture),

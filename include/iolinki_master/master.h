@@ -271,6 +271,10 @@ int iolink_master_verify_isdu(iolink_master_port_t* port,
                               uint8_t subindex,
                               const uint8_t* expected,
                               uint8_t len);
+/* Returns OK when Data Storage readback matches, PENDING while active, INVALID_ARG, VERIFY_FAILED, or an ISDU error. */
+int iolink_master_verify_data_storage(iolink_master_port_t* port,
+                                      const uint8_t* expected,
+                                      uint8_t len);
 /* Returns OK when complete, PENDING while active, INVALID_ARG, or an ISDU error. */
 int iolink_master_read_detailed_device_status(iolink_master_port_t* port,
                                               uint8_t* data,
