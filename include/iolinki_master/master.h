@@ -307,6 +307,13 @@ int iolink_master_controller_init(iolink_master_controller_t* controller,
                                   uint8_t port_count,
                                   const iolink_phy_api_t* phys,
                                   const iolink_master_config_t* configs);
+/* Returns OK or INVALID_ARG. */
+int iolink_master_controller_get_port_count(const iolink_master_controller_t* controller,
+                                            uint8_t* out_count);
+/* Returns OK or INVALID_ARG for NULL/out-of-range access. */
+int iolink_master_controller_get_port(iolink_master_controller_t* controller,
+                                      uint8_t index,
+                                      iolink_master_port_t** out_port);
 /* Returns OK, INVALID_ARG, or the first negative per-port tick result. */
 int iolink_master_controller_tick(iolink_master_controller_t* controller,
                                   const bool* response_timeouts);

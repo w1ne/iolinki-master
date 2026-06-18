@@ -151,6 +151,7 @@ Required direction:
 - [x] make controller apply response deadlines before issuing another cycle
 - [ ] support independent port modes and cycle timings
 - [x] expose per-port diagnostics without hiding individual port failures
+- [x] expose public controller helpers for port count and per-port access
 - [x] keep one failed port from corrupting unrelated ports
 - [x] allow independent per-port tick events
 - [x] add examples for common 1-port and 4-port master usage

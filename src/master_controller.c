@@ -66,6 +66,39 @@ int iolink_master_controller_tick(iolink_master_controller_t* controller,
     return first_error;
 }
 
+int iolink_master_controller_get_port_count(const iolink_master_controller_t* controller,
+                                            uint8_t* out_count)
+{
+    if((controller == NULL) || (out_count == NULL))
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    *out_count = iolink_master_controller_const_state(controller)->port_count;
+    return IOLINK_MASTER_STATUS_OK;
+}
+
+int iolink_master_controller_get_port(iolink_master_controller_t* controller,
+                                      uint8_t index,
+                                      iolink_master_port_t** out_port)
+{
+    iolink_master_controller_state_t* state;
+
+    if((controller == NULL) || (out_port == NULL))
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    state = iolink_master_controller_state(controller);
+    if(index >= state->port_count)
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    *out_port = &state->ports[index];
+    return IOLINK_MASTER_STATUS_OK;
+}
+
 int iolink_master_controller_tick_events(iolink_master_controller_t* controller,
                                          const iolink_master_tick_event_t* events)
 {

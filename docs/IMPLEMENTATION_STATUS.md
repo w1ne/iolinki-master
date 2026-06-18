@@ -83,6 +83,7 @@ and gap detail.
 - [x] Per-port controller tick events.
 - [x] Controller time-aware tick fan-out for per-port cycle pacing.
 - [x] Controller-owned response-deadline timeout scheduling across ports.
+- [x] Public controller port-count and port-access helpers.
 - [x] 1-port loopback and 4-port mixed-controller runnable examples.
 - [x] SIO DQ output through `set_cq_line`.
 - [x] SIO DI input through configured `read_cq_line`.

@@ -214,6 +214,29 @@ static void test_controller_tick_at_times_out_missing_response_before_next_cycle
     assert_int_equal(diagnostics.response_timeouts, 1U);
 }
 
+static void test_controller_exposes_public_port_accessors(void** state)
+{
+    iolink_master_controller_t controller;
+    iolink_master_port_t ports[2];
+    iolink_master_port_t* port = NULL;
+    uint8_t count = 0U;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_controller_init(&controller, ports, 2U, g_phys, g_configs), 0);
+
+    assert_int_equal(iolink_master_controller_get_port_count(&controller, &count), 0);
+    assert_int_equal(count, 2U);
+    assert_int_equal(iolink_master_controller_get_port(&controller, 1U, &port), 0);
+    assert_ptr_equal(port, &ports[1]);
+
+    assert_int_equal(iolink_master_controller_get_port_count(NULL, &count), -1);
+    assert_int_equal(iolink_master_controller_get_port_count(&controller, NULL), -1);
+    assert_int_equal(iolink_master_controller_get_port(NULL, 0U, &port), -1);
+    assert_int_equal(iolink_master_controller_get_port(&controller, 0U, NULL), -1);
+    assert_int_equal(iolink_master_controller_get_port(&controller, 2U, &port), -1);
+}
+
 static void test_controller_rejects_invalid_args(void** state)
 {
     iolink_master_controller_t controller;
@@ -247,6 +270,7 @@ int main(void)
         cmocka_unit_test_setup(
             test_controller_tick_at_times_out_missing_response_before_next_cycle,
             reset_fixture),
+        cmocka_unit_test_setup(test_controller_exposes_public_port_accessors, reset_fixture),
         cmocka_unit_test_setup(test_controller_rejects_invalid_args, reset_fixture),
     };
 
