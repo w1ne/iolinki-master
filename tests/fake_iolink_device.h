@@ -8,6 +8,12 @@
 
 void fake_iolink_device_reset(uint8_t pd_in_value, uint8_t pd_in_len, uint8_t od_len);
 void fake_iolink_device_set_isdu_object(uint16_t index, uint8_t subindex, const uint8_t* data, uint8_t len);
+void fake_iolink_device_set_direct_parameter_page1(uint8_t min_cycle_time,
+                                                   uint8_t mseq_capability,
+                                                   uint8_t pd_in_descriptor,
+                                                   uint8_t pd_out_descriptor,
+                                                   uint16_t vendor_id,
+                                                   uint32_t device_id);
 void fake_iolink_device_set_event_pending(bool pending);
 const iolink_phy_api_t* fake_iolink_device_phy(void);
 uint32_t fake_iolink_device_wakeup_count(void);

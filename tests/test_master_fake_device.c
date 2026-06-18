@@ -214,30 +214,17 @@ static void test_fake_device_serves_startup_device_validation_page(void** state)
     iolink_master_port_t port;
     iolink_master_config_t config = g_config;
     iolink_master_device_info_t info;
-    const uint8_t page1[] = {
-        0x00U,
-        0x00U,
-        10U,
-        0x03U, /* ISDU supported, operate M-sequence code 1. */
-        0x11U,
-        0x08U,
-        0x00U,
-        0x12U,
-        0x34U,
-        0x56U,
-        0x78U,
-        0x9AU,
-        0x00U,
-        0x00U,
-        0x00U,
-        0x00U,
-    };
     uint8_t i;
 
     (void)state;
 
     config.validate_device_info = true;
-    fake_iolink_device_set_isdu_object(IOLINK_IDX_DIRECT_PARAMETERS_1, 0U, page1, sizeof(page1));
+    fake_iolink_device_set_direct_parameter_page1(10U,
+                                                  0x03U,
+                                                  0x08U,
+                                                  0x00U,
+                                                  0x1234U,
+                                                  0x56789AU);
 
     assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &config), 0);
 
@@ -255,6 +242,51 @@ static void test_fake_device_serves_startup_device_validation_page(void** state)
     assert_int_equal(iolink_master_get_device_info(&port, &info), IOLINK_MASTER_STATUS_OK);
     assert_int_equal(info.vendor_id, 0x1234U);
     assert_int_equal(info.device_id, 0x56789AU);
+}
+
+static void test_fake_device_direct_parameter_profile_selects_compatible_config(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_device_info_t info;
+    iolink_master_config_t config = {
+        .port_mode = IOLINK_MASTER_PORT_MODE_IOLINK,
+        .baudrate = IOLINK_BAUDRATE_COM3,
+        .auto_baudrate = true,
+    };
+    uint8_t i;
+
+    (void)state;
+
+    fake_iolink_device_set_direct_parameter_page1(12U,
+                                                  0x0BU,
+                                                  0x10U,
+                                                  0x83U,
+                                                  0x0102U,
+                                                  0x030405U);
+
+    assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &g_config), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
+
+    assert_int_equal(iolink_master_read_device_info(&port), IOLINK_MASTER_STATUS_PENDING);
+    for(i = 0U; i < 39U; i++)
+    {
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+        (void)iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE);
+    }
+
+    assert_int_equal(iolink_master_read_device_info(&port), IOLINK_MASTER_PARAM_ERR_PD_SIZE);
+    assert_int_equal(iolink_master_get_device_info(&port, &info), IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_select_config_from_device_info(&info, &config),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(config.m_seq_type, IOLINK_MASTER_M_SEQ_TYPE_2_V);
+    assert_int_equal(config.min_cycle_time, 12U);
+    assert_int_equal(config.pd_in_len, 2U);
+    assert_int_equal(config.pd_out_len, 4U);
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_STATUS_OK);
 }
 
 static void test_fake_device_keeps_startup_page_and_application_object(void** state)
@@ -333,6 +365,8 @@ int main(void)
         cmocka_unit_test_setup(test_fake_device_accepts_isdu_object_dictionary_write,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_serves_startup_device_validation_page,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_fake_device_direct_parameter_profile_selects_compatible_config,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_keeps_startup_page_and_application_object,
                                reset_fixture),

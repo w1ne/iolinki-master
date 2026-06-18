@@ -91,6 +91,7 @@ and gap detail.
 - [x] Fake-device harness for startup, transition, cyclic PD, and port pacing.
 - [x] Fake-device ISDU object-dictionary read path.
 - [x] Fake-device Type 0 startup device-validation path.
+- [x] Capability-profile fake-device Direct Parameter Page 1 helper.
 - [x] Multi-object fake-device ISDU dictionary.
 - [x] Fake-device event-pending OD status injection.
 - [x] Fake-device event-detail ISDU injection.
@@ -105,7 +106,7 @@ and gap detail.
 ### Not Started
 
 - [ ] Full scheduler/timing model.
-- [ ] Capability-matrix fake devices.
+- [ ] Broad capability-matrix fake devices.
 - [x] Capability-driven M-sequence and PD-size selection for currently mapped codes.
 - [x] Requested configuration validation against device capability profile.
 - [x] DI input API/PHY support.

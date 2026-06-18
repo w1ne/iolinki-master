@@ -341,6 +341,29 @@ void fake_iolink_device_set_isdu_object(uint16_t index, uint8_t subindex, const 
     object->valid = true;
 }
 
+void fake_iolink_device_set_direct_parameter_page1(uint8_t min_cycle_time,
+                                                   uint8_t mseq_capability,
+                                                   uint8_t pd_in_descriptor,
+                                                   uint8_t pd_out_descriptor,
+                                                   uint16_t vendor_id,
+                                                   uint32_t device_id)
+{
+    uint8_t page[16] = {0U};
+
+    page[0x02] = min_cycle_time;
+    page[0x03] = mseq_capability;
+    page[0x04] = 0x11U;
+    page[0x05] = pd_in_descriptor;
+    page[0x06] = pd_out_descriptor;
+    page[0x07] = (uint8_t)(vendor_id >> 8);
+    page[0x08] = (uint8_t)(vendor_id & 0xFFU);
+    page[0x09] = (uint8_t)((device_id >> 16) & 0xFFU);
+    page[0x0A] = (uint8_t)((device_id >> 8) & 0xFFU);
+    page[0x0B] = (uint8_t)(device_id & 0xFFU);
+
+    fake_iolink_device_set_isdu_object(IOLINK_IDX_DIRECT_PARAMETERS_1, 0U, page, sizeof(page));
+}
+
 void fake_iolink_device_set_event_pending(bool pending)
 {
     g_device.event_pending = pending;

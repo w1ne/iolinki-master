@@ -41,13 +41,15 @@ Current coverage:
 - transition command detection
 - cyclic OPERATE response with PD valid
 - port-level `min_cycle_time` pacing through `iolink_master_tick_at()`
+- Direct Parameter Page 1 capability-profile injection
 
 This is the first bridge between unit tests and a real conformance rig. It is
 still intentionally small.
 
 ### Missing Test Layers
 
-- [ ] capability-matrix fake devices for M-sequence and PD-size negotiation
+- [x] fake-device Direct Parameter Page 1 capability profiles
+- [ ] broader capability-matrix fake devices for M-sequence and PD-size negotiation
 - [x] fake-device ISDU object dictionary
 - [x] fake-device ISDU write/readback path
 - [x] fake-device event-pending OD status injection
