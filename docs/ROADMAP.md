@@ -208,7 +208,7 @@ Build the missing runtime backbone before piling on more services:
 - [x] add event-driven tick dispatch for none, cycle-due, and response-timeout events
 - [ ] define the full scheduler/timing model
 - [x] implement port-level min-cycle-time pacing without wall-clock sleeps in tests
-- [ ] add public black-box tests for scheduler-visible behavior
+- [x] add public black-box tests for scheduler-visible behavior
 - [x] keep the controller/helper boundary explicit for tick event fan-out
 
 ### Phase 3: Capability-Driven Master Behavior

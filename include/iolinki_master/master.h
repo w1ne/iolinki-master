@@ -115,6 +115,15 @@ typedef struct
 
 typedef struct
 {
+    bool cycle_timer_valid;
+    bool awaiting_response;
+    uint8_t min_cycle_time_100us;
+    uint32_t last_cycle_start_100us;
+    uint32_t response_deadline_100us;
+} iolink_master_timing_t;
+
+typedef struct
+{
     bool valid;
     uint8_t min_cycle_time;
     uint8_t mseq_capability;
@@ -191,6 +200,9 @@ uint8_t iolink_master_get_device_status(const iolink_master_port_t* port);
 /* Returns OK or INVALID_ARG. */
 int iolink_master_get_diagnostics(const iolink_master_port_t* port,
                                   iolink_master_diagnostics_t* diagnostics);
+/* Returns OK or INVALID_ARG. Snapshot is read-only scheduler-visible timing state. */
+int iolink_master_get_timing(const iolink_master_port_t* port,
+                             iolink_master_timing_t* timing);
 /* Returns OK, INVALID_ARG, SIO_WRONG_MODE, or SIO_UNSUPPORTED_PHY. */
 int iolink_master_set_dq(iolink_master_port_t* port, bool level);
 /* Returns OK, INVALID_ARG, SIO_WRONG_MODE, or SIO_UNSUPPORTED_PHY. */

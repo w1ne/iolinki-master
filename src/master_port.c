@@ -729,6 +729,25 @@ int iolink_master_get_diagnostics(const iolink_master_port_t* port,
     return IOLINK_MASTER_STATUS_OK;
 }
 
+int iolink_master_get_timing(const iolink_master_port_t* port, iolink_master_timing_t* timing)
+{
+    const iolink_master_port_state_t* state;
+
+    if((port == NULL) || (timing == NULL))
+    {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    state = iolink_master_port_const_state(port);
+    timing->cycle_timer_valid = state->cycle_timer_valid;
+    timing->awaiting_response = state->awaiting_response;
+    timing->min_cycle_time_100us = state->config.min_cycle_time;
+    timing->last_cycle_start_100us = state->last_cycle_start_100us;
+    timing->response_deadline_100us = state->response_deadline_100us;
+
+    return IOLINK_MASTER_STATUS_OK;
+}
+
 int iolink_master_set_pd_out(iolink_master_port_t* port, const uint8_t* data, uint8_t len)
 {
     if((port == NULL) || ((data == NULL) && (len > 0U)))

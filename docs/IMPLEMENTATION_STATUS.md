@@ -29,7 +29,7 @@ Status definitions:
 | Diagnostics | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_port.c`](../src/master_port.c), [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c) | Add event detail and link-quality metrics. |
 | Multi-port controller | Partial | [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`examples/master_4port_controller_demo.c`](../examples/master_4port_controller_demo.c) | Define scheduler ownership and port-level runtime policy. |
 | SIO DI/DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_sio_public.c`](../tests/test_master_sio_public.c) | Validate SIO and mode transitions against real adapters. |
-| Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c) | Define the full scheduler ownership model and validate timing against hardware. |
+| Scheduler/timing | Partial | [`src/master_port.c`](../src/master_port.c), [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_tick.c`](../tests/test_master_tick.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`tests/test_master_public_flow.c`](../tests/test_master_public_flow.c) | Define the full scheduler ownership model and validate timing against hardware. |
 | Events | Open | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h) | Implement event read/ack and expose decoded event detail. |
 | Data Storage | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Add master-side parameter-server restore behavior. |
 | Block parameterization | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c) | Add block write/readback verification policy. |
@@ -71,6 +71,7 @@ and gap detail.
 - [x] Multi-port controller init/tick helper.
 - [x] Event-driven tick dispatch for none, cycle-due, and response-timeout events.
 - [x] Port-level `min_cycle_time` pacing with fake monotonic 100us ticks.
+- [x] Public scheduler-visible timing snapshot API.
 - [x] Per-port controller tick events.
 - [x] Controller time-aware tick fan-out for per-port cycle pacing.
 - [x] Controller-owned response-deadline timeout scheduling across ports.

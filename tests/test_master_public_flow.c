@@ -108,10 +108,60 @@ static void test_public_api_drives_startup_and_latches_process_data(void** state
     assert_int_equal(pd[0], 0xA5U);
 }
 
+static void test_public_api_exposes_scheduler_timing_state(void** state)
+{
+    const iolink_master_config_t config = {
+        .port_mode = IOLINK_MASTER_PORT_MODE_IOLINK,
+        .m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_0,
+        .baudrate = IOLINK_BAUDRATE_COM3,
+        .min_cycle_time = 20U,
+    };
+    iolink_master_port_t port;
+    iolink_master_timing_t timing;
+    uint8_t startup_resp[2] = {0U};
+
+    (void)state;
+
+    assert_int_equal(iolink_master_get_timing(NULL, &timing), IOLINK_MASTER_ERR_INVALID_ARG);
+    assert_int_equal(iolink_master_init(&port, &g_phy, &config), IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_get_timing(&port, &timing), IOLINK_MASTER_STATUS_OK);
+    assert_false(timing.cycle_timer_valid);
+    assert_false(timing.awaiting_response);
+    assert_int_equal(timing.min_cycle_time_100us, 20U);
+
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE),
+                     IOLINK_MASTER_STATUS_OK);
+    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_get_timing(&port, &timing), IOLINK_MASTER_STATUS_OK);
+    assert_true(timing.cycle_timer_valid);
+    assert_true(timing.awaiting_response);
+    assert_int_equal(timing.last_cycle_start_100us, 100U);
+    assert_int_equal(timing.response_deadline_100us, 120U);
+
+    startup_resp[0] = 0x00U;
+    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_get_timing(&port, &timing), IOLINK_MASTER_STATUS_OK);
+    assert_false(timing.awaiting_response);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup(test_public_api_drives_startup_and_latches_process_data,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_public_api_exposes_scheduler_timing_state,
                                reset_fixture),
     };
 
