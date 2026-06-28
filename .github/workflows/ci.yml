@@ -22,27 +22,29 @@ jobs:
         with:
           path: iolinki-master
 
-      - name: Require LabWired checkout token
-        env:
-          LABWIRED_CHECKOUT_TOKEN: ${{ secrets.LABWIRED_CHECKOUT_TOKEN }}
+      - name: Locate LabWired device stack
+        id: labwired
         run: |
-          if [ -z "$LABWIRED_CHECKOUT_TOKEN" ]; then
-            echo "::error::Set LABWIRED_CHECKOUT_TOKEN with read access to w1ne/labwired so CI can fetch core/third_party/iolinki."
-            exit 1
-          fi
+          set -euo pipefail
 
-      - name: Checkout LabWired device stack
-        uses: actions/checkout@v4
-        with:
-          repository: w1ne/labwired
-          path: labwired
-          token: ${{ secrets.LABWIRED_CHECKOUT_TOKEN }}
+          candidates=(
+            "$HOME/actions-runner-labwired-ci/_work/labwired/labwired/core/third_party/iolinki"
+            "$HOME/actions-runner-labwired/_work/labwired/labwired/core/third_party/iolinki"
+            "$HOME/actions-runner-labwired-ci/_work/labwired/labwired/core/core/third_party/iolinki"
+          )
 
-      - name: Fetch LabWired core submodule
-        working-directory: labwired
-        run: |
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
-          git submodule update --init --depth 1 core
+          for dir in "${candidates[@]}"; do
+            if [ -d "$dir/include/iolinki" ] && [ -f "$dir/src/frame.c" ]; then
+              echo "IOLINKI_DEVICE_DIR=$dir" >> "$GITHUB_ENV"
+              echo "Using LabWired device stack at $dir"
+              exit 0
+            fi
+          done
+
+          echo "::error::Could not locate LabWired core/third_party/iolinki on the Pluto runner."
+          printf 'Checked candidates:\n'
+          printf '  %s\n' "${candidates[@]}"
+          exit 1
 
       - name: Ensure test dependencies
         run: |
@@ -60,7 +62,7 @@ jobs:
       - name: Configure
         run: |
           cmake -S iolinki-master -B iolinki-master/build \
-            -DIOLINKI_DEVICE_DIR="$GITHUB_WORKSPACE/labwired/core/third_party/iolinki"
+            -DIOLINKI_DEVICE_DIR="$IOLINKI_DEVICE_DIR"
 
       - name: Build
         run: cmake --build iolinki-master/build
