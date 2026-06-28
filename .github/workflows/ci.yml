@@ -155,6 +155,23 @@ jobs:
             cmake --version
           fi
 
+          if ! command -v ninja >/dev/null 2>&1; then
+            ninja_archive="$RUNNER_TEMP/ninja-linux.zip"
+            rm -f "$ninja_archive" "$toolbin/ninja"
+            curl --connect-timeout 20 --max-time 180 -fL \
+              https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip \
+              -o "$ninja_archive"
+            cmake -E tar xf "$ninja_archive" --format=zip
+            mv ninja "$toolbin/ninja"
+            chmod +x "$toolbin/ninja"
+            export PATH="$toolbin:$PATH"
+            echo "$toolbin" >> "$GITHUB_PATH"
+            ninja --version
+          fi
+
+          export CMAKE_GENERATOR=Ninja
+          echo "CMAKE_GENERATOR=Ninja" >> "$GITHUB_ENV"
+
           if command -v cc >/dev/null 2>&1 \
             && command -v cmake >/dev/null 2>&1 \
             && command -v pkg-config >/dev/null 2>&1 \
@@ -169,7 +186,7 @@ jobs:
             exit 0
           fi
 
-          for tool in cc cmake curl tar; do
+          for tool in cc cmake ninja curl tar; do
             if ! command -v "$tool" >/dev/null 2>&1; then
               echo "::error::$tool is required on the Pluto runner."
               exit 1
