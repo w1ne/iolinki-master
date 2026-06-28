@@ -1,0 +1,60 @@
+name: iolinki-master CI
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+jobs:
+  ctest:
+    name: cmake-ctest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout iolinki-master
+        uses: actions/checkout@v4
+        with:
+          path: iolinki-master
+
+      - name: Require LabWired checkout token
+        env:
+          LABWIRED_CHECKOUT_TOKEN: ${{ secrets.LABWIRED_CHECKOUT_TOKEN }}
+        run: |
+          if [ -z "$LABWIRED_CHECKOUT_TOKEN" ]; then
+            echo "::error::Set LABWIRED_CHECKOUT_TOKEN with read access to w1ne/labwired so CI can fetch core/third_party/iolinki."
+            exit 1
+          fi
+
+      - name: Checkout LabWired device stack
+        uses: actions/checkout@v4
+        with:
+          repository: w1ne/labwired
+          path: labwired
+          token: ${{ secrets.LABWIRED_CHECKOUT_TOKEN }}
+
+      - name: Fetch LabWired core submodule
+        working-directory: labwired
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git submodule update --init --depth 1 core
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config libcmocka-dev
+
+      - name: Configure
+        run: |
+          cmake -S iolinki-master -B iolinki-master/build \
+            -DIOLINKI_DEVICE_DIR="$GITHUB_WORKSPACE/labwired/core/third_party/iolinki"
+
+      - name: Build
+        run: cmake --build iolinki-master/build
+
+      - name: Test
+        run: ctest --test-dir iolinki-master/build --output-on-failure
