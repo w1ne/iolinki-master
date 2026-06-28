@@ -8,6 +8,7 @@
 
 #include "iolinki/application.h"
 #include "iolinki/iolink.h"
+#include "iolinki/protocol.h"
 #include "iolinki_master/master.h"
 
 #define LINK_QUEUE_CAP 128U
@@ -188,6 +189,19 @@ static void assert_bytes_equal(const uint8_t* actual,
     }
 }
 
+static uint8_t expected_direct_param_pd_descriptor(uint8_t octets)
+{
+    if(octets == 0U)
+    {
+        return 0x00U;
+    }
+    if(octets <= 2U)
+    {
+        return (uint8_t)(octets * 8U);
+    }
+    return (uint8_t)(0x80U | (uint8_t)(octets - 1U));
+}
+
 static void assert_master_real_stack_profile(iolink_master_m_seq_type_t m_seq_type,
                                              uint8_t pd_in_len,
                                              uint8_t pd_out_len,
@@ -215,7 +229,7 @@ static void assert_master_real_stack_profile(iolink_master_m_seq_type_t m_seq_ty
         .port_mode = IOLINK_MASTER_PORT_MODE_IOLINK,
         .m_seq_type = m_seq_type,
         .baudrate = IOLINK_BAUDRATE_COM2,
-        .min_cycle_time = 1U,
+        .min_cycle_time = 10U,
         .pd_in_len = pd_in_len,
         .pd_out_len = pd_out_len,
         .response_timeout_100us = 20U,
@@ -226,7 +240,7 @@ static void assert_master_real_stack_profile(iolink_master_m_seq_type_t m_seq_ty
     };
     iolink_config_t device_config = {
         .m_seq_type = device_mseq_for_master(m_seq_type),
-        .min_cycle_time = 1U,
+        .min_cycle_time = 10U,
         .pd_in_len = pd_in_len,
         .pd_out_len = pd_out_len,
         .t_pd_us = 0U,
@@ -279,6 +293,119 @@ static void assert_master_real_stack_profile(iolink_master_m_seq_type_t m_seq_ty
     fail_msg("real iolinki device stack did not reach OPERATE for %s", case_name);
 }
 
+static void init_master_and_real_device_in_operate(iolink_master_port_t* master,
+                                                   iolink_master_m_seq_type_t m_seq_type,
+                                                   uint8_t pd_in_len,
+                                                   uint8_t pd_out_len,
+                                                   const uint8_t* pd_out)
+{
+    static const iolink_phy_api_t master_phy = {
+        .send = master_send,
+        .recv_byte = master_recv,
+    };
+    static const iolink_phy_api_t device_phy = {
+        .init = phy_noop,
+        .set_mode = device_set_mode,
+        .set_baudrate = device_set_baudrate,
+        .send = device_send,
+        .recv_byte = device_recv,
+        .detect_wakeup = device_detect_wakeup,
+    };
+    static const iolink_app_callbacks_t app_callbacks = {
+        .on_pd_input = on_device_pd_input,
+        .on_pd_output = on_device_pd_output,
+    };
+    iolink_master_config_t master_config = {
+        .port_mode = IOLINK_MASTER_PORT_MODE_IOLINK,
+        .m_seq_type = m_seq_type,
+        .baudrate = IOLINK_BAUDRATE_COM2,
+        .min_cycle_time = 10U,
+        .pd_in_len = pd_in_len,
+        .pd_out_len = pd_out_len,
+        .response_timeout_100us = 20U,
+        .set_mode_checked = checked_set_mode,
+        .prepare_tx = phy_noop,
+        .prepare_rx = phy_noop,
+        .wake_up = master_wake_up,
+    };
+    iolink_config_t device_config = {
+        .m_seq_type = device_mseq_for_master(m_seq_type),
+        .min_cycle_time = 10U,
+        .pd_in_len = pd_in_len,
+        .pd_out_len = pd_out_len,
+        .t_pd_us = 0U,
+    };
+    uint8_t device_pd[MAX_PD_LEN] = {0U};
+    uint8_t i;
+
+    q_reset(&g_master_to_device);
+    q_reset(&g_device_to_master);
+    g_wakeup_pending = 0;
+    g_last_pd_input_len = 0U;
+    g_last_pd_output_len = 0U;
+    memset(g_last_pd_input, 0, sizeof(g_last_pd_input));
+    memset(g_last_pd_output, 0, sizeof(g_last_pd_output));
+    fill_incrementing(device_pd, pd_in_len, 0xA0U);
+
+    iolink_app_register(&app_callbacks);
+    assert_int_equal(iolink_init(&device_phy, &device_config), 0);
+    iolink_set_timing_enforcement(false);
+    assert_int_equal(iolink_master_init(master, &master_phy, &master_config), 0);
+    assert_int_equal(iolink_master_set_pd_out(master, pd_out, pd_out_len), 0);
+
+    for(i = 0U; i < 20U; i++)
+    {
+        assert_int_equal(iolink_master_tick_at(master, IOLINK_MASTER_TICK_CYCLE_DUE, i), 0);
+        pump_device(device_pd, pd_in_len);
+        (void)iolink_master_tick_at(master, IOLINK_MASTER_TICK_NONE, i + 1U);
+        if(iolink_master_get_state(master) == IOLINK_MASTER_STATE_OPERATE)
+        {
+            return;
+        }
+    }
+
+    fail_msg("real iolinki device stack did not reach OPERATE for ISDU test");
+}
+
+static int drive_real_stack_read_isdu(iolink_master_port_t* master,
+                                      uint16_t index,
+                                      uint8_t subindex,
+                                      uint8_t pd_in_len,
+                                      uint8_t* data,
+                                      uint8_t* len)
+{
+    uint8_t device_pd[MAX_PD_LEN] = {0U};
+    uint8_t cycle;
+    int ret;
+
+    fill_incrementing(device_pd, pd_in_len, 0xC0U);
+    ret = iolink_master_read_isdu(master, index, subindex, data, len);
+    if(ret != IOLINK_MASTER_STATUS_PENDING)
+    {
+        return ret;
+    }
+
+    for(cycle = 0U; cycle < 80U; cycle++)
+    {
+        assert_int_equal(iolink_master_tick_at(master,
+                                               IOLINK_MASTER_TICK_CYCLE_DUE,
+                                               (uint32_t)(100U + (cycle * 12U))),
+                         0);
+        pump_device(device_pd, pd_in_len);
+        (void)iolink_master_tick_at(master,
+                                    IOLINK_MASTER_TICK_NONE,
+                                    (uint32_t)(101U + (cycle * 12U)));
+
+        ret = iolink_master_read_isdu(master, index, subindex, data, len);
+        if(ret != IOLINK_MASTER_STATUS_PENDING)
+        {
+            return ret;
+        }
+    }
+
+    return IOLINK_MASTER_STATUS_PENDING;
+}
+
 static void test_master_conformance_matrix_with_real_iolinki_device_stack(void** state)
 {
     static const struct
@@ -310,10 +437,54 @@ static void test_master_conformance_matrix_with_real_iolinki_device_stack(void**
     }
 }
 
+static void test_master_reads_direct_parameters_with_real_iolinki_device_stack(void** state)
+{
+    iolink_master_port_t master;
+    uint8_t pd_out[2] = {0x5AU, 0xA5U};
+    uint8_t page[16] = {0U};
+    uint8_t len = sizeof(page);
+
+    (void)state;
+
+    init_master_and_real_device_in_operate(&master,
+                                           IOLINK_MASTER_M_SEQ_TYPE_2_2,
+                                           3U,
+                                           sizeof(pd_out),
+                                           pd_out);
+
+    assert_int_equal(drive_real_stack_read_isdu(&master,
+                                                IOLINK_IDX_DIRECT_PARAMETERS_1,
+                                                0U,
+                                                3U,
+                                                page,
+                                                &len),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(len, sizeof(page));
+    assert_int_equal(page[0x02], 10U);
+    assert_int_equal(page[0x03], 0x01U);
+    assert_int_equal(page[0x04], 0x11U);
+    assert_int_equal(page[0x05], expected_direct_param_pd_descriptor(3U));
+    assert_int_equal(page[0x06], expected_direct_param_pd_descriptor(sizeof(pd_out)));
+
+    assert_int_equal(iolink_master_read_device_info(&master), IOLINK_MASTER_STATUS_PENDING);
+    len = sizeof(page);
+    assert_int_equal(drive_real_stack_read_isdu(&master,
+                                                IOLINK_IDX_DIRECT_PARAMETERS_1,
+                                                0U,
+                                                3U,
+                                                page,
+                                                &len),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_apply_direct_parameter_page1(&master, page, len),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_validate_device_info(&master), IOLINK_MASTER_STATUS_OK);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_master_conformance_matrix_with_real_iolinki_device_stack),
+        cmocka_unit_test(test_master_reads_direct_parameters_with_real_iolinki_device_stack),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
