@@ -28,6 +28,8 @@ jobs:
           set -euo pipefail
 
           candidates=(
+            "$HOME/actions-runner-labwired-ci/_work/labwired/labwired/checkout-main/core/third_party/iolinki"
+            "$HOME/actions-runner-labwired/_work/labwired/labwired/checkout-main/core/third_party/iolinki"
             "$HOME/actions-runner-labwired-ci/_work/labwired/labwired/core/third_party/iolinki"
             "$HOME/actions-runner-labwired/_work/labwired/labwired/core/third_party/iolinki"
             "$HOME/actions-runner-labwired-ci/_work/labwired/labwired/core/core/third_party/iolinki"
@@ -40,6 +42,15 @@ jobs:
               exit 0
             fi
           done
+
+          while IFS= read -r frame; do
+            dir="$(dirname "$(dirname "$frame")")"
+            if [ -d "$dir/include/iolinki" ]; then
+              echo "IOLINKI_DEVICE_DIR=$dir" >> "$GITHUB_ENV"
+              echo "Using LabWired device stack at $dir"
+              exit 0
+            fi
+          done < <(find "$HOME" -path '*/core/third_party/iolinki/src/frame.c' -print 2>/dev/null)
 
           echo "::error::Could not locate LabWired core/third_party/iolinki on the Pluto runner."
           printf 'Checked candidates:\n'
