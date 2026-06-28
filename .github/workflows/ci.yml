@@ -60,6 +60,58 @@ jobs:
 
       - name: Ensure test dependencies
         run: |
+          set -euo pipefail
+
+          toolbin="$RUNNER_TEMP/toolbin"
+          mkdir -p "$toolbin"
+
+          if ! command -v cc >/dev/null 2>&1; then
+            if command -v clang >/dev/null 2>&1; then
+              printf '#!/usr/bin/env bash\nexec clang "$@"\n' > "$toolbin/cc"
+              chmod +x "$toolbin/cc"
+              export PATH="$toolbin:$PATH"
+              echo "$toolbin" >> "$GITHUB_PATH"
+              echo "Created cc shim to clang."
+            else
+              for tool in curl tar sha256sum; do
+                if ! command -v "$tool" >/dev/null 2>&1; then
+                  echo "::error::$tool is required to bootstrap a C compiler on the Pluto runner."
+                  exit 1
+                fi
+              done
+
+              case "$(uname -m)" in
+                x86_64)
+                  zig_pkg="zig-linux-x86_64-0.13.0"
+                  zig_sha="d45312e61ebcc48032b77bc4cf7fd6915c11fa16e4aad116b66c9468211230ea"
+                  ;;
+                aarch64|arm64)
+                  zig_pkg="zig-linux-aarch64-0.13.0"
+                  zig_sha="041ac42323837eb5624068acd8b00cd5777dac4cf91179e8dad7a7e90dd0c556"
+                  ;;
+                *)
+                  echo "::error::No C compiler is installed and Zig bootstrap is unsupported for $(uname -m)."
+                  exit 1
+                  ;;
+              esac
+
+              zig_dir="$RUNNER_TEMP/zig"
+              zig_archive="$RUNNER_TEMP/${zig_pkg}.tar.xz"
+              rm -rf "$zig_dir" "$zig_archive"
+              mkdir -p "$zig_dir"
+              curl -fsSL "https://ziglang.org/download/0.13.0/${zig_pkg}.tar.xz" -o "$zig_archive"
+              echo "${zig_sha}  ${zig_archive}" | sha256sum --check --strict
+              tar -xf "$zig_archive" -C "$zig_dir" --strip-components=1
+              printf '#!/usr/bin/env bash\nexec "$RUNNER_TEMP/zig/zig" cc "$@"\n' > "$toolbin/cc"
+              printf '#!/usr/bin/env bash\nexec "$RUNNER_TEMP/zig/zig" ar "$@"\n' > "$toolbin/ar"
+              printf '#!/usr/bin/env bash\nexec "$RUNNER_TEMP/zig/zig" ranlib "$@"\n' > "$toolbin/ranlib"
+              chmod +x "$toolbin/cc" "$toolbin/ar" "$toolbin/ranlib"
+              export PATH="$toolbin:$PATH"
+              echo "$toolbin" >> "$GITHUB_PATH"
+              echo "Bootstrapped Zig cc toolchain."
+            fi
+          fi
+
           if command -v cc >/dev/null 2>&1 \
             && command -v cmake >/dev/null 2>&1 \
             && command -v pkg-config >/dev/null 2>&1 \
