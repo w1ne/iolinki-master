@@ -406,6 +406,73 @@ static int drive_real_stack_read_isdu(iolink_master_port_t* master,
     return IOLINK_MASTER_STATUS_PENDING;
 }
 
+static void drive_real_stack_cycle(iolink_master_port_t* master,
+                                   uint8_t pd_in_len,
+                                   uint32_t now_100us)
+{
+    uint8_t device_pd[MAX_PD_LEN] = {0U};
+
+    fill_incrementing(device_pd, pd_in_len, 0xD0U);
+    assert_int_equal(iolink_master_tick_at(master, IOLINK_MASTER_TICK_CYCLE_DUE, now_100us),
+                     0);
+    pump_device(device_pd, pd_in_len);
+    (void)iolink_master_tick_at(master, IOLINK_MASTER_TICK_NONE, now_100us + 1U);
+}
+
+static int drive_real_stack_read_event_details(iolink_master_port_t* master,
+                                               uint8_t pd_in_len,
+                                               iolink_master_event_t* events,
+                                               uint8_t max_events,
+                                               uint8_t* out_count)
+{
+    uint8_t cycle;
+    int ret;
+
+    ret = iolink_master_read_event_details(master, events, max_events, out_count);
+    if(ret != IOLINK_MASTER_STATUS_PENDING)
+    {
+        return ret;
+    }
+
+    for(cycle = 0U; cycle < 80U; cycle++)
+    {
+        drive_real_stack_cycle(master, pd_in_len, (uint32_t)(300U + (cycle * 12U)));
+        ret = iolink_master_read_event_details(master, events, max_events, out_count);
+        if(ret != IOLINK_MASTER_STATUS_PENDING)
+        {
+            return ret;
+        }
+    }
+
+    return IOLINK_MASTER_STATUS_PENDING;
+}
+
+static int drive_real_stack_ack_event(iolink_master_port_t* master,
+                                      uint8_t pd_in_len,
+                                      uint16_t* event_code)
+{
+    uint8_t cycle;
+    int ret;
+
+    ret = iolink_master_ack_event(master, event_code);
+    if(ret != IOLINK_MASTER_STATUS_PENDING)
+    {
+        return ret;
+    }
+
+    for(cycle = 0U; cycle < 80U; cycle++)
+    {
+        drive_real_stack_cycle(master, pd_in_len, (uint32_t)(500U + (cycle * 12U)));
+        ret = iolink_master_ack_event(master, event_code);
+        if(ret != IOLINK_MASTER_STATUS_PENDING)
+        {
+            return ret;
+        }
+    }
+
+    return IOLINK_MASTER_STATUS_PENDING;
+}
+
 static void test_master_conformance_matrix_with_real_iolinki_device_stack(void** state)
 {
     static const struct
@@ -480,11 +547,62 @@ static void test_master_reads_direct_parameters_with_real_iolinki_device_stack(v
     assert_int_equal(iolink_master_validate_device_info(&master), IOLINK_MASTER_STATUS_OK);
 }
 
+static void test_master_reads_and_acks_events_with_real_iolinki_device_stack(void** state)
+{
+    iolink_master_port_t master;
+    uint8_t pd_out[1] = {0x7EU};
+    iolink_master_diagnostics_t diagnostics;
+    iolink_master_event_t events[2];
+    uint8_t raw_details[8] = {0U};
+    uint8_t raw_len = sizeof(raw_details);
+    uint8_t count = 0U;
+    uint16_t event_code = 0U;
+
+    (void)state;
+
+    init_master_and_real_device_in_operate(&master,
+                                           IOLINK_MASTER_M_SEQ_TYPE_1_2,
+                                           2U,
+                                           sizeof(pd_out),
+                                           pd_out);
+
+    iolink_event_trigger(iolink_get_events_ctx(),
+                         IOLINK_EVENT_COMM_TIMING,
+                         IOLINK_EVENT_TYPE_WARNING);
+    drive_real_stack_cycle(&master, 2U, 200U);
+    assert_int_equal(iolink_master_get_diagnostics(&master, &diagnostics), 0);
+    assert_true(diagnostics.event_pending);
+
+    assert_int_equal(drive_real_stack_read_isdu(&master,
+                                                IOLINK_IDX_DETAILED_DEVICE_STATUS,
+                                                0U,
+                                                2U,
+                                                raw_details,
+                                                &raw_len),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(raw_len, 3U);
+
+    assert_int_equal(drive_real_stack_read_event_details(&master,
+                                                         2U,
+                                                         events,
+                                                         (uint8_t)(sizeof(events) / sizeof(events[0])),
+                                                         &count),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(count, 1U);
+    assert_int_equal(events[0].type, IOLINK_MASTER_EVENT_TYPE_WARNING);
+    assert_int_equal(events[0].code, IOLINK_EVENT_COMM_TIMING);
+
+    assert_int_equal(drive_real_stack_ack_event(&master, 2U, &event_code),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(event_code, IOLINK_EVENT_COMM_TIMING);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_master_conformance_matrix_with_real_iolinki_device_stack),
         cmocka_unit_test(test_master_reads_direct_parameters_with_real_iolinki_device_stack),
+        cmocka_unit_test(test_master_reads_and_acks_events_with_real_iolinki_device_stack),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
