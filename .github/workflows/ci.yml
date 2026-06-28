@@ -28,6 +28,7 @@ jobs:
           set -euo pipefail
 
           candidates=(
+            "$HOME/labwired-iolinki-device-stack/core/third_party/iolinki"
             "$HOME/actions-runner-labwired-ci/_work/labwired/labwired/checkout-main/core/third_party/iolinki"
             "$HOME/actions-runner-labwired/_work/labwired/labwired/checkout-main/core/third_party/iolinki"
             "$HOME/actions-runner-labwired-ci/_work/labwired/labwired/core/third_party/iolinki"
