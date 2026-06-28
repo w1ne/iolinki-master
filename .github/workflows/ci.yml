@@ -124,6 +124,37 @@ jobs:
             fi
           fi
 
+          if ! command -v cmake >/dev/null 2>&1; then
+            for tool in curl tar; do
+              if ! command -v "$tool" >/dev/null 2>&1; then
+                echo "::error::$tool is required to bootstrap CMake on the Pluto runner."
+                exit 1
+              fi
+            done
+
+            case "$(uname -m)" in
+              x86_64)
+                cmake_pkg="cmake-3.30.9-linux-x86_64"
+                ;;
+              *)
+                echo "::error::CMake is not installed and bootstrap is unsupported for $(uname -m)."
+                exit 1
+                ;;
+            esac
+
+            cmake_dir="$RUNNER_TEMP/cmake"
+            cmake_archive="$RUNNER_TEMP/${cmake_pkg}.tar.gz"
+            rm -rf "$cmake_dir" "$cmake_archive"
+            mkdir -p "$cmake_dir"
+            curl --connect-timeout 20 --max-time 180 -fsSL \
+              "https://cmake.org/files/v3.30/${cmake_pkg}.tar.gz" \
+              -o "$cmake_archive"
+            tar -xf "$cmake_archive" -C "$cmake_dir" --strip-components=1
+            export PATH="$cmake_dir/bin:$PATH"
+            echo "$cmake_dir/bin" >> "$GITHUB_PATH"
+            cmake --version
+          fi
+
           if command -v cc >/dev/null 2>&1 \
             && command -v cmake >/dev/null 2>&1 \
             && command -v pkg-config >/dev/null 2>&1 \
@@ -138,7 +169,7 @@ jobs:
             exit 0
           fi
 
-          for tool in cc cmake pkg-config curl tar; do
+          for tool in cc cmake curl tar; do
             if ! command -v "$tool" >/dev/null 2>&1; then
               echo "::error::$tool is required on the Pluto runner."
               exit 1
@@ -151,7 +182,7 @@ jobs:
 
           if ! pkg-config --exists cmocka; then
             rm -rf "$prefix" "$src" "$archive"
-            curl -fsSL \
+            curl --connect-timeout 20 --max-time 180 -fsSL \
               https://cmocka.org/files/1.1/cmocka-1.1.7.tar.xz \
               -o "$archive"
             tar -xf "$archive" -C "$RUNNER_TEMP"
