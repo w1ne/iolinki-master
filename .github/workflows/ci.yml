@@ -14,7 +14,8 @@ on:
 jobs:
   ctest:
     name: cmake-ctest
-    runs-on: [self-hosted, pluto]
+    # Pluto's repo runner is named `pluto-labwired-ci-runner` and exposes these labels.
+    runs-on: [self-hosted, Linux, X64, ci]
     steps:
       - name: Checkout iolinki-master
         uses: actions/checkout@v4
