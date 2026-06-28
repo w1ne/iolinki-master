@@ -68,8 +68,39 @@ jobs:
             exit 0
           fi
 
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake pkg-config libcmocka-dev
+          if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y build-essential cmake pkg-config libcmocka-dev
+            exit 0
+          fi
+
+          for tool in cc cmake pkg-config curl tar; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              echo "::error::$tool is required on the Pluto runner."
+              exit 1
+            fi
+          done
+
+          prefix="$RUNNER_TEMP/cmocka"
+          src="$RUNNER_TEMP/cmocka-1.1.7"
+          archive="$RUNNER_TEMP/cmocka-1.1.7.tar.xz"
+
+          if ! pkg-config --exists cmocka; then
+            rm -rf "$prefix" "$src" "$archive"
+            curl -fsSL \
+              https://cmocka.org/files/1.1/cmocka-1.1.7.tar.xz \
+              -o "$archive"
+            tar -xf "$archive" -C "$RUNNER_TEMP"
+            cmake -S "$src" -B "$src/build" \
+              -DCMAKE_INSTALL_PREFIX="$prefix" \
+              -DWITH_STATIC_LIB=ON \
+              -DWITH_EXAMPLES=OFF \
+              -DUNIT_TESTING=OFF
+            cmake --build "$src/build" --target install
+          fi
+
+          echo "PKG_CONFIG_PATH=$prefix/lib/pkgconfig:$prefix/lib64/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+          echo "CMAKE_PREFIX_PATH=$prefix:${CMAKE_PREFIX_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Configure
         run: |
