@@ -14,7 +14,7 @@ on:
 jobs:
   ctest:
     name: cmake-ctest
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, pluto]
     steps:
       - name: Checkout iolinki-master
         uses: actions/checkout@v4
@@ -43,8 +43,16 @@ jobs:
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git submodule update --init --depth 1 core
 
-      - name: Install test dependencies
+      - name: Ensure test dependencies
         run: |
+          if command -v cc >/dev/null 2>&1 \
+            && command -v cmake >/dev/null 2>&1 \
+            && command -v pkg-config >/dev/null 2>&1 \
+            && pkg-config --exists cmocka; then
+            echo "CMake, C compiler, pkg-config, and CMocka are already available."
+            exit 0
+          fi
+
           sudo apt-get update
           sudo apt-get install -y build-essential cmake pkg-config libcmocka-dev
 
