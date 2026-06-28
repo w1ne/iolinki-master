@@ -10,7 +10,8 @@
 #include "iolinki/iolink.h"
 #include "iolinki_master/master.h"
 
-#define LINK_QUEUE_CAP 64U
+#define LINK_QUEUE_CAP 128U
+#define MAX_PD_LEN 32U
 
 typedef struct
 {
@@ -22,8 +23,10 @@ typedef struct
 static link_queue_t g_master_to_device;
 static link_queue_t g_device_to_master;
 static int g_wakeup_pending;
-static uint8_t g_last_pd_input[4];
+static uint8_t g_last_pd_input[MAX_PD_LEN];
 static uint8_t g_last_pd_input_len;
+static uint8_t g_last_pd_output[MAX_PD_LEN];
+static uint8_t g_last_pd_output_len;
 
 static void q_reset(link_queue_t* q)
 {
@@ -123,19 +126,73 @@ static void on_device_pd_input(const uint8_t* data, uint8_t len)
     g_last_pd_input_len = len;
 }
 
-static void pump_device(uint8_t pd_value)
+static void on_device_pd_output(uint8_t* data, uint8_t len)
 {
-    uint8_t pd[1] = {pd_value};
+    assert_true(len <= sizeof(g_last_pd_output));
+    memcpy(g_last_pd_output, data, len);
+    g_last_pd_output_len = len;
+}
+
+static void fill_incrementing(uint8_t* data, uint8_t len, uint8_t first)
+{
     uint8_t i;
 
-    assert_int_equal(iolink_pd_input_update(pd, sizeof(pd), true), 0);
+    for(i = 0U; i < len; i++)
+    {
+        data[i] = (uint8_t)(first + i);
+    }
+}
+
+static void pump_device(const uint8_t* pd, uint8_t len)
+{
+    uint8_t i;
+
+    assert_int_equal(iolink_pd_input_update(pd, len, true), 0);
     for(i = 0U; i < 4U; i++)
     {
         iolink_process();
     }
 }
 
-static void test_master_reaches_operate_with_real_iolinki_device_stack(void** state)
+static iolink_m_seq_type_t device_mseq_for_master(iolink_master_m_seq_type_t type)
+{
+    switch(type)
+    {
+    case IOLINK_MASTER_M_SEQ_TYPE_1_1:
+        return IOLINK_M_SEQ_TYPE_1_1;
+    case IOLINK_MASTER_M_SEQ_TYPE_1_2:
+        return IOLINK_M_SEQ_TYPE_1_2;
+    case IOLINK_MASTER_M_SEQ_TYPE_1_V:
+        return IOLINK_M_SEQ_TYPE_1_V;
+    case IOLINK_MASTER_M_SEQ_TYPE_2_1:
+        return IOLINK_M_SEQ_TYPE_2_1;
+    case IOLINK_MASTER_M_SEQ_TYPE_2_2:
+        return IOLINK_M_SEQ_TYPE_2_2;
+    case IOLINK_MASTER_M_SEQ_TYPE_2_V:
+        return IOLINK_M_SEQ_TYPE_2_V;
+    case IOLINK_MASTER_M_SEQ_TYPE_0:
+    default:
+        return IOLINK_M_SEQ_TYPE_0;
+    }
+}
+
+static void assert_bytes_equal(const uint8_t* actual,
+                               const uint8_t* expected,
+                               uint8_t len)
+{
+    uint8_t i;
+
+    for(i = 0U; i < len; i++)
+    {
+        assert_int_equal(actual[i], expected[i]);
+    }
+}
+
+static void assert_master_real_stack_profile(iolink_master_m_seq_type_t m_seq_type,
+                                             uint8_t pd_in_len,
+                                             uint8_t pd_out_len,
+                                             uint8_t pd_value,
+                                             const char* case_name)
 {
     static const iolink_phy_api_t master_phy = {
         .send = master_send,
@@ -151,15 +208,16 @@ static void test_master_reaches_operate_with_real_iolinki_device_stack(void** st
     };
     static const iolink_app_callbacks_t app_callbacks = {
         .on_pd_input = on_device_pd_input,
+        .on_pd_output = on_device_pd_output,
     };
     iolink_master_port_t master;
     iolink_master_config_t master_config = {
         .port_mode = IOLINK_MASTER_PORT_MODE_IOLINK,
-        .m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_1_1,
+        .m_seq_type = m_seq_type,
         .baudrate = IOLINK_BAUDRATE_COM2,
         .min_cycle_time = 1U,
-        .pd_in_len = 1U,
-        .pd_out_len = 0U,
+        .pd_in_len = pd_in_len,
+        .pd_out_len = pd_out_len,
         .response_timeout_100us = 20U,
         .set_mode_checked = checked_set_mode,
         .prepare_tx = phy_noop,
@@ -167,56 +225,95 @@ static void test_master_reaches_operate_with_real_iolinki_device_stack(void** st
         .wake_up = master_wake_up,
     };
     iolink_config_t device_config = {
-        .m_seq_type = IOLINK_M_SEQ_TYPE_1_1,
+        .m_seq_type = device_mseq_for_master(m_seq_type),
         .min_cycle_time = 1U,
-        .pd_in_len = 1U,
-        .pd_out_len = 0U,
+        .pd_in_len = pd_in_len,
+        .pd_out_len = pd_out_len,
         .t_pd_us = 0U,
     };
-    uint8_t pd_in[1] = {0U};
+    uint8_t pd_in[MAX_PD_LEN] = {0U};
+    uint8_t pd_out[MAX_PD_LEN] = {0U};
     uint8_t pd_len = 0U;
+    uint8_t device_pd[MAX_PD_LEN] = {0U};
     uint8_t i;
-
-    (void)state;
 
     q_reset(&g_master_to_device);
     q_reset(&g_device_to_master);
     g_wakeup_pending = 0;
     g_last_pd_input_len = 0U;
+    g_last_pd_output_len = 0U;
     memset(g_last_pd_input, 0, sizeof(g_last_pd_input));
+    memset(g_last_pd_output, 0, sizeof(g_last_pd_output));
+    fill_incrementing(device_pd, pd_in_len, pd_value);
+    fill_incrementing(pd_out, pd_out_len, (uint8_t)(pd_value ^ 0x55U));
 
     iolink_app_register(&app_callbacks);
     assert_int_equal(iolink_init(&device_phy, &device_config), 0);
     iolink_set_timing_enforcement(false);
     assert_int_equal(iolink_master_init(&master, &master_phy, &master_config), 0);
+    assert_int_equal(iolink_master_set_pd_out(&master, pd_out, pd_out_len), 0);
 
     for(i = 0U; i < 20U; i++)
     {
         assert_int_equal(iolink_master_tick_at(&master, IOLINK_MASTER_TICK_CYCLE_DUE, i), 0);
-        pump_device(0xA5U);
+        pump_device(device_pd, pd_in_len);
         (void)iolink_master_tick_at(&master, IOLINK_MASTER_TICK_NONE, i + 1U);
 
         if(iolink_master_get_state(&master) == IOLINK_MASTER_STATE_OPERATE)
         {
             assert_int_equal(iolink_master_tick_at(&master, IOLINK_MASTER_TICK_CYCLE_DUE, i + 40U), 0);
-            pump_device(0xA5U);
-            assert_int_equal(iolink_master_tick_at(&master, IOLINK_MASTER_TICK_NONE, i + 41U), 1);
+            pump_device(device_pd, pd_in_len);
+            assert_int_equal(
+                iolink_master_tick_at(&master, IOLINK_MASTER_TICK_NONE, i + 41U), 1);
             assert_int_equal(iolink_master_get_pd_in(&master, pd_in, sizeof(pd_in), &pd_len), 0);
-            assert_int_equal(pd_len, 1U);
-            assert_int_equal(pd_in[0], 0xA5U);
-            assert_int_equal(g_last_pd_input_len, 1U);
-            assert_int_equal(g_last_pd_input[0], 0xA5U);
+            assert_int_equal(pd_len, pd_in_len);
+            assert_bytes_equal(pd_in, device_pd, pd_in_len);
+            assert_int_equal(g_last_pd_input_len, pd_in_len);
+            assert_bytes_equal(g_last_pd_input, device_pd, pd_in_len);
+            assert_int_equal(g_last_pd_output_len, pd_out_len);
+            assert_bytes_equal(g_last_pd_output, pd_out, pd_out_len);
             return;
         }
     }
 
-    fail_msg("real iolinki device stack did not reach OPERATE with iolinki-master");
+    fail_msg("real iolinki device stack did not reach OPERATE for %s", case_name);
+}
+
+static void test_master_conformance_matrix_with_real_iolinki_device_stack(void** state)
+{
+    static const struct
+    {
+        iolink_master_m_seq_type_t m_seq_type;
+        uint8_t pd_in_len;
+        uint8_t pd_out_len;
+        uint8_t pd_value;
+    } cases[] = {
+        {IOLINK_MASTER_M_SEQ_TYPE_1_1, 1U, 0U, 0x11U},
+        {IOLINK_MASTER_M_SEQ_TYPE_1_2, 2U, 1U, 0x22U},
+        {IOLINK_MASTER_M_SEQ_TYPE_2_1, 2U, 2U, 0x33U},
+        {IOLINK_MASTER_M_SEQ_TYPE_2_2, 3U, 2U, 0x44U},
+        {IOLINK_MASTER_M_SEQ_TYPE_1_V, 4U, 1U, 0x55U},
+        {IOLINK_MASTER_M_SEQ_TYPE_2_V, 4U, 3U, 0x66U},
+    };
+    size_t i;
+
+    (void)state;
+
+    for(i = 0U; i < (sizeof(cases) / sizeof(cases[0])); i++)
+    {
+        print_message("real-stack profile case %zu\n", i);
+        assert_master_real_stack_profile(cases[i].m_seq_type,
+                                         cases[i].pd_in_len,
+                                         cases[i].pd_out_len,
+                                         cases[i].pd_value,
+                                         "profile matrix");
+    }
 }
 
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_master_reaches_operate_with_real_iolinki_device_stack),
+        cmocka_unit_test(test_master_conformance_matrix_with_real_iolinki_device_stack),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
