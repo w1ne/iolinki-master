@@ -732,6 +732,64 @@ static void test_master_restores_data_storage_with_real_parameter_block(void** s
     assert_memory_equal(readback, ds_image, sizeof(ds_image));
 }
 
+static void test_master_observes_real_device_access_locks(void** state)
+{
+    iolink_master_port_t master;
+    static const uint8_t ds_image[] = {
+        0x00U, 0x18U, 0x00U, 0x08U, 'L', 'o', 'c', 'k', 'e', 'd', '0', '1',
+    };
+    const uint8_t lock_ds[] = {0x00U, IOLINK_LOCK_DS};
+    const uint8_t unlock_all[] = {0x00U, 0x00U};
+    uint8_t pd_out[1] = {0x5CU};
+    uint8_t locks[2] = {0U};
+    uint8_t len = sizeof(locks);
+    iolink_master_diagnostics_t diagnostics;
+
+    (void)state;
+
+    init_master_and_real_device_in_operate(&master,
+                                           IOLINK_MASTER_M_SEQ_TYPE_1_2,
+                                           2U,
+                                           sizeof(pd_out),
+                                           pd_out);
+
+    assert_int_equal(drive_real_stack_write_isdu(&master,
+                                                 IOLINK_IDX_DEVICE_ACCESS_LOCKS,
+                                                 0U,
+                                                 2U,
+                                                 lock_ds,
+                                                 sizeof(lock_ds)),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(drive_real_stack_read_isdu(&master,
+                                                IOLINK_IDX_DEVICE_ACCESS_LOCKS,
+                                                0U,
+                                                2U,
+                                                locks,
+                                                &len),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(len, sizeof(locks));
+    assert_memory_equal(locks, lock_ds, sizeof(lock_ds));
+
+    assert_int_equal(drive_real_stack_parameter_block(&master,
+                                                      IOLINK_IDX_DATA_STORAGE,
+                                                      0U,
+                                                      2U,
+                                                      ds_image,
+                                                      sizeof(ds_image)),
+                     IOLINK_MASTER_ISDU_ERR_DEVICE);
+    assert_int_equal(iolink_master_get_diagnostics(&master, &diagnostics), 0);
+    assert_int_equal(diagnostics.last_isdu_error, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+    assert_int_equal(diagnostics.last_service_result, IOLINK_MASTER_ISDU_ERR_DEVICE);
+
+    assert_int_equal(drive_real_stack_write_isdu(&master,
+                                                 IOLINK_IDX_DEVICE_ACCESS_LOCKS,
+                                                 0U,
+                                                 2U,
+                                                 unlock_all,
+                                                 sizeof(unlock_all)),
+                     IOLINK_MASTER_STATUS_OK);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -741,6 +799,7 @@ int main(void)
         cmocka_unit_test(
             test_master_writes_and_reads_data_storage_with_real_iolinki_device_stack),
         cmocka_unit_test(test_master_restores_data_storage_with_real_parameter_block),
+        cmocka_unit_test(test_master_observes_real_device_access_locks),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
