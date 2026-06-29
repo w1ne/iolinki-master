@@ -439,6 +439,35 @@ static int drive_real_stack_write_isdu(iolink_master_port_t* master,
     return IOLINK_MASTER_STATUS_PENDING;
 }
 
+static int drive_real_stack_parameter_block(iolink_master_port_t* master,
+                                            uint16_t index,
+                                            uint8_t subindex,
+                                            uint8_t pd_in_len,
+                                            const uint8_t* data,
+                                            uint8_t len)
+{
+    uint8_t cycle;
+    int ret;
+
+    ret = iolink_master_write_parameter_block(master, index, subindex, data, len);
+    if(ret != IOLINK_MASTER_STATUS_PENDING)
+    {
+        return ret;
+    }
+
+    for(cycle = 0U; cycle < 120U; cycle++)
+    {
+        drive_real_stack_cycle(master, pd_in_len, (uint32_t)(900U + (cycle * 12U)));
+        ret = iolink_master_write_parameter_block(master, index, subindex, data, len);
+        if(ret != IOLINK_MASTER_STATUS_PENDING)
+        {
+            return ret;
+        }
+    }
+
+    return IOLINK_MASTER_STATUS_PENDING;
+}
+
 static void drive_real_stack_cycle(iolink_master_port_t* master,
                                    uint8_t pd_in_len,
                                    uint32_t now_100us)
@@ -667,6 +696,42 @@ static void test_master_writes_and_reads_data_storage_with_real_iolinki_device_s
     assert_memory_equal(readback, ds_image, sizeof(ds_image));
 }
 
+static void test_master_restores_data_storage_with_real_parameter_block(void** state)
+{
+    iolink_master_port_t master;
+    static const uint8_t ds_image[] = {
+        0x00U, 0x18U, 0x00U, 0x08U, 'B', 'l', 'o', 'c', 'k', 'C', 'I', '1',
+    };
+    uint8_t pd_out[1] = {0x42U};
+    uint8_t readback[64] = {0U};
+    uint8_t len = sizeof(readback);
+
+    (void)state;
+
+    init_master_and_real_device_in_operate(&master,
+                                           IOLINK_MASTER_M_SEQ_TYPE_1_2,
+                                           2U,
+                                           sizeof(pd_out),
+                                           pd_out);
+
+    assert_int_equal(drive_real_stack_parameter_block(&master,
+                                                      IOLINK_IDX_DATA_STORAGE,
+                                                      0U,
+                                                      2U,
+                                                      ds_image,
+                                                      sizeof(ds_image)),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(drive_real_stack_read_isdu(&master,
+                                                IOLINK_IDX_DATA_STORAGE,
+                                                0U,
+                                                2U,
+                                                readback,
+                                                &len),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_true(len >= sizeof(ds_image));
+    assert_memory_equal(readback, ds_image, sizeof(ds_image));
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -675,6 +740,7 @@ int main(void)
         cmocka_unit_test(test_master_reads_and_acks_events_with_real_iolinki_device_stack),
         cmocka_unit_test(
             test_master_writes_and_reads_data_storage_with_real_iolinki_device_stack),
+        cmocka_unit_test(test_master_restores_data_storage_with_real_parameter_block),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
