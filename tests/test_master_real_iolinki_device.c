@@ -770,6 +770,33 @@ static void test_master_writes_mandatory_tag_objects_with_real_iolinki_device_st
                                 (uint8_t)(sizeof(location_tag) - 1U));
 }
 
+static void test_master_reads_diagnostic_objects_with_real_iolinki_device_stack(void** state)
+{
+    iolink_master_port_t master;
+    uint8_t pd_out[1] = {0x7DU};
+    const uint8_t ok_status[] = {0x00U};
+    const uint8_t zero_error_stats[16] = {0U};
+
+    (void)state;
+
+    init_master_and_real_device_in_operate(&master,
+                                           IOLINK_MASTER_M_SEQ_TYPE_1_2,
+                                           2U,
+                                           sizeof(pd_out),
+                                           pd_out);
+
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_DEVICE_STATUS,
+                                2U,
+                                ok_status,
+                                sizeof(ok_status));
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_ERROR_STATS,
+                                2U,
+                                zero_error_stats,
+                                sizeof(zero_error_stats));
+}
+
 static void test_master_reads_and_acks_events_with_real_iolinki_device_stack(void** state)
 {
     iolink_master_port_t master;
@@ -960,6 +987,7 @@ int main(void)
             test_master_reads_mandatory_identity_objects_with_real_iolinki_device_stack),
         cmocka_unit_test(
             test_master_writes_mandatory_tag_objects_with_real_iolinki_device_stack),
+        cmocka_unit_test(test_master_reads_diagnostic_objects_with_real_iolinki_device_stack),
         cmocka_unit_test(test_master_reads_and_acks_events_with_real_iolinki_device_stack),
         cmocka_unit_test(
             test_master_writes_and_reads_data_storage_with_real_iolinki_device_stack),
