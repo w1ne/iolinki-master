@@ -713,6 +713,63 @@ static void test_master_reads_mandatory_identity_objects_with_real_iolinki_devic
                                 (uint8_t)(sizeof(firmware_revision) - 1U));
 }
 
+static void test_master_writes_mandatory_tag_objects_with_real_iolinki_device_stack(
+    void** state)
+{
+    iolink_master_port_t master;
+    uint8_t pd_out[1] = {0x6DU};
+    static const uint8_t application_tag[] = "AppTagCI";
+    static const uint8_t function_tag[] = "FuncTagCI";
+    static const uint8_t location_tag[] = "LocTagCI";
+
+    (void)state;
+
+    init_master_and_real_device_in_operate(&master,
+                                           IOLINK_MASTER_M_SEQ_TYPE_1_2,
+                                           2U,
+                                           sizeof(pd_out),
+                                           pd_out);
+
+    assert_int_equal(drive_real_stack_write_isdu(&master,
+                                                 IOLINK_IDX_APPLICATION_TAG,
+                                                 0U,
+                                                 2U,
+                                                 application_tag,
+                                                 (uint8_t)(sizeof(application_tag) - 1U)),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_APPLICATION_TAG,
+                                2U,
+                                application_tag,
+                                (uint8_t)(sizeof(application_tag) - 1U));
+
+    assert_int_equal(drive_real_stack_write_isdu(&master,
+                                                 IOLINK_IDX_FUNCTION_TAG,
+                                                 0U,
+                                                 2U,
+                                                 function_tag,
+                                                 (uint8_t)(sizeof(function_tag) - 1U)),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_FUNCTION_TAG,
+                                2U,
+                                function_tag,
+                                (uint8_t)(sizeof(function_tag) - 1U));
+
+    assert_int_equal(drive_real_stack_write_isdu(&master,
+                                                 IOLINK_IDX_LOCATION_TAG,
+                                                 0U,
+                                                 2U,
+                                                 location_tag,
+                                                 (uint8_t)(sizeof(location_tag) - 1U)),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_LOCATION_TAG,
+                                2U,
+                                location_tag,
+                                (uint8_t)(sizeof(location_tag) - 1U));
+}
+
 static void test_master_reads_and_acks_events_with_real_iolinki_device_stack(void** state)
 {
     iolink_master_port_t master;
@@ -901,6 +958,8 @@ int main(void)
         cmocka_unit_test(test_master_reads_direct_parameters_with_real_iolinki_device_stack),
         cmocka_unit_test(
             test_master_reads_mandatory_identity_objects_with_real_iolinki_device_stack),
+        cmocka_unit_test(
+            test_master_writes_mandatory_tag_objects_with_real_iolinki_device_stack),
         cmocka_unit_test(test_master_reads_and_acks_events_with_real_iolinki_device_stack),
         cmocka_unit_test(
             test_master_writes_and_reads_data_storage_with_real_iolinki_device_stack),
