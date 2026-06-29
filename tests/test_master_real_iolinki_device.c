@@ -202,6 +202,28 @@ static uint8_t expected_direct_param_pd_descriptor(uint8_t octets)
     return (uint8_t)(0x80U | (uint8_t)(octets - 1U));
 }
 
+static int drive_real_stack_read_isdu(iolink_master_port_t* master,
+                                      uint16_t index,
+                                      uint8_t subindex,
+                                      uint8_t pd_in_len,
+                                      uint8_t* data,
+                                      uint8_t* len);
+
+static void assert_real_stack_isdu_read(iolink_master_port_t* master,
+                                        uint16_t index,
+                                        uint8_t pd_in_len,
+                                        const uint8_t* expected,
+                                        uint8_t expected_len)
+{
+    uint8_t data[64] = {0U};
+    uint8_t len = sizeof(data);
+
+    assert_int_equal(drive_real_stack_read_isdu(master, index, 0U, pd_in_len, data, &len),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(len, expected_len);
+    assert_memory_equal(data, expected, expected_len);
+}
+
 static void assert_master_real_stack_profile(iolink_master_m_seq_type_t m_seq_type,
                                              uint8_t pd_in_len,
                                              uint8_t pd_out_len,
@@ -609,6 +631,88 @@ static void test_master_reads_direct_parameters_with_real_iolinki_device_stack(v
     assert_int_equal(iolink_master_validate_device_info(&master), IOLINK_MASTER_STATUS_OK);
 }
 
+static void test_master_reads_mandatory_identity_objects_with_real_iolinki_device_stack(
+    void** state)
+{
+    iolink_master_port_t master;
+    uint8_t pd_out[2] = {0x31U, 0x32U};
+    const uint8_t vendor_id[] = {0xFFU, 0xFFU};
+    const uint8_t device_id[] = {0x00U, 0x00U, 0x00U, 0x01U};
+    const uint8_t profile_characteristic[] = {0x00U, 0x00U};
+    const uint8_t revision_id[] = {0x00U, 0x01U};
+    const uint8_t min_cycle_time[] = {10U};
+    const uint8_t pdin_descriptor[] = {3U};
+    static const uint8_t vendor_name[] = "iolinki";
+    static const uint8_t product_name[] = "Generic IO-Link Device";
+    static const uint8_t product_id[] = "IOLINK-DEV-001";
+    static const uint8_t hardware_revision[] = "1.0";
+    static const uint8_t firmware_revision[] = "0.1.0";
+
+    (void)state;
+
+    init_master_and_real_device_in_operate(&master,
+                                           IOLINK_MASTER_M_SEQ_TYPE_2_2,
+                                           3U,
+                                           sizeof(pd_out),
+                                           pd_out);
+
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_VENDOR_ID,
+                                3U,
+                                vendor_id,
+                                sizeof(vendor_id));
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_DEVICE_ID,
+                                3U,
+                                device_id,
+                                sizeof(device_id));
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_PROFILE_CHARACTERISTIC,
+                                3U,
+                                profile_characteristic,
+                                sizeof(profile_characteristic));
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_REVISION_ID,
+                                3U,
+                                revision_id,
+                                sizeof(revision_id));
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_MIN_CYCLE_TIME,
+                                3U,
+                                min_cycle_time,
+                                sizeof(min_cycle_time));
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_PDIN_DESCRIPTOR,
+                                3U,
+                                pdin_descriptor,
+                                sizeof(pdin_descriptor));
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_VENDOR_NAME,
+                                3U,
+                                vendor_name,
+                                (uint8_t)(sizeof(vendor_name) - 1U));
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_PRODUCT_NAME,
+                                3U,
+                                product_name,
+                                (uint8_t)(sizeof(product_name) - 1U));
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_PRODUCT_ID,
+                                3U,
+                                product_id,
+                                (uint8_t)(sizeof(product_id) - 1U));
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_HARDWARE_REVISION,
+                                3U,
+                                hardware_revision,
+                                (uint8_t)(sizeof(hardware_revision) - 1U));
+    assert_real_stack_isdu_read(&master,
+                                IOLINK_IDX_FIRMWARE_REVISION,
+                                3U,
+                                firmware_revision,
+                                (uint8_t)(sizeof(firmware_revision) - 1U));
+}
+
 static void test_master_reads_and_acks_events_with_real_iolinki_device_stack(void** state)
 {
     iolink_master_port_t master;
@@ -795,6 +899,8 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_master_conformance_matrix_with_real_iolinki_device_stack),
         cmocka_unit_test(test_master_reads_direct_parameters_with_real_iolinki_device_stack),
+        cmocka_unit_test(
+            test_master_reads_mandatory_identity_objects_with_real_iolinki_device_stack),
         cmocka_unit_test(test_master_reads_and_acks_events_with_real_iolinki_device_stack),
         cmocka_unit_test(
             test_master_writes_and_reads_data_storage_with_real_iolinki_device_stack),
