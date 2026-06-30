@@ -45,7 +45,7 @@ static int iolink_master_set_mode(iolink_master_port_t* port, iolink_phy_mode_t 
 
     if((state->phy != NULL) && (state->phy->set_mode != NULL))
     {
-        state->phy->set_mode(mode);
+        state->phy->set_mode(state->phy->user, mode);
     }
 
     return IOLINK_MASTER_STATUS_OK;
@@ -62,7 +62,7 @@ static int iolink_master_set_baudrate(iolink_master_port_t* port, iolink_baudrat
 
     if((state->phy != NULL) && (state->phy->set_baudrate != NULL))
     {
-        state->phy->set_baudrate(baudrate);
+        state->phy->set_baudrate(state->phy->user, baudrate);
     }
 
     return IOLINK_MASTER_STATUS_OK;
@@ -98,7 +98,7 @@ static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* d
         }
     }
 
-    sent = state->phy->send(data, len);
+    sent = state->phy->send(state->phy->user, data, len);
 
     if(state->config.prepare_rx != NULL)
     {
@@ -338,7 +338,7 @@ int iolink_master_init(iolink_master_port_t* port,
 
     if(phy->init != NULL)
     {
-        ret = phy->init();
+        ret = phy->init(phy->user);
         if(ret != 0)
         {
             iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
@@ -690,7 +690,9 @@ int iolink_master_poll_rx(iolink_master_port_t* port)
         return IOLINK_MASTER_STATUS_OK;
     }
 
-    while((recv_ret = iolink_master_port_state(port)->phy->recv_byte(&byte)) > 0)
+    while((recv_ret = iolink_master_port_state(port)->phy->recv_byte(
+               iolink_master_port_state(port)->phy->user,
+               &byte)) > 0)
     {
         if(iolink_master_port_state(port)->rx.len >= sizeof(iolink_master_port_state(port)->rx.buf))
         {
@@ -944,11 +946,11 @@ int iolink_master_get_diagnostics(const iolink_master_port_t* port,
     *diagnostics = state->diagnostics;
     diagnostics->supply_voltage_mv =
         ((state->phy != NULL) && (state->phy->get_voltage_mv != NULL))
-            ? state->phy->get_voltage_mv()
+            ? state->phy->get_voltage_mv(state->phy->user)
             : 0;
     diagnostics->short_circuit =
         ((state->phy != NULL) && (state->phy->is_short_circuit != NULL))
-            ? state->phy->is_short_circuit()
+            ? state->phy->is_short_circuit(state->phy->user)
             : false;
     error_count = diagnostics->checksum_errors + diagnostics->send_errors +
                   diagnostics->response_timeouts;

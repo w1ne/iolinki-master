@@ -56,7 +56,7 @@ if(CMOCKA_FOUND)
     add_test(NAME test_master_fake_device COMMAND test_master_fake_device)
 
     add_library(iolinki_device_stack_for_tests STATIC
-        "${IOLINKI_DEVICE_DIR}/src/iolink_core.c"
+        "${IOLINKI_DEVICE_DIR}/src/device.c"
         "${IOLINKI_DEVICE_DIR}/src/phy_generic.c"
         "${IOLINKI_DEVICE_DIR}/src/phy_virtual.c"
         "${IOLINKI_DEVICE_DIR}/src/dll.c"
