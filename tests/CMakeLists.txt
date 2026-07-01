@@ -56,7 +56,7 @@ if(CMOCKA_FOUND)
     add_test(NAME test_master_fake_device COMMAND test_master_fake_device)
 
     add_library(iolinki_device_stack_for_tests STATIC
-        "${IOLINKI_DEVICE_DIR}/src/iolink_core.c"
+        "${IOLINKI_DEVICE_DIR}/src/device.c"
         "${IOLINKI_DEVICE_DIR}/src/phy_generic.c"
         "${IOLINKI_DEVICE_DIR}/src/phy_virtual.c"
         "${IOLINKI_DEVICE_DIR}/src/dll.c"
@@ -76,6 +76,7 @@ if(CMOCKA_FOUND)
     add_executable(test_master_real_iolinki_device test_master_real_iolinki_device.c)
     target_link_libraries(test_master_real_iolinki_device iolinki_master iolinki_device_stack_for_tests ${CMOCKA_LIBRARIES})
     add_test(NAME test_master_real_iolinki_device COMMAND test_master_real_iolinki_device)
+
 else()
     message(WARNING "CMocka not found, unit tests will be skipped. Install libcmocka-dev to enable them.")
 endif()
