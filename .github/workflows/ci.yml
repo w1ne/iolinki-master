@@ -22,41 +22,22 @@ jobs:
         with:
           path: iolinki-master
 
-      - name: Locate LabWired device stack
-        id: labwired
+      - name: Checkout iolinki device stack
+        uses: actions/checkout@v4
+        with:
+          repository: w1ne/iolinki
+          ref: develop
+          path: iolinki-device
+
+      - name: Configure device stack path
         run: |
           set -euo pipefail
-
-          candidates=(
-            "$HOME/labwired-iolinki-device-stack/core/third_party/iolinki"
-            "$HOME/actions-runner-labwired-ci/_work/labwired/labwired/checkout-main/core/third_party/iolinki"
-            "$HOME/actions-runner-labwired/_work/labwired/labwired/checkout-main/core/third_party/iolinki"
-            "$HOME/actions-runner-labwired-ci/_work/labwired/labwired/core/third_party/iolinki"
-            "$HOME/actions-runner-labwired/_work/labwired/labwired/core/third_party/iolinki"
-            "$HOME/actions-runner-labwired-ci/_work/labwired/labwired/core/core/third_party/iolinki"
-          )
-
-          for dir in "${candidates[@]}"; do
-            if [ -d "$dir/include/iolinki" ] && [ -f "$dir/src/frame.c" ]; then
-              echo "IOLINKI_DEVICE_DIR=$dir" >> "$GITHUB_ENV"
-              echo "Using LabWired device stack at $dir"
-              exit 0
-            fi
-          done
-
-          while IFS= read -r frame; do
-            dir="$(dirname "$(dirname "$frame")")"
-            if [ -d "$dir/include/iolinki" ]; then
-              echo "IOLINKI_DEVICE_DIR=$dir" >> "$GITHUB_ENV"
-              echo "Using LabWired device stack at $dir"
-              exit 0
-            fi
-          done < <(find "$HOME" -path '*/core/third_party/iolinki/src/frame.c' -print 2>/dev/null)
-
-          echo "::error::Could not locate LabWired core/third_party/iolinki on the Pluto runner."
-          printf 'Checked candidates:\n'
-          printf '  %s\n' "${candidates[@]}"
-          exit 1
+          dir="$GITHUB_WORKSPACE/iolinki-device"
+          test -d "$dir/include/iolinki"
+          test -f "$dir/src/frame.c"
+          test -f "$dir/src/device.c"
+          echo "IOLINKI_DEVICE_DIR=$dir" >> "$GITHUB_ENV"
+          echo "Using iolinki device stack at $dir"
 
       - name: Ensure test dependencies
         timeout-minutes: 10
