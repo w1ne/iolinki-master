@@ -205,3 +205,67 @@ jobs:
 
       - name: Test
         run: ctest --test-dir iolinki-master/build --output-on-failure
+
+  labwired-model:
+    name: labwired-real-firmware-model
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout iolinki-master
+        uses: actions/checkout@v4
+        with:
+          path: iolinki-master
+
+      - name: Checkout LabWired core
+        uses: actions/checkout@v4
+        with:
+          repository: w1ne/labwired-core
+          ref: main
+          path: labwired-core
+          submodules: recursive
+
+      - name: Overlay current master stack into LabWired
+        run: |
+          set -euo pipefail
+          rm -rf labwired-core/third_party/iolinki-master
+          mkdir -p labwired-core/third_party/iolinki-master
+          tar -C iolinki-master \
+            --exclude .git \
+            --exclude build \
+            -cf - . | tar -C labwired-core/third_party/iolinki-master -xf -
+          git -C labwired-core status --short -- third_party/iolinki-master
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.95.0
+
+      - name: Cache LabWired dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: iolinki-master-labwired-model
+          workspaces: |
+            labwired-core -> target
+
+      - name: Install firmware toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
+
+      - name: Fetch STM32CubeL4 pack
+        uses: ./labwired-core/.github/actions/fetch-pack
+        with:
+          pack: stm32cubel4@v1.18.2
+
+      - name: Build real IO-Link station firmware
+        working-directory: labwired-core
+        run: examples/iolink-station/ci/build.sh
+
+      - name: Run LabWired multiport model
+        working-directory: labwired-core
+        run: examples/iolink-station/ci/test.sh
+
+      - name: Upload LabWired IO-Link artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iolinki-master-labwired-model
+          path: labwired-core/out/boards/iolink-station-l476/
+          if-no-files-found: ignore
