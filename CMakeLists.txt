@@ -7,8 +7,15 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
 
 set(IOLINKI_DEVICE_DIR
-    "/home/andrii/projects/labwired/core/third_party/iolinki"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../iolinki"
     CACHE PATH "Path to the local iolinki device repository")
+
+if(NOT EXISTS "${IOLINKI_DEVICE_DIR}/src/frame.c")
+    message(FATAL_ERROR
+        "iolinki device stack not found at '${IOLINKI_DEVICE_DIR}'. "
+        "Clone it (git clone -b develop git@github.com:w1ne/iolinki.git) "
+        "next to this repository, or pass -DIOLINKI_DEVICE_DIR=/path/to/iolinki.")
+endif()
 
 option(BUILD_TESTING "Build unit tests" ON)
 option(BUILD_EXAMPLES "Build runnable examples" ON)

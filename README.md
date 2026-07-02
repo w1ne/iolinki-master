@@ -14,10 +14,12 @@ Track implementation status and next work here:
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - [`docs/TESTING.md`](docs/TESTING.md)
 
-The default local dependency path is:
+The build needs a local checkout of the `iolinki` device repository for the
+shared CRC/frame helpers (and, for tests, the real device stack). By default it
+is expected as a sibling of this repository:
 
 ```sh
-/home/andrii/projects/labwired/core/third_party/iolinki
+git clone -b develop git@github.com:w1ne/iolinki.git ../iolinki
 ```
 
 Build and test:
