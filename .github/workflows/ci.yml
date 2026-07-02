@@ -260,12 +260,22 @@ jobs:
 
       - name: Run LabWired multiport model
         working-directory: labwired-core
-        run: examples/iolink-station/ci/test.sh
+        env:
+          CARGO_TERM_COLOR: never
+        run: |
+          set -o pipefail
+          examples/iolink-station/ci/test.sh 2>&1 | tee multiport-report.txt
 
+      # The report is the tee'd test log (per-node prefixed console output)
+      # plus the exact firmware ELFs that ran in the model.
       - name: Upload LabWired IO-Link artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: iolinki-master-labwired-model
-          path: labwired-core/out/boards/iolink-station-l476/
-          if-no-files-found: ignore
+          path: |
+            labwired-core/multiport-report.txt
+            labwired-core/examples/iolink-station/master-fw/master.elf
+            labwired-core/examples/iolink-station/master-fw-4port/master.elf
+            labwired-core/examples/iolink-dido/firmware/iolink_dido.elf
+          if-no-files-found: warn
