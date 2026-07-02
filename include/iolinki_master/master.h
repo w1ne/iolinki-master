@@ -195,7 +195,18 @@ typedef union
     uint8_t storage[IOLINK_MASTER_CONTROLLER_STORAGE_SIZE];
 } iolink_master_controller_t;
 
-/* Returns OK, INVALID_ARG, or a nonzero PHY init error forwarded from phy->init. */
+/*
+ * Initializes a port for communication.
+ *
+ * Lifetime contract: the config is copied into the port, but the PHY is
+ * retained BY POINTER (the port stores `phy`, not a copy). The
+ * `iolink_phy_api_t` must therefore outlive the port — pass a pointer to
+ * storage with at least the port's lifetime, never an automatic/stack
+ * temporary. (Passing a stack-local PHY compiles fine but dangles on the next
+ * tick.)
+ *
+ * Returns OK, INVALID_ARG, or a nonzero PHY init error forwarded from phy->init.
+ */
 int iolink_master_init(iolink_master_port_t* port,
                        const iolink_phy_api_t* phy,
                        const iolink_master_config_t* config);
@@ -329,7 +340,14 @@ int iolink_master_write_parameter_block(iolink_master_port_t* port,
                                         uint8_t subindex,
                                         const uint8_t* data,
                                         uint8_t len);
-/* Returns OK, INVALID_ARG, or the first per-port init error. */
+/*
+ * Initializes a multi-port controller by init-ing each port from the matching
+ * `phys[i]`/`configs[i]`. Same lifetime contract as iolink_master_init: every
+ * PHY is retained by pointer, so the `phys` array (and the PHYs it points to)
+ * must outlive the controller. The `ports` array must too.
+ *
+ * Returns OK, INVALID_ARG, or the first per-port init error.
+ */
 int iolink_master_controller_init(iolink_master_controller_t* controller,
                                   iolink_master_port_t* ports,
                                   uint8_t port_count,
