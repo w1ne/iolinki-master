@@ -1,8 +1,9 @@
 # iolinki-master
 
 `iolinki-master` is a standalone IO-Link master stack. It is intentionally split
-from the device-oriented `iolinki` repository and reuses only the narrow shared
-pieces needed for CRC, frame handling, PHY contracts, and IO-Link constants.
+from the device-oriented [`iolinki`](https://github.com/w1ne/iolinki) repository
+and reuses only the narrow shared pieces needed for CRC, frame handling, PHY
+contracts, and IO-Link constants.
 
 The master API is built around caller-owned opaque storage. Public users allocate
 `iolink_master_port_t` or `iolink_master_controller_t`; private state lives in
@@ -50,9 +51,32 @@ To point at another local `iolinki` checkout:
 cmake -S . -B build -DIOLINKI_DEVICE_DIR=/path/to/iolinki
 ```
 
+## Related Projects
+
+- **[iolinki](https://github.com/w1ne/iolinki)** — the companion IO-Link
+  **device** stack. This repository builds against it for the shared
+  CRC/frame/PHY helpers, and CI runs both stacks against each other over a
+  simulated wire (real firmware, multi-port station) in LabWired.
+
+## Security
+
+The security and CRA documentation for the iolinki project family lives in the
+device repository and covers the shared frame/CRC layer this stack reuses:
+
+- [SECURITY.md](https://github.com/w1ne/iolinki/blob/develop/SECURITY.md) —
+  coordinated disclosure policy (applies to this repository as well; use
+  GitHub private vulnerability reporting here or there)
+- [Threat model](https://github.com/w1ne/iolinki/blob/develop/docs/security/THREAT_MODEL.md)
+  and [CRA overview](https://github.com/w1ne/iolinki/blob/develop/docs/security/CRA.md)
+
+A master-stack-specific threat model and per-release SBOMs will follow once
+this repository starts tagging releases.
+
 ## License
 
-`iolinki-master` follows the same licensing model as `iolinki`: GPLv3-or-later
-for GPL-compatible use, with a separate commercial license available for
-closed-source/proprietary products. See [`LICENSE`](LICENSE) and
-[`LICENSE.COMMERCIAL`](LICENSE.COMMERCIAL).
+`iolinki-master` follows the same licensing model as
+[`iolinki`](https://github.com/w1ne/iolinki): dual-licensed under the **GPLv3**
+(free, for open-source/GPLv3 use) and a **commercial license** (for
+closed-source / proprietary products that cannot accept the GPLv3 copyleft).
+Shipping a proprietary product? Email **andrii@shylenko.com**. See
+[`LICENSE`](LICENSE) and [`LICENSE.COMMERCIAL`](LICENSE.COMMERCIAL).
