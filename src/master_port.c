@@ -12,6 +12,12 @@ static const iolink_baudrate_t g_iolink_master_baudrate_scan[] = {
     IOLINK_BAUDRATE_COM1,
 };
 
+static bool iolink_master_startup_validation_required(const iolink_master_config_t* config)
+{
+    return config->validate_device_info ||
+           (config->inspection_level != IOLINK_MASTER_INSPECTION_NO_CHECK);
+}
+
 static iolink_baudrate_t iolink_master_startup_baudrate(const iolink_master_port_t* port)
 {
     const iolink_master_port_state_t* state = iolink_master_port_const_state(port);
@@ -584,7 +590,7 @@ void iolink_master_process(iolink_master_port_t* port)
             return;
         }
 
-        if(iolink_master_port_state(port)->config.validate_device_info && !iolink_master_port_state(port)->device_info.valid)
+        if(iolink_master_startup_validation_required(&iolink_master_port_state(port)->config) && !iolink_master_port_state(port)->device_info.valid)
         {
             ret = iolink_master_read_device_info(port);
             if(ret == IOLINK_MASTER_STATUS_PENDING)
@@ -598,7 +604,7 @@ void iolink_master_process(iolink_master_port_t* port)
             }
         }
 
-        if(iolink_master_port_state(port)->config.validate_device_info && (iolink_master_validate_device_info(port) != 0))
+        if(iolink_master_startup_validation_required(&iolink_master_port_state(port)->config) && (iolink_master_validate_device_info(port) != 0))
         {
             iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
             return;

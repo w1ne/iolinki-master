@@ -350,6 +350,76 @@ static void test_select_config_from_device_info_rejects_invalid_inputs(void** st
                      IOLINK_MASTER_PARAM_ERR_M_SEQUENCE);
 }
 
+static void test_validate_config_against_device_info_enforces_device_identity(void** state)
+{
+    iolink_master_device_info_t info;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_parse_direct_parameter_page1(g_page1, sizeof(g_page1), &info),
+                     IOLINK_MASTER_STATUS_OK);
+
+    /* g_page1 advertises operate M-sequence code 5, so use the matching type to
+       get past the compatibility checks and reach the identity check. */
+    config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_2_V;
+
+    /* NO_CHECK (the default) ignores a mismatched identity. */
+    config.expected_vendor_id = 0xBEEFU;
+    config.expected_device_id = 0x010203U;
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_STATUS_OK);
+
+    /* TYPE_COMP accepts the matching VendorID/DeviceID carried in g_page1. */
+    config.inspection_level = IOLINK_MASTER_INSPECTION_TYPE_COMP;
+    config.expected_vendor_id = 0x1234U;
+    config.expected_device_id = 0x56789AU;
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_STATUS_OK);
+
+    /* A wrong VendorID is rejected with a distinct code. */
+    config.expected_vendor_id = 0x1235U;
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_PARAM_ERR_VENDOR_ID);
+
+    /* A wrong DeviceID is rejected with a distinct code. */
+    config.expected_vendor_id = 0x1234U;
+    config.expected_device_id = 0x56789BU;
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_PARAM_ERR_DEVICE_ID);
+
+    /* IDENTICAL enforces the same VendorID/DeviceID match today. */
+    config.inspection_level = IOLINK_MASTER_INSPECTION_IDENTICAL;
+    config.expected_device_id = 0x56789AU;
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_STATUS_OK);
+    config.expected_vendor_id = 0x0000U;
+    assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                     IOLINK_MASTER_PARAM_ERR_VENDOR_ID);
+}
+
+static void test_validate_device_info_enforces_configured_identity_on_port(void** state)
+{
+    iolink_master_config_t config = g_config;
+    iolink_master_port_t port;
+
+    (void)state;
+
+    config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_2_V;
+    config.inspection_level = IOLINK_MASTER_INSPECTION_TYPE_COMP;
+    config.expected_vendor_id = 0x1234U;
+    config.expected_device_id = 0x56789AU;
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &config), 0);
+    assert_int_equal(iolink_master_apply_direct_parameter_page1(&port, g_page1, sizeof(g_page1)), 0);
+    assert_int_equal(iolink_master_validate_device_info(&port), IOLINK_MASTER_STATUS_OK);
+
+    config.expected_device_id = 0x000001U;
+    assert_int_equal(iolink_master_init(&port, &g_phy, &config), 0);
+    assert_int_equal(iolink_master_apply_direct_parameter_page1(&port, g_page1, sizeof(g_page1)), 0);
+    assert_int_equal(iolink_master_validate_device_info(&port), IOLINK_MASTER_PARAM_ERR_DEVICE_ID);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -365,6 +435,8 @@ int main(void)
         cmocka_unit_test(test_select_config_from_device_info_maps_fixed_type2_profiles),
         cmocka_unit_test(test_select_config_from_device_info_maps_all_public_mseq_profiles),
         cmocka_unit_test(test_validate_config_against_device_info_rejects_incompatible_request),
+        cmocka_unit_test(test_validate_config_against_device_info_enforces_device_identity),
+        cmocka_unit_test(test_validate_device_info_enforces_configured_identity_on_port),
         cmocka_unit_test(test_select_config_from_device_info_rejects_invalid_inputs),
     };
 

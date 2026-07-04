@@ -78,8 +78,26 @@ typedef enum
     IOLINK_MASTER_PARAM_ERR_REVISION = -2,
     IOLINK_MASTER_PARAM_ERR_CYCLE_TIME = -3,
     IOLINK_MASTER_PARAM_ERR_PD_SIZE = -4,
-    IOLINK_MASTER_PARAM_ERR_M_SEQUENCE = -5
+    IOLINK_MASTER_PARAM_ERR_M_SEQUENCE = -5,
+    IOLINK_MASTER_PARAM_ERR_VENDOR_ID = -6,
+    IOLINK_MASTER_PARAM_ERR_DEVICE_ID = -7
 } iolink_master_parameter_result_t;
+
+/*
+ * Device-identity inspection level, per the IO-Link port configuration model.
+ * NO_CHECK establishes communication without comparing the device identity.
+ * TYPE_COMP requires the connected device's VendorID and DeviceID to match the
+ * configured expected values (a type-compatible device). IDENTICAL additionally
+ * requires the device SerialNumber to match; the SerialNumber leg is not yet
+ * wired here (it lives in ISDU index 0x0015, not Direct Parameter Page 1), so
+ * IDENTICAL currently enforces the same VendorID/DeviceID check as TYPE_COMP.
+ */
+typedef enum
+{
+    IOLINK_MASTER_INSPECTION_NO_CHECK = 0,
+    IOLINK_MASTER_INSPECTION_TYPE_COMP = 1,
+    IOLINK_MASTER_INSPECTION_IDENTICAL = 2
+} iolink_master_inspection_level_t;
 
 typedef enum
 {
@@ -106,6 +124,9 @@ typedef struct
     uint8_t pd_out_len;
     bool auto_baudrate;
     bool validate_device_info;
+    iolink_master_inspection_level_t inspection_level;
+    uint16_t expected_vendor_id;
+    uint32_t expected_device_id;
     uint8_t response_timeout_100us;
     int (*set_mode_checked)(iolink_phy_mode_t mode);
     int (*set_baudrate_checked)(iolink_baudrate_t baudrate);

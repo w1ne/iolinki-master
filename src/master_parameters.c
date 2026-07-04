@@ -185,6 +185,24 @@ int iolink_master_validate_config_against_device_info(const iolink_master_device
         return IOLINK_MASTER_PARAM_ERR_M_SEQUENCE;
     }
 
+    /*
+     * Device identity check. Any inspection level other than NO_CHECK rejects a
+     * device whose VendorID/DeviceID differ from the configured expected values.
+     * The SerialNumber leg that distinguishes IDENTICAL from TYPE_COMP is a
+     * documented follow-up (it is not carried in Direct Parameter Page 1).
+     */
+    if(config->inspection_level != IOLINK_MASTER_INSPECTION_NO_CHECK)
+    {
+        if(info->vendor_id != config->expected_vendor_id)
+        {
+            return IOLINK_MASTER_PARAM_ERR_VENDOR_ID;
+        }
+        if(info->device_id != config->expected_device_id)
+        {
+            return IOLINK_MASTER_PARAM_ERR_DEVICE_ID;
+        }
+    }
+
     return IOLINK_MASTER_STATUS_OK;
 }
 
