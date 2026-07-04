@@ -580,7 +580,15 @@ void iolink_master_process(iolink_master_port_t* port)
 
         if(iolink_master_port_state(port)->startup.step == IOLINK_MASTER_STARTUP_STEP_SEND_TYPE0)
         {
-            frame_len = iolink_frame_encode_type0(0x00U, iolink_master_port_state(port)->tx_buf, sizeof(iolink_master_port_state(port)->tx_buf));
+            /* Spec startup transition T1: first message is a Type-0 READ of the
+               Direct Parameter page MinCycleTime octet (MC = 0xA2) on the page
+               communication channel. */
+            frame_len = iolink_frame_encode_type0(
+                iolink_master_encode_master_command(true,
+                                                    IOLINK_MASTER_MC_CHANNEL_PAGE,
+                                                    IOLINK_MASTER_DPP1_OFF_MIN_CYCLE_TIME),
+                iolink_master_port_state(port)->tx_buf,
+                sizeof(iolink_master_port_state(port)->tx_buf));
             if(frame_len > 0)
             {
                 if(iolink_master_send_full(port, iolink_master_port_state(port)->tx_buf, (size_t)frame_len))
@@ -628,10 +636,14 @@ void iolink_master_process(iolink_master_port_t* port)
             return;
         }
 
-        frame_len = iolink_frame_encode_type0(
+        /* Spec transition to OPERATE: write MasterCommand DeviceOperate (0x99,
+           Table B.2) to Direct Parameter page address 0x00 on the page channel,
+           i.e. a Type-0 WRITE frame (MC = 0x20, one OD data octet 0x99). */
+        frame_len = iolink_frame_encode_type0_write(
             iolink_master_encode_master_command(false,
-                                                IOLINK_MASTER_MC_CHANNEL_PROCESS,
-                                                IOLINK_MASTER_MC_TRANSITION_ADDR),
+                                                IOLINK_MASTER_MC_CHANNEL_PAGE,
+                                                IOLINK_MASTER_DPP1_OFF_MASTER_COMMAND),
+            IOLINK_CMD_DEVICE_OPERATE,
             iolink_master_port_state(port)->tx_buf,
             sizeof(iolink_master_port_state(port)->tx_buf));
         if(frame_len > 0)
