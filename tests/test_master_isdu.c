@@ -300,6 +300,42 @@ static void test_read_isdu_completes_after_response_bytes(void** state)
     assert_int_equal(data[1], 0x4BU);
 }
 
+static void test_read_isdu_skips_pre_response_filler_after_request_sent(void** state)
+{
+    iolink_master_port_t port;
+    uint8_t data[8] = {0U};
+    uint8_t len = sizeof(data);
+
+    (void)state;
+
+    enter_operate(&port);
+    assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    /*
+     * Regression (found by the LabWired full-flow model): once the request is
+     * fully transmitted, a real device needs one or more idle cycles to compute
+     * its response and emits filler 0x00 OD bytes in the meantime. The response
+     * collector must skip those, not consume the first 0x00 as the response
+     * START control byte — otherwise the control/data phase desyncs and every
+     * following sequence number mismatches (SEGMENTATION error). The skip gate
+     * must not depend on request_sent.
+     */
+    iolink_master_port_state(&port)->isdu.request_sent = true;
+
+    feed_response_od(&port, 0x00U, 0x00U);
+    feed_response_od(&port, 0x00U, 0x00U);
+
+    /* The real single-segment response then completes the read cleanly. */
+    feed_response_od(&port, (uint8_t)(IOLINK_ISDU_CTRL_START | IOLINK_ISDU_CTRL_LAST), 0x4FU);
+
+    len = sizeof(data);
+    assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(len, 1U);
+    assert_int_equal(data[0], 0x4FU);
+}
+
 static void test_read_device_info_reads_direct_parameter_page1(void** state)
 {
     static const uint8_t page1[] = {
@@ -579,6 +615,8 @@ int main(void)
         cmocka_unit_test_setup(test_type0_read_isdu_completes_from_type0_response_bytes,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_read_isdu_completes_after_response_bytes, reset_fake_phy),
+        cmocka_unit_test_setup(test_read_isdu_skips_pre_response_filler_after_request_sent,
+                               reset_fake_phy),
         cmocka_unit_test_setup(test_read_device_info_reads_direct_parameter_page1, reset_fake_phy),
         cmocka_unit_test_setup(test_read_device_info_rejects_incompatible_device_page,
                                reset_fake_phy),
