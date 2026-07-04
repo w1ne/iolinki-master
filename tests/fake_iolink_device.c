@@ -116,7 +116,8 @@ static void fake_iolink_device_prepare_isdu_response(void)
     index = (uint16_t)(((uint16_t)g_device.isdu_request[1] << 8) | g_device.isdu_request[2]);
     subindex = g_device.isdu_request[3];
 
-    if(service == IOLINK_ISDU_SERVICE_READ)
+    /* Accept the spec Table A.12 read I-Service codes (0x9/0xA/0xB). */
+    if((service == 0x09U) || (service == 0x0AU) || (service == 0x0BU))
     {
         object = fake_iolink_device_find_object(index, subindex);
         if(object == NULL)
@@ -132,7 +133,8 @@ static void fake_iolink_device_prepare_isdu_response(void)
         return;
     }
 
-    if(service == IOLINK_ISDU_SERVICE_WRITE)
+    /* Accept the spec Table A.12 write I-Service codes (0x1/0x2/0x3). */
+    if((service == 0x01U) || (service == 0x02U) || (service == 0x03U))
     {
         len = (uint8_t)(g_device.isdu_request[0] & 0x0FU);
         if((len == 0x0FU) || (g_device.isdu_request_len < (uint8_t)(4U + len)) ||
