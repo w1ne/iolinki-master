@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Magic numbers extracted to named constants** (`src/master_internal.h`): the
+  retry budget, wake-up byte, frame buffer size, Direct Parameter Page 1 field
+  offsets, MinCycleTime / M-sequenceCapability / ProcessData-descriptor bit
+  fields, ISDU framing lengths, Data Storage record and event-entry sizes, and
+  the startup micro-sequence steps are now named rather than inline literals.
+- **MISRA C:2012 pass**: fixed Rule 17.7 (ignored `memcpy`/`memset` returns now
+  `(void)`-cast), Rule 13.4 (assignment-in-`while` → explicit read + `break`),
+  and Rule 15.7 (all `if … else if` chains terminated). Remaining accepted
+  deviations are recorded in [`docs/MISRA_DEVIATIONS.md`](docs/MISRA_DEVIATIONS.md);
+  `check_quality.sh` now also finds the Debian x86_64 cppcheck MISRA addon path.
+
 ### Fixed
 - **ProcessData descriptor decode** (`master_parameters.c`): isolate the Length
   field to bits 0-4 per Table B.6 so a device that sets the (legal) SIO bit, or
