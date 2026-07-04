@@ -7,6 +7,7 @@ typedef struct
 {
     uint8_t step;
     uint8_t baudrate_index;
+    uint8_t wake_attempts;
 } iolink_master_startup_state_t;
 
 typedef struct

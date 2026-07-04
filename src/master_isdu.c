@@ -688,6 +688,15 @@ int iolink_master_read_event_details(iolink_master_port_t* port,
         iolink_master_port_state(port)->diagnostics.last_event_code = events[count - 1U].code;
     }
 
+    if(iolink_master_port_state(port)->config.event_handler != NULL)
+    {
+        for(i = 0U; i < count; i++)
+        {
+            iolink_master_port_state(port)->config.event_handler(
+                iolink_master_port_state(port)->config.event_user, &events[i]);
+        }
+    }
+
     return IOLINK_MASTER_STATUS_OK;
 }
 

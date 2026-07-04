@@ -498,6 +498,20 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
         return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
+    /*
+     * Re-issue the wake-up request at the current baudrate before giving up on
+     * it. A device can miss the first WURQ pulse; retrying the wake sequence is
+     * spec-permitted and lets a slow-to-wake device still link up. Only advance
+     * the baud scan (or error) once the per-baud wake budget is exhausted.
+     */
+    if(iolink_master_port_state(port)->startup.wake_attempts <
+       iolink_master_port_state(port)->config.wake_retry_limit)
+    {
+        iolink_master_port_state(port)->startup.wake_attempts++;
+        iolink_master_port_state(port)->startup.step = 0U;
+        return IOLINK_MASTER_STATUS_PENDING;
+    }
+
     if(iolink_master_port_state(port)->config.auto_baudrate &&
        (iolink_master_port_state(port)->startup.baudrate_index <
         (uint8_t)((sizeof(g_iolink_master_baudrate_scan) /
@@ -506,6 +520,7 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
     {
         iolink_master_port_state(port)->startup.baudrate_index++;
         iolink_master_port_state(port)->startup.step = 0U;
+        iolink_master_port_state(port)->startup.wake_attempts = 0U;
         ret = iolink_master_set_baudrate(port, iolink_master_startup_baudrate(port));
         if(ret != IOLINK_MASTER_STATUS_OK)
         {
@@ -610,9 +625,12 @@ void iolink_master_process(iolink_master_port_t* port)
             return;
         }
 
-        frame_len = iolink_frame_encode_type0(IOLINK_MC_TRANSITION_COMMAND,
-                                              iolink_master_port_state(port)->tx_buf,
-                                              sizeof(iolink_master_port_state(port)->tx_buf));
+        frame_len = iolink_frame_encode_type0(
+            iolink_master_encode_master_command(false,
+                                                IOLINK_MASTER_MC_CHANNEL_PROCESS,
+                                                IOLINK_MASTER_MC_TRANSITION_ADDR),
+            iolink_master_port_state(port)->tx_buf,
+            sizeof(iolink_master_port_state(port)->tx_buf));
         if(frame_len > 0)
         {
             if(iolink_master_send_full(port, iolink_master_port_state(port)->tx_buf, (size_t)frame_len))
@@ -764,6 +782,7 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
         }
 
         iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
+        iolink_master_port_state(port)->startup.wake_attempts = 0U;
         iolink_master_port_state(port)->awaiting_response = false;
         iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_PREOPERATE;
         return IOLINK_MASTER_STATUS_OK;
@@ -851,6 +870,19 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
     iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
     iolink_master_port_state(port)->awaiting_response = false;
     iolink_master_port_state(port)->diagnostics.od_status = resp.status;
+
+    /*
+     * Dispatch on the rising edge of the OD Event flag. This turns event
+     * handling from "poll diagnostics.event_pending yourself" into a
+     * notification: the application reacts by reading event details (which then
+     * dispatches each decoded event through config.event_handler).
+     */
+    if(resp.event_pending && !iolink_master_port_state(port)->diagnostics.event_pending &&
+       (iolink_master_port_state(port)->config.event_pending_handler != NULL))
+    {
+        iolink_master_port_state(port)->config.event_pending_handler(
+            iolink_master_port_state(port)->config.event_user);
+    }
     iolink_master_port_state(port)->diagnostics.event_pending = resp.event_pending;
 
     if(resp.pd_valid)

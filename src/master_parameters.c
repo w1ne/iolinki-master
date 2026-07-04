@@ -1,6 +1,60 @@
 #include "master_internal.h"
 
+#include "iolinki/protocol.h"
+
 #include <string.h>
+
+uint16_t iolink_master_decode_min_cycle_time_100us(uint8_t octet)
+{
+    uint8_t time_base = (uint8_t)((octet >> 6U) & 0x03U);
+    uint8_t multiplier = (uint8_t)(octet & 0x3FU);
+
+    switch(time_base)
+    {
+    case 0U:
+        /* 0.1 ms base: octet value is already the 100us count (0..6.3 ms). */
+        return multiplier;
+    case 1U:
+        /* 0.4 ms base, offset 6.4 ms: 64 + n*4 (100us units), 6.4..31.6 ms. */
+        return (uint16_t)(64U + ((uint16_t)multiplier * 4U));
+    case 2U:
+        /* 1.6 ms base, offset 32.0 ms: 320 + n*16 (100us units), 32.0..132.8 ms. */
+        return (uint16_t)(320U + ((uint16_t)multiplier * 16U));
+    default:
+        /* Reserved base 11: fall back to the raw octet rather than inventing timing. */
+        return octet;
+    }
+}
+
+uint8_t iolink_master_encode_master_command(bool read,
+                                            iolink_master_mc_channel_t channel,
+                                            uint8_t address)
+{
+    uint8_t mc = (uint8_t)(address & IOLINK_MC_ADDR_MASK);
+
+    mc = (uint8_t)(mc | ((uint8_t)((uint8_t)channel << 5U) & IOLINK_MC_COMM_CHANNEL_MASK));
+    if(read)
+    {
+        mc = (uint8_t)(mc | IOLINK_MC_RW_MASK);
+    }
+
+    return mc;
+}
+
+bool iolink_master_mc_is_read(uint8_t mc)
+{
+    return (mc & IOLINK_MC_RW_MASK) != 0U;
+}
+
+iolink_master_mc_channel_t iolink_master_mc_channel(uint8_t mc)
+{
+    return (iolink_master_mc_channel_t)((mc & IOLINK_MC_COMM_CHANNEL_MASK) >> 5U);
+}
+
+uint8_t iolink_master_mc_address(uint8_t mc)
+{
+    return (uint8_t)(mc & IOLINK_MC_ADDR_MASK);
+}
 
 static uint8_t iolink_master_decode_pd_descriptor(uint8_t descriptor)
 {
@@ -89,6 +143,7 @@ int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
     memset(info, 0, sizeof(*info));
     info->valid = true;
     info->min_cycle_time = page[0x02];
+    info->min_cycle_time_100us = iolink_master_decode_min_cycle_time_100us(page[0x02]);
     info->mseq_capability = page[0x03];
     info->isdu_supported = ((page[0x03] & 0x01U) != 0U);
     info->operate_mseq_code = (uint8_t)((page[0x03] >> 1U) & 0x07U);
@@ -170,7 +225,13 @@ int iolink_master_validate_config_against_device_info(const iolink_master_device
         return IOLINK_MASTER_PARAM_ERR_REVISION;
     }
 
-    if(config->min_cycle_time < info->min_cycle_time)
+    /*
+     * The master's configured cycle time (raw 100us count) must be at least the
+     * device's decoded MinCycleTime. Comparing decoded 100us values is what makes
+     * devices that report a non-zero time base (0.4 / 1.6 ms) time correctly;
+     * for the common 0.1 ms base the decoded value equals the raw octet.
+     */
+    if((uint16_t)config->min_cycle_time < info->min_cycle_time_100us)
     {
         return IOLINK_MASTER_PARAM_ERR_CYCLE_TIME;
     }
@@ -231,7 +292,15 @@ int iolink_master_select_config_from_device_info(const iolink_master_device_info
     }
 
     config->m_seq_type = m_seq_type;
-    config->min_cycle_time = info->min_cycle_time;
+    /*
+     * Adopt the device's decoded MinCycleTime as the port cycle time (100us
+     * units). Clamp to the uint8 config field: a device whose minimum exceeds
+     * 25.5 ms cannot be paced by this field and will subsequently fail
+     * validation, which is the honest outcome rather than silently wrapping.
+     */
+    config->min_cycle_time = (info->min_cycle_time_100us > 0xFFU)
+                                 ? 0xFFU
+                                 : (uint8_t)info->min_cycle_time_100us;
     config->pd_in_len = info->pd_in_len;
     config->pd_out_len = info->pd_out_len;
 
