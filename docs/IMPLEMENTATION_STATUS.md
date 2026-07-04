@@ -26,6 +26,7 @@ Status definitions:
 | ISDU read/write | Partial | [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c), [`tests/test_master_isdu_public.c`](../tests/test_master_isdu_public.c), [`tests/test_master_fake_device.c`](../tests/test_master_fake_device.c) | Verify behavior against real devices. |
 | Direct Parameter Page 1 | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`tests/test_master_parameters.c`](../tests/test_master_parameters.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c) | Real-device validation remains open. |
 | Startup device validation | Implemented | [`src/master_parameters.c`](../src/master_parameters.c), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c) | Expand validation once automatic negotiation exists. |
+| Device identity / inspection level | Partial | [`src/master_parameters.c`](../src/master_parameters.c), [`src/master_port.c`](../src/master_port.c), [`tests/test_master_parameters.c`](../tests/test_master_parameters.c) | VendorID/DeviceID checked under `TYPE_COMP`/`IDENTICAL`; the SerialNumber leg that distinguishes `IDENTICAL` (ISDU index 0x0015) is not yet wired. |
 | Diagnostics | Partial | [`include/iolinki_master/master.h`](../include/iolinki_master/master.h), [`src/master_port.c`](../src/master_port.c), [`src/master_isdu.c`](../src/master_isdu.c), [`tests/test_master_pd.c`](../tests/test_master_pd.c), [`tests/test_master_isdu.c`](../tests/test_master_isdu.c) | Add event detail and link-quality metrics. |
 | Multi-port controller | Partial | [`src/master_controller.c`](../src/master_controller.c), [`tests/test_master_controller.c`](../tests/test_master_controller.c), [`examples/master_4port_controller_demo.c`](../examples/master_4port_controller_demo.c) | Define scheduler ownership and port-level runtime policy. |
 | SIO DI/DQ | Partial | [`src/master_sio.c`](../src/master_sio.c), [`tests/test_master_startup.c`](../tests/test_master_startup.c), [`tests/test_master_sio_public.c`](../tests/test_master_sio_public.c) | Validate SIO and mode transitions against real adapters. |
@@ -75,6 +76,7 @@ and gap detail.
 - [x] Fixed Type 2 capability selection for code-0 Direct Parameter profiles.
 - [x] Public requested-config validation against Direct Parameter Page 1.
 - [x] Optional startup device-info validation.
+- [x] Device identity (VendorID/DeviceID) check with `NO_CHECK`/`TYPE_COMP`/`IDENTICAL` inspection levels.
 - [x] Basic diagnostics API.
 - [x] Response timeout counter in public diagnostics.
 - [x] Cycle-slip counter in public diagnostics.
