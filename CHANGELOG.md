@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **ProcessData descriptor decode** (`master_parameters.c`): isolate the Length
+  field to bits 0-4 per Table B.6 so a device that sets the (legal) SIO bit, or
+  reports a sub-byte bit length, is decoded to the correct octet count.
+
+### Documented
+- **Spec conformance audit** against Interface & System Spec V1.1.5 in
+  `docs/IMPLEMENTATION_STATUS.md`: field encodings are conformant; the
+  startup/OPERATE-transition octets and the ISDU I-Service nibble are known
+  co-designed deviations pending a coordinated master+device change.
+
 ## [0.2.0] - 2026-07-04
 
 Release-engineering and documentation parity with the sibling `iolinki` device

@@ -86,6 +86,34 @@ static void test_parse_direct_parameter_page1_decodes_zero_and_small_bit_lengths
     assert_int_equal(info.pd_out_len, 0U);
 }
 
+static void test_parse_direct_parameter_page1_decodes_pd_descriptor_per_table_b6(void** state)
+{
+    uint8_t page[16] = {0U};
+    iolink_master_device_info_t info;
+
+    (void)state;
+
+    /*
+     * ProcessData descriptor per Table B.6, isolating Length to bits 0-4 so the
+     * legal SIO bit (6) and sub-byte bit lengths decode correctly.
+     * ProcessDataIn (0x05): BYTE=1, SIO=1, Length=3 -> 4 octets.
+     * ProcessDataOut (0x06): BYTE=0, SIO=1, Length=4 bits -> 1 octet (round up).
+     */
+    page[0x05] = 0xC3U; /* 1_1_0_00011 */
+    page[0x06] = 0x44U; /* 0_1_0_00100 */
+    assert_int_equal(iolink_master_parse_direct_parameter_page1(page, sizeof(page), &info), 0);
+    assert_int_equal(info.pd_in_len, 4U);
+    assert_int_equal(info.pd_out_len, 1U);
+
+    /* SIO-only descriptor with no Process Data (bit 6 set, Length 0) -> 0 octets. */
+    page[0x05] = 0x40U;
+    /* A 12-bit (BYTE=0) descriptor rounds up to 2 octets. */
+    page[0x06] = 0x0CU;
+    assert_int_equal(iolink_master_parse_direct_parameter_page1(page, sizeof(page), &info), 0);
+    assert_int_equal(info.pd_in_len, 0U);
+    assert_int_equal(info.pd_out_len, 2U);
+}
+
 static void test_parse_direct_parameter_page1_rejects_invalid_args(void** state)
 {
     iolink_master_device_info_t info;
@@ -542,6 +570,7 @@ int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_parse_direct_parameter_page1_decodes_standard_fields),
+        cmocka_unit_test(test_parse_direct_parameter_page1_decodes_pd_descriptor_per_table_b6),
         cmocka_unit_test(test_parse_direct_parameter_page1_decodes_zero_and_small_bit_lengths),
         cmocka_unit_test(test_parse_direct_parameter_page1_rejects_invalid_args),
         cmocka_unit_test(test_apply_direct_parameter_page1_latches_info_on_port),
