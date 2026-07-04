@@ -54,7 +54,9 @@ fi
 echo -e "\n[3/5] 📏 Running MISRA C:2012 Check..."
 if command -v cppcheck &> /dev/null; then
     MISRA_ADDON=""
-    for path in /usr/share/cppcheck/addons/misra.py /usr/lib/cppcheck/addons/misra.py; do
+    for path in /usr/share/cppcheck/addons/misra.py \
+                /usr/lib/cppcheck/addons/misra.py \
+                /usr/lib/x86_64-linux-gnu/cppcheck/addons/misra.py; do
         if [ -f "$path" ]; then
             MISRA_ADDON="$path"
             break
