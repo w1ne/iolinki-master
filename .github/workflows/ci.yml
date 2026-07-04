@@ -233,6 +233,7 @@ jobs:
           path: iolinki-master
 
       - name: Initialize west workspace
+        shell: bash
         run: |
           set -euo pipefail
           # Use the master's own west.yml (self: iolinki-master) as the manifest,
@@ -242,6 +243,7 @@ jobs:
           west zephyr-export
 
       - name: Build native_sim sample
+        shell: bash
         run: |
           set -euo pipefail
           west build -p auto -b native_sim iolinki-master/samples/iolink_master
