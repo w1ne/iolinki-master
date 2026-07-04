@@ -177,6 +177,35 @@ Update this file in the same commit as implementation changes when the status of
 a feature changes. Keep the gap column honest: passing local tests does not mean
 hardware or conformance coverage exists.
 
+## Spec Conformance Audit (Interface & System Spec V1.1.5)
+
+Verified against the V1.1.5 spec text on 2026-07-04. Bit-level field encodings
+are conformant: MinCycleTime octet (Table B.3), Direct Parameter Page 1 layout
+(Table B.1), M-sequenceCapability bits (Figure B.3), RevisionID (Figure B.4), and
+the M-sequence control octet — R/W, communication channel, address (Figure A.1,
+Tables A.1/A.2).
+
+**Fixed:** ProcessData descriptor decode now isolates Length to bits 0-4 per
+Table B.6 (previously the SIO bit corrupted the length, and sub-byte bit lengths
+were truncated).
+
+**Known deviations (co-designed with the `iolinki` device stack; a third-party
+conformant device would reject them). Fixing requires a coordinated master+device
+change and will break the on-wire model until both land:**
+
+- **Startup / OPERATE transition.** The spec's startup state machine requires the
+  first message to be `MC = 0xA2` (read MinCycleTime at address 0x02 on the page
+  channel) and the OPERATE transition to be MasterCommand `0x99` "DeviceOperate"
+  (Table B.2) written to address 0x00 on the page channel. The stack instead
+  sends a bare `0x00` probe and a bare `0x0F` transition octet.
+- **ISDU I-Service nibble.** Table A.12 defines Read = `0x9/0xA/0xB` and
+  Write = `0x1/0x2/0x3`. The shared `IOLINK_ISDU_SERVICE_READ 0x08` /
+  `_WRITE 0x09` constants emit `0x8` (reserved) for reads and `0x9` (a *read*
+  code) for writes.
+
+The on-wire `labwired-real-firmware-model` CI proves master↔`iolinki`-device
+interop, not spec conformance: the device mirrors these same conventions.
+
 ## Architecture Priority
 
 Do not treat all open rows as equal. The scheduler/timing row is the current

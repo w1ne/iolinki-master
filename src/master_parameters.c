@@ -58,17 +58,25 @@ uint8_t iolink_master_mc_address(uint8_t mc)
 
 static uint8_t iolink_master_decode_pd_descriptor(uint8_t descriptor)
 {
-    if(descriptor == 0U)
-    {
-        return 0U;
-    }
+    /*
+     * ProcessData descriptor (Direct Parameter Page 1, Figure B.5 / Table B.6):
+     *   bit 7   = BYTE  (length unit: 1 = octets, 0 = bits)
+     *   bit 6   = SIO   (switching signal available in SIO mode)
+     *   bit 5   = reserved
+     *   bits 0-4 = Length
+     * Only bits 0-4 carry the length, so the SIO/reserved bits must be masked
+     * off before decoding (a SIO-capable device sets bit 6 legally).
+     */
+    uint8_t length = (uint8_t)(descriptor & 0x1FU);
 
     if((descriptor & 0x80U) != 0U)
     {
-        return (uint8_t)((descriptor & 0x7FU) + 1U);
+        /* BYTE = 1: octets. Table B.6 maps Length code n to (n + 1) octets. */
+        return (uint8_t)(length + 1U);
     }
 
-    return (uint8_t)(descriptor / 8U);
+    /* BYTE = 0: Length is in bits (0..16); round up to whole octets. */
+    return (uint8_t)((length + 7U) / 8U);
 }
 
 static uint8_t iolink_master_mseq_capability_code(iolink_master_m_seq_type_t type)
