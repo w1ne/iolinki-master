@@ -219,6 +219,8 @@ jobs:
     container:
       image: zephyrprojectrtos/zephyr-build:latest
       options: --user root
+    env:
+      ZEPHYR_TOOLCHAIN_VARIANT: host
     steps:
       - name: Free up disk space
         run: |
