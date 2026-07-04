@@ -835,7 +835,11 @@ static void test_process_startup_waits_for_type0_response_before_preoperate(void
     assert_int_equal(g_sent[0][0], 0x55U);
 
     iolink_master_process(&port);
-    expected_len = iolink_frame_encode_type0(0x00U, expected, sizeof(expected));
+    /* Startup probe: Type-0 READ of MinCycleTime on the page channel (MC 0xA2). */
+    expected_len = iolink_frame_encode_type0(
+        iolink_master_encode_master_command(true, IOLINK_MASTER_MC_CHANNEL_PAGE,
+                                            IOLINK_MASTER_DPP1_OFF_MIN_CYCLE_TIME),
+        expected, sizeof(expected));
     assert_int_equal(expected_len, 2);
     assert_int_equal(g_send_calls, 2);
     assert_int_equal(g_sent_len[1], (size_t)expected_len);
@@ -849,8 +853,13 @@ static void test_process_startup_waits_for_type0_response_before_preoperate(void
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
 
     iolink_master_process(&port);
-    expected_len = iolink_frame_encode_type0(IOLINK_MC_TRANSITION_COMMAND, expected, sizeof(expected));
-    assert_int_equal(expected_len, 2);
+    /* Transition to OPERATE: Type-0 WRITE of MasterCommand DeviceOperate (0x99)
+       to Direct Parameter address 0x00 on the page channel (MC 0x20). */
+    expected_len = iolink_frame_encode_type0_write(
+        iolink_master_encode_master_command(false, IOLINK_MASTER_MC_CHANNEL_PAGE,
+                                            IOLINK_MASTER_DPP1_OFF_MASTER_COMMAND),
+        IOLINK_CMD_DEVICE_OPERATE, expected, sizeof(expected));
+    assert_int_equal(expected_len, 3);
     assert_int_equal(g_send_calls, 3);
     assert_int_equal(g_sent_len[2], (size_t)expected_len);
     assert_memory_equal(g_sent[2], expected, (size_t)expected_len);

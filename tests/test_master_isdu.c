@@ -412,7 +412,8 @@ static void test_preoperate_read_device_info_uses_type0_parameter_frames(void** 
     iolink_master_port_t port;
     iolink_master_device_info_t info;
     uint8_t startup_resp[2] = {0U};
-    uint8_t frame[2];
+    uint8_t transition[8] = {0U};
+    int expected_len;
 
     (void)state;
 
@@ -434,10 +435,15 @@ static void test_preoperate_read_device_info_uses_type0_parameter_frames(void** 
     assert_int_equal(info.vendor_id, 0x1234U);
 
     iolink_master_process(&port);
-    assert_int_equal(g_sent_len[g_send_calls - 1], 2U);
-    frame[0] = IOLINK_MC_TRANSITION_COMMAND;
-    frame[1] = iolink_checksum_ck(frame[0], 0U);
-    assert_memory_equal(g_sent[g_send_calls - 1], frame, sizeof(frame));
+    /* Transition to OPERATE is a Type-0 WRITE of MasterCommand DeviceOperate
+       (0x99) to Direct Parameter address 0x00 on the page channel (MC 0x20). */
+    expected_len = iolink_frame_encode_type0_write(
+        iolink_master_encode_master_command(false, IOLINK_MASTER_MC_CHANNEL_PAGE,
+                                            IOLINK_MASTER_DPP1_OFF_MASTER_COMMAND),
+        IOLINK_CMD_DEVICE_OPERATE, transition, sizeof(transition));
+    assert_int_equal(expected_len, 3);
+    assert_int_equal(g_sent_len[g_send_calls - 1], (size_t)expected_len);
+    assert_memory_equal(g_sent[g_send_calls - 1], transition, (size_t)expected_len);
 }
 
 static void test_read_isdu_reports_small_result_buffer(void** state)
