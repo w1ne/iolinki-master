@@ -2,12 +2,11 @@
 
 `iolinki-master` is a dual-licensed IO-Link **master** stack intended for
 integration into industrial products. Security is handled as an engineering
-discipline here, not a checkbox: the coordinated-disclosure process below applies
-today, and a STRIDE threat model aligned to the IO-Link Security Design and
-Development Guideline (Order No. 10.512) plus per-release machine-readable SBOMs
-land in the `0.2` release (see [`docs/ROADMAP.md`](docs/ROADMAP.md)). The sibling
-[`iolinki`](https://github.com/w1ne/iolinki) device stack already ships both and
-is the reference for the master's forthcoming package.
+discipline here, not a checkbox: the stack ships with a public
+[threat model](docs/security/THREAT_MODEL.md) (STRIDE, aligned to the IO-Link
+Security Design and Development Guideline, Order No. 10.512), per-release
+machine-readable SBOMs (from `0.2`), a [CRA overview](docs/security/CRA.md), and
+the coordinated-disclosure process below.
 
 ## Supported Versions
 
@@ -61,7 +60,7 @@ commercial licensees so they can meet their own Article 14 duties.
 
 The stack has **zero third-party runtime dependencies** (it reuses only narrow
 frame/CRC helper sources from the sibling `iolinki` checkout at build time). The
-per-release SBOMs shipping in `0.2` will state this explicitly rather than by
+per-release SBOMs (CycloneDX 1.6 + SPDX 2.3) state this explicitly rather than by
 omission. Integrating the stack does not transfer manufacturer obligations: device
 makers remain responsible for their own conformity assessment, CE marking, and
-reporting.
+reporting — see [`docs/security/CRA.md`](docs/security/CRA.md).

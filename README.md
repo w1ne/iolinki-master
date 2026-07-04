@@ -16,11 +16,15 @@ The master API is built around caller-owned opaque storage. Public users allocat
 > conformance). See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
 > and [`CHANGELOG.md`](CHANGELOG.md).
 
-Track implementation status and next work here:
+Documentation:
 
-- [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
-- [`docs/ROADMAP.md`](docs/ROADMAP.md)
-- [`docs/TESTING.md`](docs/TESTING.md)
+- [`docs/API.md`](docs/API.md) — public API tour and a compiling example
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — layered design
+- [`docs/PORTING.md`](docs/PORTING.md) — implement the PHY contract for a board
+- [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — build/test loop and quality gate
+- [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) — honest status ledger
+- [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/TESTING.md`](docs/TESTING.md),
+  [`docs/RELEASE_STRATEGY.md`](docs/RELEASE_STRATEGY.md)
 
 The build needs a local checkout of the `iolinki` device repository for the
 shared CRC/frame helpers (and, for tests, the real device stack). By default it
@@ -68,16 +72,10 @@ cmake -S . -B build -DIOLINKI_DEVICE_DIR=/path/to/iolinki
 ## Security
 
 This repository has its own coordinated-disclosure policy in
-[`SECURITY.md`](SECURITY.md) — use GitHub private vulnerability reporting.
-
-The shared frame/CRC layer this stack reuses is also covered by the device
-repository's security package:
-
-- [Threat model](https://github.com/w1ne/iolinki/blob/develop/docs/security/THREAT_MODEL.md)
-  and [CRA overview](https://github.com/w1ne/iolinki/blob/develop/docs/security/CRA.md)
-
-A master-stack-specific STRIDE threat model and per-release SBOMs (CycloneDX +
-SPDX) land in the `0.2` release.
+[`SECURITY.md`](SECURITY.md) — use GitHub private vulnerability reporting. It
+ships a master-specific STRIDE [threat model](docs/security/THREAT_MODEL.md), a
+[CRA overview](docs/security/CRA.md), and per-release SBOMs (CycloneDX 1.6 +
+SPDX 2.3) attached to each tagged release.
 
 ## License
 

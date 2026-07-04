@@ -289,6 +289,9 @@ static int iolink_master_tick_common(iolink_master_port_t* port,
     cycle_count_before = state->cycle_count;
     iolink_master_process(port);
 
+    /* iolink_master_process() increments cycle_count through the port pointer on a
+       successful operate send; cppcheck does not model that side effect. */
+    /* cppcheck-suppress knownConditionTrueFalse */
     if(pace_cycles && (state->cycle_count != cycle_count_before))
     {
         uint32_t jitter_100us = iolink_master_cycle_jitter_at(port, now_100us);

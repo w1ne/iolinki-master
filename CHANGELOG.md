@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-04
+
+Release-engineering and documentation parity with the sibling `iolinki` device
+stack. No protocol behavior changes beyond one guarded cast.
+
+### Added
+- **Security package**: STRIDE [threat model](docs/security/THREAT_MODEL.md)
+  aligned to the IO-Link Security Design and Development Guideline (Order No.
+  10.512) and an EU Cyber Resilience Act overview ([CRA.md](docs/security/CRA.md)).
+- **Per-release SBOMs**: `tools/generate_sbom.py` emits reproducible CycloneDX 1.6
+  and SPDX 2.3 documents (self-tested by `tools/test_generate_sbom.py`, gated in
+  CI via the `sbom-tools` job) and attaches them to each tagged release.
+- **Release automation**: `.github/workflows/release.yml` builds with coverage,
+  runs tests, generates notes, and publishes a GitHub Release with SBOMs on `v*`.
+- **Local quality gate**: `check_quality.sh` (strict `-Werror -Wpedantic
+  -Wconversion -Wshadow` compile, cppcheck, opt-in MISRA C:2012, clang-format,
+  Doxygen zero-warning) and `tools/run-cppcheck.sh`.
+- **Developer tooling**: `.pre-commit-config.yaml`, `ENABLE_COVERAGE` and
+  `IOLINK_MASTER_ENABLE_DOCS` CMake options, and a `Doxyfile`.
+- **Documentation**: `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/PORTING.md`,
+  `docs/CONTRIBUTING.md`, and `docs/RELEASE_STRATEGY.md`.
+
+### Fixed
+- Explicit cast on the ISDU read out-length (`master_isdu.c`) to satisfy
+  `-Wconversion`; the value is already bounds-checked, so behavior is unchanged.
+
 ## [0.1.0] - 2026-07-04
 
 First tagged release. `iolinki-master` is a portable, heap-free IO-Link **master**
@@ -44,5 +70,6 @@ for the honest gap list).
 - **Project baseline**: dual-license model (GPLv3 + commercial), coordinated-disclosure
   `SECURITY.md`, and `.clang-format` / `.editorconfig`.
 
-[Unreleased]: https://github.com/w1ne/iolinki-master/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/w1ne/iolinki-master/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/w1ne/iolinki-master/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/w1ne/iolinki-master/releases/tag/v0.1.0
