@@ -1,0 +1,48 @@
+# Changelog
+
+All notable changes to the `iolinki-master` project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-07-04
+
+First tagged release. `iolinki-master` is a portable, heap-free IO-Link **master**
+protocol library with a caller-owned public API, validated against a co-designed
+simulated device and an on-wire firmware model — **not yet a conformant master for
+real hardware** (see [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
+for the honest gap list).
+
+### Added
+- **Port lifecycle and startup**: inactive/startup/preoperate/operate/error state
+  machine, wake-up + Type 0 idle + operate transition, fixed and auto-baudrate
+  (COM3→COM2→COM1) scan, and configurable per-baud wake-up retry.
+- **Cyclic process data**: configured PD in/out for M-sequence Types 0, 1_1/1_2/1_V,
+  and 2_1/2_2/2_V, with RX accumulation, checksum handling, and retry tracking.
+- **ISDU services**: read/write with segmentation, Data Storage read/write/restore
+  with readback verification, block parameterization (download/upload/store), and
+  ISDU readback verification.
+- **Device identity**: Direct Parameter Page 1 parse/apply/validate, capability-driven
+  config selection, and `NO_CHECK`/`TYPE_COMP`/`IDENTICAL` inspection levels enforcing
+  VendorID/DeviceID at startup.
+- **MasterCycleTime decoding**: the time-base/multiplier octet is decoded to 100us
+  units for validation and cycle pacing.
+- **Master Command helpers**: R/W + communication-channel + address encode/decode.
+- **Events**: event-code/detail read and ack, plus optional dispatch callbacks
+  (rising-edge event-pending notify and per-event handler).
+- **Scheduler/timing**: monotonic 100us cycle pacing, response-deadline scheduling,
+  and cycle-slip / jitter / link-quality diagnostics.
+- **Multi-port controller**: init/tick fan-out with per-port pacing and diagnostics.
+- **SIO DI/DQ** modes and dynamic mode transitions.
+- **PHY boundary**: hardware-independent protocol core with a documented PHY contract
+  and adapter hooks (checked mode/baudrate, RX flush, half-duplex TX/RX prepare).
+- **Tooling and tests**: CMake build against the sibling `iolinki` frame/CRC helpers,
+  16 CTest targets (CMocka), a fake-device harness, runnable 1-port and 4-port
+  examples, and CI (`cmake-ctest` + the on-wire `labwired-real-firmware-model`).
+- **Project baseline**: dual-license model (GPLv3 + commercial), coordinated-disclosure
+  `SECURITY.md`, and `.clang-format` / `.editorconfig`.
+
+[Unreleased]: https://github.com/w1ne/iolinki-master/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/w1ne/iolinki-master/releases/tag/v0.1.0

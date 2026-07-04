@@ -9,6 +9,13 @@ The master API is built around caller-owned opaque storage. Public users allocat
 `iolink_master_port_t` or `iolink_master_controller_t`; private state lives in
 `src/` and is not exposed through the public header.
 
+> **Status: `v0.1.0` — protocol-core, simulation-validated.** The stack is
+> exercised against a co-designed simulated device and an on-wire firmware model,
+> not yet against real IO-Link silicon. It is **not** a conformant hardware master
+> yet (open: wake-response baud detection, physical wake-pulse timing, official
+> conformance). See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
+> and [`CHANGELOG.md`](CHANGELOG.md).
+
 Track implementation status and next work here:
 
 - [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
@@ -60,17 +67,17 @@ cmake -S . -B build -DIOLINKI_DEVICE_DIR=/path/to/iolinki
 
 ## Security
 
-The security and CRA documentation for the iolinki project family lives in the
-device repository and covers the shared frame/CRC layer this stack reuses:
+This repository has its own coordinated-disclosure policy in
+[`SECURITY.md`](SECURITY.md) — use GitHub private vulnerability reporting.
 
-- [SECURITY.md](https://github.com/w1ne/iolinki/blob/develop/SECURITY.md) —
-  coordinated disclosure policy (applies to this repository as well; use
-  GitHub private vulnerability reporting here or there)
+The shared frame/CRC layer this stack reuses is also covered by the device
+repository's security package:
+
 - [Threat model](https://github.com/w1ne/iolinki/blob/develop/docs/security/THREAT_MODEL.md)
   and [CRA overview](https://github.com/w1ne/iolinki/blob/develop/docs/security/CRA.md)
 
-A master-stack-specific threat model and per-release SBOMs will follow once
-this repository starts tagging releases.
+A master-stack-specific STRIDE threat model and per-release SBOMs (CycloneDX +
+SPDX) land in the `0.2` release.
 
 ## License
 
