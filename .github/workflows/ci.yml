@@ -206,6 +206,21 @@ jobs:
       - name: Test
         run: ctest --test-dir iolinki-master/build --output-on-failure
 
+  sbom-tools:
+    name: sbom-tools
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout iolinki-master
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run SBOM generator self-test
+        run: python3 tools/test_generate_sbom.py
+
   labwired-model:
     name: labwired-real-firmware-model
     runs-on: ubuntu-latest

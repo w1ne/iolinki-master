@@ -103,7 +103,8 @@ static int iolink_master_isdu_finish_read(iolink_master_port_t* port,
     {
         memcpy(data, iolink_master_port_state(port)->isdu.response, result_len);
     }
-    *len = result_len;
+    /* Guarded above by `*len < result_len`, so result_len fits in the uint8 out-length. */
+    *len = (uint8_t)result_len;
     iolink_master_isdu_clear(port);
     return iolink_master_service_result(port, IOLINK_MASTER_STATUS_OK);
 }
