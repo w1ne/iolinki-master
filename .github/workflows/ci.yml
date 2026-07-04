@@ -206,6 +206,50 @@ jobs:
       - name: Test
         run: ctest --test-dir iolinki-master/build --output-on-failure
 
+  # Non-blocking: the Zephyr simulation build uses a multi-GB toolchain image and
+  # west-pulls Zephyr + the iolinki device stack, which can exhaust a free
+  # runner. It is intentionally NOT a required check and is allowed to fail
+  # without blocking merges (mirrors the iolinki device repo's zephyr-validation
+  # job). It builds the native_sim iolink_master sample to prove the Zephyr
+  # module integration.
+  zephyr-validation:
+    name: zephyr-validation
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    container:
+      image: zephyrprojectrtos/zephyr-build:latest
+      options: --user root
+    env:
+      ZEPHYR_TOOLCHAIN_VARIANT: host
+    steps:
+      - name: Free up disk space
+        run: |
+          rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+                 /usr/local/.ghcup /usr/local/share/boost \
+                 /usr/local/lib/node_modules /usr/lib/google-cloud-sdk || true
+          df -h
+
+      - name: Checkout iolinki-master
+        uses: actions/checkout@v4
+        with:
+          path: iolinki-master
+
+      - name: Initialize west workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Use the master's own west.yml (self: iolinki-master) as the manifest,
+          # pulling Zephyr and the iolinki device stack alongside it.
+          west init -l iolinki-master
+          west update --narrow -o=--depth=1
+          west zephyr-export
+
+      - name: Build native_sim sample
+        shell: bash
+        run: |
+          set -euo pipefail
+          west build -p auto -b native_sim iolinki-master/samples/iolink_master
+
   sbom-tools:
     name: sbom-tools
     runs-on: ubuntu-latest
