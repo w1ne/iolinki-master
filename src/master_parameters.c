@@ -6,8 +6,9 @@
 
 uint16_t iolink_master_decode_min_cycle_time_100us(uint8_t octet)
 {
-    uint8_t time_base = (uint8_t)((octet >> 6U) & 0x03U);
-    uint8_t multiplier = (uint8_t)(octet & 0x3FU);
+    uint8_t time_base =
+        (uint8_t)((octet >> IOLINK_MASTER_MIN_CYCLE_BASE_SHIFT) & IOLINK_MASTER_MIN_CYCLE_BASE_MASK);
+    uint8_t multiplier = (uint8_t)(octet & IOLINK_MASTER_MIN_CYCLE_MULT_MASK);
 
     switch(time_base)
     {
@@ -32,7 +33,8 @@ uint8_t iolink_master_encode_master_command(bool read,
 {
     uint8_t mc = (uint8_t)(address & IOLINK_MC_ADDR_MASK);
 
-    mc = (uint8_t)(mc | ((uint8_t)((uint8_t)channel << 5U) & IOLINK_MC_COMM_CHANNEL_MASK));
+    mc = (uint8_t)(mc | ((uint8_t)((uint8_t)channel << IOLINK_MASTER_MC_COMM_CHANNEL_SHIFT) &
+                         IOLINK_MC_COMM_CHANNEL_MASK));
     if(read)
     {
         mc = (uint8_t)(mc | IOLINK_MC_RW_MASK);
@@ -48,7 +50,8 @@ bool iolink_master_mc_is_read(uint8_t mc)
 
 iolink_master_mc_channel_t iolink_master_mc_channel(uint8_t mc)
 {
-    return (iolink_master_mc_channel_t)((mc & IOLINK_MC_COMM_CHANNEL_MASK) >> 5U);
+    return (iolink_master_mc_channel_t)((mc & IOLINK_MC_COMM_CHANNEL_MASK) >>
+                                        IOLINK_MASTER_MC_COMM_CHANNEL_SHIFT);
 }
 
 uint8_t iolink_master_mc_address(uint8_t mc)
@@ -67,16 +70,17 @@ static uint8_t iolink_master_decode_pd_descriptor(uint8_t descriptor)
      * Only bits 0-4 carry the length, so the SIO/reserved bits must be masked
      * off before decoding (a SIO-capable device sets bit 6 legally).
      */
-    uint8_t length = (uint8_t)(descriptor & 0x1FU);
+    uint8_t length = (uint8_t)(descriptor & IOLINK_MASTER_PD_DESC_LENGTH_MASK);
 
-    if((descriptor & 0x80U) != 0U)
+    if((descriptor & IOLINK_MASTER_PD_DESC_BYTE_BIT) != 0U)
     {
         /* BYTE = 1: octets. Table B.6 maps Length code n to (n + 1) octets. */
         return (uint8_t)(length + 1U);
     }
 
     /* BYTE = 0: Length is in bits (0..16); round up to whole octets. */
-    return (uint8_t)((length + 7U) / 8U);
+    return (uint8_t)((length + (IOLINK_MASTER_PD_DESC_BITS_PER_OCTET - 1U)) /
+                     IOLINK_MASTER_PD_DESC_BITS_PER_OCTET);
 }
 
 static uint8_t iolink_master_mseq_capability_code(iolink_master_m_seq_type_t type)
@@ -143,27 +147,36 @@ int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
         return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
-    if(len < 16U)
+    if(len < IOLINK_MASTER_DPP1_LEN)
     {
         return IOLINK_MASTER_PARAM_ERR_TOO_SHORT;
     }
 
-    memset(info, 0, sizeof(*info));
+    (void)memset(info, 0, sizeof(*info));
     info->valid = true;
-    info->min_cycle_time = page[0x02];
-    info->min_cycle_time_100us = iolink_master_decode_min_cycle_time_100us(page[0x02]);
-    info->mseq_capability = page[0x03];
-    info->isdu_supported = ((page[0x03] & 0x01U) != 0U);
-    info->operate_mseq_code = (uint8_t)((page[0x03] >> 1U) & 0x07U);
-    info->preoperate_mseq_code = (uint8_t)((page[0x03] >> 4U) & 0x03U);
-    info->revision_id = page[0x04];
-    info->pd_in_descriptor = page[0x05];
-    info->pd_out_descriptor = page[0x06];
-    info->pd_in_len = iolink_master_decode_pd_descriptor(page[0x05]);
-    info->pd_out_len = iolink_master_decode_pd_descriptor(page[0x06]);
-    info->vendor_id = (uint16_t)(((uint16_t)page[0x07] << 8U) | page[0x08]);
-    info->device_id = ((uint32_t)page[0x09] << 16U) | ((uint32_t)page[0x0A] << 8U) |
-                      (uint32_t)page[0x0B];
+    info->min_cycle_time = page[IOLINK_MASTER_DPP1_OFF_MIN_CYCLE_TIME];
+    info->min_cycle_time_100us =
+        iolink_master_decode_min_cycle_time_100us(page[IOLINK_MASTER_DPP1_OFF_MIN_CYCLE_TIME]);
+    info->mseq_capability = page[IOLINK_MASTER_DPP1_OFF_MSEQ_CAPABILITY];
+    info->isdu_supported =
+        ((page[IOLINK_MASTER_DPP1_OFF_MSEQ_CAPABILITY] & IOLINK_MASTER_MSEQ_CAP_ISDU_BIT) != 0U);
+    info->operate_mseq_code =
+        (uint8_t)((page[IOLINK_MASTER_DPP1_OFF_MSEQ_CAPABILITY] >>
+                   IOLINK_MASTER_MSEQ_CAP_OPERATE_SHIFT) & IOLINK_MASTER_MSEQ_CAP_OPERATE_MASK);
+    info->preoperate_mseq_code =
+        (uint8_t)((page[IOLINK_MASTER_DPP1_OFF_MSEQ_CAPABILITY] >>
+                   IOLINK_MASTER_MSEQ_CAP_PREOP_SHIFT) & IOLINK_MASTER_MSEQ_CAP_PREOP_MASK);
+    info->revision_id = page[IOLINK_MASTER_DPP1_OFF_REVISION_ID];
+    info->pd_in_descriptor = page[IOLINK_MASTER_DPP1_OFF_PD_IN_DESC];
+    info->pd_out_descriptor = page[IOLINK_MASTER_DPP1_OFF_PD_OUT_DESC];
+    info->pd_in_len = iolink_master_decode_pd_descriptor(page[IOLINK_MASTER_DPP1_OFF_PD_IN_DESC]);
+    info->pd_out_len = iolink_master_decode_pd_descriptor(page[IOLINK_MASTER_DPP1_OFF_PD_OUT_DESC]);
+    info->vendor_id =
+        (uint16_t)(((uint16_t)page[IOLINK_MASTER_DPP1_OFF_VENDOR_ID_HI] << 8U) |
+                   page[IOLINK_MASTER_DPP1_OFF_VENDOR_ID_LO]);
+    info->device_id = ((uint32_t)page[IOLINK_MASTER_DPP1_OFF_DEVICE_ID_HI] << 16U) |
+                      ((uint32_t)page[IOLINK_MASTER_DPP1_OFF_DEVICE_ID_MID] << 8U) |
+                      (uint32_t)page[IOLINK_MASTER_DPP1_OFF_DEVICE_ID_LO];
     return IOLINK_MASTER_STATUS_OK;
 }
 
@@ -228,7 +241,8 @@ int iolink_master_validate_config_against_device_info(const iolink_master_device
         return IOLINK_MASTER_STATUS_PENDING;
     }
 
-    if((info->revision_id != 0x10U) && (info->revision_id != 0x11U))
+    if((info->revision_id != IOLINK_MASTER_REVISION_1_0) &&
+       (info->revision_id != IOLINK_MASTER_REVISION_1_1))
     {
         return IOLINK_MASTER_PARAM_ERR_REVISION;
     }
@@ -306,8 +320,8 @@ int iolink_master_select_config_from_device_info(const iolink_master_device_info
      * 25.5 ms cannot be paced by this field and will subsequently fail
      * validation, which is the honest outcome rather than silently wrapping.
      */
-    config->min_cycle_time = (info->min_cycle_time_100us > 0xFFU)
-                                 ? 0xFFU
+    config->min_cycle_time = (info->min_cycle_time_100us > (uint16_t)UINT8_MAX)
+                                 ? UINT8_MAX
                                  : (uint8_t)info->min_cycle_time_100us;
     config->pd_in_len = info->pd_in_len;
     config->pd_out_len = info->pd_out_len;

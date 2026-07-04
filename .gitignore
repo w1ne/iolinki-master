@@ -20,3 +20,6 @@ coverage*.txt
 # Python
 __pycache__/
 *.pyc
+
+# Agent worktrees / scratch
+.claude/
