@@ -1,9 +1,22 @@
+/**
+ * @file master_isdu.c
+ * @brief ISDU acyclic service engine plus Data Storage, event, and parameter
+ *        block (up/download) services layered on top of it.
+ * @ingroup iolinki_master
+ *
+ * Drives segmented ISDU request/response exchange over the OD channel, exposes
+ * read/write ISDU operations, and builds the higher-level Data Storage,
+ * detailed-device-status/event, and multi-step parameter-block transfer
+ * services on top of the ISDU state machine.
+ */
+
 #include "master_internal.h"
 
 #include "iolinki/protocol.h"
 
 #include <string.h>
 
+/** @brief Return true while an ISDU operation is in progress and not yet completed. */
 static bool iolink_master_isdu_busy(const iolink_master_port_t* port)
 {
     const iolink_master_port_state_t* state = iolink_master_port_const_state(port);
@@ -11,6 +24,7 @@ static bool iolink_master_isdu_busy(const iolink_master_port_t* port)
     return (state->isdu.op != IOLINK_MASTER_ISDU_OP_NONE) && !state->isdu.done;
 }
 
+/** @brief Return true if the active ISDU op/index/subindex match the given request identity. */
 static bool iolink_master_isdu_matches(const iolink_master_port_t* port,
                                        iolink_master_isdu_op_t op,
                                        uint16_t index,
@@ -22,6 +36,7 @@ static bool iolink_master_isdu_matches(const iolink_master_port_t* port,
            (state->isdu.subindex == subindex);
 }
 
+/** @brief Reset the ISDU state to idle, clearing request/response progress and error. */
 static void iolink_master_isdu_clear(iolink_master_port_t* port)
 {
     iolink_master_port_state(port)->isdu.op = IOLINK_MASTER_ISDU_OP_NONE;
@@ -40,6 +55,7 @@ static void iolink_master_isdu_clear(iolink_master_port_t* port)
     iolink_master_port_state(port)->isdu.error = IOLINK_ISDU_ERROR_NONE;
 }
 
+/** @brief Begin a new ISDU operation, initializing request/response segmentation state. */
 static void iolink_master_isdu_start(iolink_master_port_t* port,
                                      iolink_master_isdu_op_t op,
                                      uint16_t index,
@@ -60,6 +76,7 @@ static void iolink_master_isdu_start(iolink_master_port_t* port,
     iolink_master_port_state(port)->isdu.error = IOLINK_ISDU_ERROR_NONE;
 }
 
+/** @brief Latch a non-pending service result into diagnostics and pass it through unchanged. */
 static int iolink_master_service_result(iolink_master_port_t* port, int ret)
 {
     if(ret != IOLINK_MASTER_STATUS_PENDING)
@@ -70,6 +87,7 @@ static int iolink_master_service_result(iolink_master_port_t* port, int ret)
     return ret;
 }
 
+/** @brief Finalize a completed read ISDU: check for device errors, copy the response, and clear state. */
 static int iolink_master_isdu_finish_read(iolink_master_port_t* port,
                                           uint8_t* data,
                                           uint8_t* len)
@@ -109,6 +127,7 @@ static int iolink_master_isdu_finish_read(iolink_master_port_t* port,
     return iolink_master_service_result(port, IOLINK_MASTER_STATUS_OK);
 }
 
+/** @brief Finalize a completed write ISDU: check for device errors and clear state. */
 static int iolink_master_isdu_finish_write(iolink_master_port_t* port)
 {
     if(iolink_master_port_state(port)->isdu.error != IOLINK_ISDU_ERROR_NONE)
@@ -442,6 +461,7 @@ int iolink_master_verify_isdu(iolink_master_port_t* port,
     return iolink_master_service_result(port, IOLINK_MASTER_STATUS_OK);
 }
 
+/** @brief Parse the next Data Storage record at *pos, returning its span and advancing the cursor. */
 static bool iolink_master_ds_next_record(const uint8_t* data,
                                          uint8_t len,
                                          uint8_t* pos,
@@ -468,6 +488,7 @@ static bool iolink_master_ds_next_record(const uint8_t* data,
     return true;
 }
 
+/** @brief Return true if every expected DS record is present (order-independent) in the actual image. */
 static bool iolink_master_ds_image_contains_records(const uint8_t* actual,
                                                     uint8_t actual_len,
                                                     const uint8_t* expected,
@@ -527,6 +548,7 @@ static bool iolink_master_ds_image_contains_records(const uint8_t* actual,
     return true;
 }
 
+/** @brief Return true if the buffer parses cleanly as a sequence of well-formed DS records. */
 static bool iolink_master_ds_image_is_valid(const uint8_t* data, uint8_t len)
 {
     uint8_t pos = 0U;
@@ -630,6 +652,7 @@ int iolink_master_ack_event(iolink_master_port_t* port, uint16_t* event_code)
     return iolink_master_read_event_code(port, event_code);
 }
 
+/** @brief Map an event qualifier's mode field to the corresponding event type enum. */
 static iolink_master_event_type_t iolink_master_event_type_from_qualifier(uint8_t qualifier)
 {
     switch((uint8_t)((qualifier >> IOLINK_MASTER_EVENT_QUALIFIER_MODE_SHIFT) & IOLINK_MASTER_EVENT_QUALIFIER_MODE_MASK))
@@ -705,6 +728,7 @@ int iolink_master_read_event_details(iolink_master_port_t* port,
     return IOLINK_MASTER_STATUS_OK;
 }
 
+/** @brief Write a single-byte SystemCommand value to the device via ISDU. */
 static int iolink_master_write_system_command(iolink_master_port_t* port, uint8_t command)
 {
     return iolink_master_write_isdu(port, IOLINK_IDX_SYSTEM_COMMAND, 0U, &command, 1U);
@@ -735,6 +759,7 @@ int iolink_master_store_parameter_download(iolink_master_port_t* port)
     return iolink_master_write_system_command(port, IOLINK_CMD_PARAM_DOWNLOAD_STORE);
 }
 
+/** @brief Return true if the latched parameter-block transfer matches the given index/subindex/data. */
 static bool iolink_master_block_matches(const iolink_master_port_t* port,
                                         uint16_t index,
                                         uint8_t subindex,
@@ -747,6 +772,7 @@ static bool iolink_master_block_matches(const iolink_master_port_t* port,
            ((len == 0U) || (memcmp(block->data, data, len) == 0));
 }
 
+/** @brief Reset the parameter-block transfer state to idle. */
 static void iolink_master_block_clear(iolink_master_port_t* port)
 {
     (void)memset(&iolink_master_port_state(port)->block, 0, sizeof(iolink_master_port_state(port)->block));

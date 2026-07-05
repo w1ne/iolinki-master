@@ -1,3 +1,14 @@
+/**
+ * @file master_sio.c
+ * @brief Standard I/O (SIO) mode port access: digital output (DQ) drive and
+ *        digital input (DI) sensing on the C/Q line.
+ * @ingroup iolinki_master
+ *
+ * Implements the non-IO-Link port modes, driving the C/Q line as a digital
+ * output in DQ mode and reading it as a digital input in DI mode, plus runtime
+ * port-mode switching.
+ */
+
 #include "master_internal.h"
 
 int iolink_master_set_dq(iolink_master_port_t* port, bool level)

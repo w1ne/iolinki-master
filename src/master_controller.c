@@ -1,3 +1,14 @@
+/**
+ * @file master_controller.c
+ * @brief Multi-port controller wrapper that fans lifecycle and tick operations
+ *        out across an array of master ports.
+ * @ingroup iolinki_master
+ *
+ * Manages a group of master ports as a unit: initializes each port, drives
+ * their ticks (event, timed, and next-tick scheduling), and exposes per-port
+ * access, aggregating the first error encountered across the group.
+ */
+
 #include "master_internal.h"
 
 #include <string.h>

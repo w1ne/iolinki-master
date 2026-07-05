@@ -1,3 +1,15 @@
+/**
+ * @file master_port.c
+ * @brief Per-port master state machine: init, startup handshake, cyclic ticking,
+ *        frame TX/RX and OPERATE process-data exchange.
+ * @ingroup iolinki_master
+ *
+ * Implements the single-port lifecycle of the IO-Link master: wake-up and
+ * baudrate scanning during startup, transition through PREOPERATE to OPERATE,
+ * scheduling of cycles and response timeouts, sending M-sequence frames and
+ * decoding device responses.
+ */
+
 #include "master_internal.h"
 
 #include "iolinki/crc.h"
@@ -6,18 +18,21 @@
 
 #include <string.h>
 
+/** @brief Baudrate scan order (COM3, COM2, COM1) used when auto-baudrate is enabled. */
 static const iolink_baudrate_t g_iolink_master_baudrate_scan[] = {
     IOLINK_BAUDRATE_COM3,
     IOLINK_BAUDRATE_COM2,
     IOLINK_BAUDRATE_COM1,
 };
 
+/** @brief Return true if startup must read/validate device info (device-info check or inspection enabled). */
 static bool iolink_master_startup_validation_required(const iolink_master_config_t* config)
 {
     return config->validate_device_info ||
            (config->inspection_level != IOLINK_MASTER_INSPECTION_NO_CHECK);
 }
 
+/** @brief Return the baudrate to use for startup, honoring the auto-baudrate scan index. */
 static iolink_baudrate_t iolink_master_startup_baudrate(const iolink_master_port_t* port)
 {
     const iolink_master_port_state_t* state = iolink_master_port_const_state(port);
@@ -30,6 +45,7 @@ static iolink_baudrate_t iolink_master_startup_baudrate(const iolink_master_port
     return state->config.baudrate;
 }
 
+/** @brief Return the response timeout in 100us units, falling back to the min cycle time when unset. */
 static uint8_t iolink_master_response_timeout_100us(const iolink_master_port_state_t* state)
 {
     if(state->config.response_timeout_100us != 0U)
@@ -40,6 +56,7 @@ static uint8_t iolink_master_response_timeout_100us(const iolink_master_port_sta
     return state->config.min_cycle_time;
 }
 
+/** @brief Set the PHY line mode via the checked config callback or, failing that, the raw PHY. */
 static int iolink_master_set_mode(iolink_master_port_t* port, iolink_phy_mode_t mode)
 {
     iolink_master_port_state_t* state = iolink_master_port_state(port);
@@ -57,6 +74,7 @@ static int iolink_master_set_mode(iolink_master_port_t* port, iolink_phy_mode_t 
     return IOLINK_MASTER_STATUS_OK;
 }
 
+/** @brief Set the PHY baudrate via the checked config callback or, failing that, the raw PHY. */
 static int iolink_master_set_baudrate(iolink_master_port_t* port, iolink_baudrate_t baudrate)
 {
     iolink_master_port_state_t* state = iolink_master_port_state(port);
@@ -74,6 +92,7 @@ static int iolink_master_set_baudrate(iolink_master_port_t* port, iolink_baudrat
     return IOLINK_MASTER_STATUS_OK;
 }
 
+/** @brief Reset the RX buffer and invoke the optional flush_rx callback to discard stale bytes. */
 static int iolink_master_flush_rx(iolink_master_port_t* port)
 {
     iolink_master_port_state_t* state = iolink_master_port_state(port);
@@ -87,6 +106,7 @@ static int iolink_master_flush_rx(iolink_master_port_t* port)
     return state->config.flush_rx();
 }
 
+/** @brief Send a full frame with prepare_tx/prepare_rx hooks, tracking send errors and error state. */
 static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* data, size_t len)
 {
     iolink_master_port_state_t* state = iolink_master_port_state(port);
@@ -127,6 +147,7 @@ static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* d
     return false;
 }
 
+/** @brief Issue the wake-up request via the config callback or by sending a wake-up byte. */
 static bool iolink_master_wake_up(iolink_master_port_t* port)
 {
     iolink_master_port_state_t* state = iolink_master_port_state(port);
@@ -149,6 +170,7 @@ static bool iolink_master_wake_up(iolink_master_port_t* port)
     return false;
 }
 
+/** @brief Return true if a new OPERATE cycle is due at the given timestamp (or pacing is inactive). */
 static bool iolink_master_cycle_due_at(const iolink_master_port_t* port, uint32_t now_100us)
 {
     const iolink_master_port_state_t* state = iolink_master_port_const_state(port);
@@ -163,6 +185,7 @@ static bool iolink_master_cycle_due_at(const iolink_master_port_t* port, uint32_
             (uint32_t)state->config.min_cycle_time);
 }
 
+/** @brief Return true if the current cycle overran its min cycle time at the given timestamp. */
 static bool iolink_master_cycle_slipped_at(const iolink_master_port_t* port, uint32_t now_100us)
 {
     const iolink_master_port_state_t* state = iolink_master_port_const_state(port);
@@ -177,6 +200,7 @@ static bool iolink_master_cycle_slipped_at(const iolink_master_port_t* port, uin
             (uint32_t)state->config.min_cycle_time);
 }
 
+/** @brief Return the cycle jitter (100us units elapsed beyond the min cycle time) at the timestamp. */
 static uint32_t iolink_master_cycle_jitter_at(const iolink_master_port_t* port,
                                               uint32_t now_100us)
 {
@@ -239,6 +263,7 @@ int iolink_master_get_next_tick_time(const iolink_master_port_t* port,
     return IOLINK_MASTER_STATUS_OK;
 }
 
+/** @brief Shared tick engine: polls RX, handles response timeouts, and paces/runs OPERATE cycles. */
 static int iolink_master_tick_common(iolink_master_port_t* port,
                                      iolink_master_tick_event_t event,
                                      bool pace_cycles,

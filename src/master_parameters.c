@@ -1,3 +1,13 @@
+/**
+ * @file master_parameters.c
+ * @brief Direct Parameter Page 1 decoding and device-info validation/selection.
+ * @ingroup iolinki_master
+ *
+ * Decodes MinCycleTime, ProcessData descriptors, and M-sequence capability from
+ * Direct Parameter Page 1, and validates or derives the port configuration
+ * against the connected device's reported identity and capabilities.
+ */
+
 #include "master_internal.h"
 
 #include "iolinki/protocol.h"
@@ -59,6 +69,7 @@ uint8_t iolink_master_mc_address(uint8_t mc)
     return (uint8_t)(mc & IOLINK_MC_ADDR_MASK);
 }
 
+/** @brief Decode a ProcessData descriptor octet into a length in whole octets. */
 static uint8_t iolink_master_decode_pd_descriptor(uint8_t descriptor)
 {
     /*
@@ -83,6 +94,7 @@ static uint8_t iolink_master_decode_pd_descriptor(uint8_t descriptor)
                      IOLINK_MASTER_PD_DESC_BITS_PER_OCTET);
 }
 
+/** @brief Map a configured M-sequence type to its OPERATE capability code (0, 1, or 5). */
 static uint8_t iolink_master_mseq_capability_code(iolink_master_m_seq_type_t type)
 {
     switch(type)
@@ -98,6 +110,7 @@ static uint8_t iolink_master_mseq_capability_code(iolink_master_m_seq_type_t typ
     }
 }
 
+/** @brief Derive the M-sequence type from a capability code, ISDU support, and PD lengths. */
 static bool iolink_master_mseq_type_from_capability_code(uint8_t code,
                                                          bool isdu_supported,
                                                          uint8_t pd_in_len,
