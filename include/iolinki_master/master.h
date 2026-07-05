@@ -64,9 +64,9 @@ typedef enum
 /** @brief Kind of ISDU operation currently in flight. */
 typedef enum
 {
-    IOLINK_MASTER_ISDU_OP_NONE = 0,  /**< No ISDU operation active. */
-    IOLINK_MASTER_ISDU_OP_READ = 1,  /**< ISDU read in progress. */
-    IOLINK_MASTER_ISDU_OP_WRITE = 2  /**< ISDU write in progress. */
+    IOLINK_MASTER_ISDU_OP_NONE = 0, /**< No ISDU operation active. */
+    IOLINK_MASTER_ISDU_OP_READ = 1, /**< ISDU read in progress. */
+    IOLINK_MASTER_ISDU_OP_WRITE = 2 /**< ISDU write in progress. */
 } iolink_master_isdu_op_t;
 
 /** @brief Severity/type of a decoded device event. */
@@ -81,9 +81,9 @@ typedef enum
 /** @brief Scheduler tick stimulus passed to the cyclic driver. */
 typedef enum
 {
-    IOLINK_MASTER_TICK_NONE = 0,             /**< No timing event this tick. */
-    IOLINK_MASTER_TICK_CYCLE_DUE = 1,        /**< A new cycle is due to start. */
-    IOLINK_MASTER_TICK_RESPONSE_TIMEOUT = 2  /**< The device response deadline elapsed. */
+    IOLINK_MASTER_TICK_NONE = 0,            /**< No timing event this tick. */
+    IOLINK_MASTER_TICK_CYCLE_DUE = 1,       /**< A new cycle is due to start. */
+    IOLINK_MASTER_TICK_RESPONSE_TIMEOUT = 2 /**< The device response deadline elapsed. */
 } iolink_master_tick_event_t;
 
 /**
@@ -96,16 +96,16 @@ typedef enum
  */
 typedef enum
 {
-    IOLINK_MASTER_STATUS_OK = 0,               /**< Success. */
-    IOLINK_MASTER_STATUS_PENDING = 1,          /**< Operation still in progress. */
-    IOLINK_MASTER_ERR_INVALID_ARG = -1,        /**< NULL/invalid argument. */
-    IOLINK_MASTER_ERR_RETRY_LIMIT = -2,        /**< Retry budget exhausted (== -2). */
-    IOLINK_MASTER_ERR_FRAME = -2,              /**< Malformed frame (shares -2). */
-    IOLINK_MASTER_ERR_BUFFER_TOO_SMALL = -2,   /**< Caller buffer too small (shares -2). */
-    IOLINK_MASTER_ERR_CHECKSUM = -3,           /**< Checksum mismatch. */
-    IOLINK_MASTER_ERR_SERVICE = -4,            /**< Service-layer failure. */
-    IOLINK_MASTER_ERR_INVALID_STATE = -5,      /**< Call not valid in the current state. */
-    IOLINK_MASTER_ERR_UNSUPPORTED_PHY = -6     /**< PHY lacks a required operation. */
+    IOLINK_MASTER_STATUS_OK = 0,             /**< Success. */
+    IOLINK_MASTER_STATUS_PENDING = 1,        /**< Operation still in progress. */
+    IOLINK_MASTER_ERR_INVALID_ARG = -1,      /**< NULL/invalid argument. */
+    IOLINK_MASTER_ERR_RETRY_LIMIT = -2,      /**< Retry budget exhausted (== -2). */
+    IOLINK_MASTER_ERR_FRAME = -2,            /**< Malformed frame (shares -2). */
+    IOLINK_MASTER_ERR_BUFFER_TOO_SMALL = -2, /**< Caller buffer too small (shares -2). */
+    IOLINK_MASTER_ERR_CHECKSUM = -3,         /**< Checksum mismatch. */
+    IOLINK_MASTER_ERR_SERVICE = -4,          /**< Service-layer failure. */
+    IOLINK_MASTER_ERR_INVALID_STATE = -5,    /**< Call not valid in the current state. */
+    IOLINK_MASTER_ERR_UNSUPPORTED_PHY = -6   /**< PHY lacks a required operation. */
 } iolink_master_result_t;
 
 /**
@@ -116,13 +116,13 @@ typedef enum
  */
 typedef enum
 {
-    IOLINK_MASTER_PARAM_ERR_TOO_SHORT = -2,   /**< Page/buffer too short (== -2). */
-    IOLINK_MASTER_PARAM_ERR_REVISION = -2,    /**< Unsupported revision (shares -2). */
-    IOLINK_MASTER_PARAM_ERR_CYCLE_TIME = -3,  /**< Cycle-time out of range. */
-    IOLINK_MASTER_PARAM_ERR_PD_SIZE = -4,     /**< Process-data size mismatch. */
-    IOLINK_MASTER_PARAM_ERR_M_SEQUENCE = -5,  /**< Unsupported M-sequence capability. */
-    IOLINK_MASTER_PARAM_ERR_VENDOR_ID = -6,   /**< VendorID mismatch. */
-    IOLINK_MASTER_PARAM_ERR_DEVICE_ID = -7    /**< DeviceID mismatch. */
+    IOLINK_MASTER_PARAM_ERR_TOO_SHORT = -2,  /**< Page/buffer too short (== -2). */
+    IOLINK_MASTER_PARAM_ERR_REVISION = -2,   /**< Unsupported revision (shares -2). */
+    IOLINK_MASTER_PARAM_ERR_CYCLE_TIME = -3, /**< Cycle-time out of range. */
+    IOLINK_MASTER_PARAM_ERR_PD_SIZE = -4,    /**< Process-data size mismatch. */
+    IOLINK_MASTER_PARAM_ERR_M_SEQUENCE = -5, /**< Unsupported M-sequence capability. */
+    IOLINK_MASTER_PARAM_ERR_VENDOR_ID = -6,  /**< VendorID mismatch. */
+    IOLINK_MASTER_PARAM_ERR_DEVICE_ID = -7   /**< DeviceID mismatch. */
 } iolink_master_parameter_result_t;
 
 /**
@@ -156,8 +156,8 @@ typedef enum
 /** @brief Result codes specific to SIO (DI/DQ) operations. */
 typedef enum
 {
-    IOLINK_MASTER_SIO_ERR_WRONG_MODE = -2,       /**< Port not in the required DI/DQ mode. */
-    IOLINK_MASTER_SIO_ERR_UNSUPPORTED_PHY = -3   /**< PHY does not support the SIO line op. */
+    IOLINK_MASTER_SIO_ERR_WRONG_MODE = -2,     /**< Port not in the required DI/DQ mode. */
+    IOLINK_MASTER_SIO_ERR_UNSUPPORTED_PHY = -3 /**< PHY does not support the SIO line op. */
 } iolink_master_sio_result_t;
 
 /**
@@ -187,9 +187,9 @@ typedef enum
 /** @brief A single decoded device event. */
 typedef struct
 {
-    uint8_t qualifier;                /**< Raw event qualifier octet. */
-    iolink_master_event_type_t type;  /**< Decoded event severity/type. */
-    uint16_t code;                    /**< Event code reported by the device. */
+    uint8_t qualifier;               /**< Raw event qualifier octet. */
+    iolink_master_event_type_t type; /**< Decoded event severity/type. */
+    uint16_t code;                   /**< Event code reported by the device. */
 } iolink_master_event_t;
 
 /**
@@ -210,18 +210,18 @@ typedef void (*iolink_master_event_cb_t)(void* user, const iolink_master_event_t
 /** @brief Per-port configuration, copied into the port on init. */
 typedef struct
 {
-    iolink_master_port_mode_t port_mode;             /**< Operating mode (IO-Link/DI/DQ/deactivated). */
-    iolink_master_m_seq_type_t m_seq_type;           /**< M-sequence type to drive. */
-    iolink_baudrate_t baudrate;                      /**< COM baudrate (start point if auto). */
-    uint8_t min_cycle_time;                          /**< Minimum cycle time (raw octet encoding). */
-    uint8_t pd_in_len;                               /**< Configured input process-data length, in bytes. */
-    uint8_t pd_out_len;                              /**< Configured output process-data length, in bytes. */
-    bool auto_baudrate;                              /**< If true, sweep COM rates during startup. */
-    bool validate_device_info;                       /**< If true, validate device identity/config. */
+    iolink_master_port_mode_t port_mode;   /**< Operating mode (IO-Link/DI/DQ/deactivated). */
+    iolink_master_m_seq_type_t m_seq_type; /**< M-sequence type to drive. */
+    iolink_baudrate_t baudrate;            /**< COM baudrate (start point if auto). */
+    uint8_t min_cycle_time;                /**< Minimum cycle time (raw octet encoding). */
+    uint8_t pd_in_len;                     /**< Configured input process-data length, in bytes. */
+    uint8_t pd_out_len;                    /**< Configured output process-data length, in bytes. */
+    bool auto_baudrate;                    /**< If true, sweep COM rates during startup. */
+    bool validate_device_info;             /**< If true, validate device identity/config. */
     iolink_master_inspection_level_t inspection_level; /**< Identity inspection level to enforce. */
-    uint16_t expected_vendor_id;                     /**< Expected VendorID for identity checks. */
-    uint32_t expected_device_id;                     /**< Expected DeviceID for identity checks. */
-    uint8_t response_timeout_100us;                  /**< Device response deadline, in 100us units. */
+    uint16_t expected_vendor_id;    /**< Expected VendorID for identity checks. */
+    uint32_t expected_device_id;    /**< Expected DeviceID for identity checks. */
+    uint8_t response_timeout_100us; /**< Device response deadline, in 100us units. */
     /**
      * Number of extra wake-up requests to issue at the current baudrate before
      * giving up (auto-baud: advancing to the next COM rate; fixed baud: erroring).
@@ -231,17 +231,20 @@ typedef struct
      * WURQ still links up.
      */
     uint8_t wake_retry_limit;
-    void* event_user;                                       /**< Opaque user pointer passed to event callbacks. */
-    iolink_master_event_pending_cb_t event_pending_handler; /**< Event-pending edge callback (may be NULL). */
-    iolink_master_event_cb_t event_handler;                 /**< Per-decoded-event callback (may be NULL). */
-    int (*set_mode_checked)(iolink_phy_mode_t mode);        /**< Checked PHY mode setter (hardware-contract op). */
-    int (*set_baudrate_checked)(iolink_baudrate_t baudrate);/**< Checked PHY baudrate setter (hardware-contract op). */
-    int (*read_cq_line_checked)(void);                      /**< Checked C/Q line read (hardware-contract op). */
-    int (*flush_rx)(void);                                  /**< Flush the PHY receive path. */
-    int (*prepare_tx)(void);                                /**< Prepare the PHY for transmit. */
-    int (*prepare_rx)(void);                                /**< Prepare the PHY for receive. */
-    int (*read_cq_line)(void);                              /**< Raw C/Q line read. */
-    int (*wake_up)(void);                                   /**< Emit a wake-up request (NULL uses default pattern). */
+    void* event_user; /**< Opaque user pointer passed to event callbacks. */
+    iolink_master_event_pending_cb_t
+        event_pending_handler;              /**< Event-pending edge callback (may be NULL). */
+    iolink_master_event_cb_t event_handler; /**< Per-decoded-event callback (may be NULL). */
+    int (*set_mode_checked)(
+        iolink_phy_mode_t mode); /**< Checked PHY mode setter (hardware-contract op). */
+    int (*set_baudrate_checked)(
+        iolink_baudrate_t baudrate);   /**< Checked PHY baudrate setter (hardware-contract op). */
+    int (*read_cq_line_checked)(void); /**< Checked C/Q line read (hardware-contract op). */
+    int (*flush_rx)(void);             /**< Flush the PHY receive path. */
+    int (*prepare_tx)(void);           /**< Prepare the PHY for transmit. */
+    int (*prepare_rx)(void);           /**< Prepare the PHY for receive. */
+    int (*read_cq_line)(void);         /**< Raw C/Q line read. */
+    int (*wake_up)(void);              /**< Emit a wake-up request (NULL uses default pattern). */
 } iolink_master_config_t;
 
 /** @} */ /* end of Configuration & callbacks */
@@ -253,51 +256,51 @@ typedef struct
 /** @brief Runtime diagnostics snapshot for a port. */
 typedef struct
 {
-    uint8_t od_status;                    /**< Last on-request-data status octet. */
-    bool event_pending;                   /**< True while an OD Event flag is set. */
-    uint8_t rx_retry_count;               /**< Current consecutive RX retry count. */
-    uint32_t checksum_errors;             /**< Cumulative checksum errors. */
-    uint32_t send_errors;                 /**< Cumulative transmit errors. */
-    uint32_t response_timeouts;           /**< Cumulative response timeouts. */
-    uint32_t cycle_slips;                 /**< Cumulative cycle slips (missed deadlines). */
-    uint32_t last_cycle_jitter_100us;     /**< Jitter of the last cycle, in 100us units. */
-    uint32_t max_cycle_jitter_100us;      /**< Peak observed cycle jitter, in 100us units. */
-    int supply_voltage_mv;                /**< Measured supply voltage, in millivolts. */
-    bool short_circuit;                   /**< True if a short-circuit condition is detected. */
-    uint8_t link_quality_percent;         /**< Estimated link quality, 0-100 percent. */
-    int last_service_result;              /**< Result of the last acyclic service. */
-    uint8_t last_event_count;             /**< Number of events in the last event read. */
-    uint16_t last_event_code;             /**< Most recent decoded event code. */
-    uint8_t last_isdu_error;              /**< Most recent ISDU error code. */
+    uint8_t od_status;                /**< Last on-request-data status octet. */
+    bool event_pending;               /**< True while an OD Event flag is set. */
+    uint8_t rx_retry_count;           /**< Current consecutive RX retry count. */
+    uint32_t checksum_errors;         /**< Cumulative checksum errors. */
+    uint32_t send_errors;             /**< Cumulative transmit errors. */
+    uint32_t response_timeouts;       /**< Cumulative response timeouts. */
+    uint32_t cycle_slips;             /**< Cumulative cycle slips (missed deadlines). */
+    uint32_t last_cycle_jitter_100us; /**< Jitter of the last cycle, in 100us units. */
+    uint32_t max_cycle_jitter_100us;  /**< Peak observed cycle jitter, in 100us units. */
+    int supply_voltage_mv;            /**< Measured supply voltage, in millivolts. */
+    bool short_circuit;               /**< True if a short-circuit condition is detected. */
+    uint8_t link_quality_percent;     /**< Estimated link quality, 0-100 percent. */
+    int last_service_result;          /**< Result of the last acyclic service. */
+    uint8_t last_event_count;         /**< Number of events in the last event read. */
+    uint16_t last_event_code;         /**< Most recent decoded event code. */
+    uint8_t last_isdu_error;          /**< Most recent ISDU error code. */
 } iolink_master_diagnostics_t;
 
 /** @brief Read-only scheduler-visible timing snapshot for a port. */
 typedef struct
 {
-    bool cycle_timer_valid;               /**< True once the cycle timer has a valid start. */
-    bool awaiting_response;               /**< True while waiting on a device response. */
-    uint8_t min_cycle_time_100us;         /**< Minimum cycle time, in 100us units. */
-    uint32_t last_cycle_start_100us;      /**< Timestamp of the last cycle start, in 100us units. */
-    uint32_t response_deadline_100us;     /**< Response deadline timestamp, in 100us units. */
+    bool cycle_timer_valid;           /**< True once the cycle timer has a valid start. */
+    bool awaiting_response;           /**< True while waiting on a device response. */
+    uint8_t min_cycle_time_100us;     /**< Minimum cycle time, in 100us units. */
+    uint32_t last_cycle_start_100us;  /**< Timestamp of the last cycle start, in 100us units. */
+    uint32_t response_deadline_100us; /**< Response deadline timestamp, in 100us units. */
 } iolink_master_timing_t;
 
 /** @brief Decoded device identification and capabilities. */
 typedef struct
 {
-    bool valid;                           /**< True when the fields hold a decoded page. */
-    uint8_t min_cycle_time;               /**< MinCycleTime raw octet. */
-    uint16_t min_cycle_time_100us;        /**< Decoded MinCycleTime, in 100us units. */
-    uint8_t mseq_capability;              /**< M-sequenceCapability octet. */
-    bool isdu_supported;                  /**< True if the device supports ISDU. */
-    uint8_t operate_mseq_code;            /**< M-sequence code used in OPERATE. */
-    uint8_t preoperate_mseq_code;         /**< M-sequence code used in PREOPERATE. */
-    uint8_t revision_id;                  /**< RevisionID octet. */
-    uint8_t pd_in_descriptor;             /**< Input process-data descriptor octet. */
-    uint8_t pd_out_descriptor;            /**< Output process-data descriptor octet. */
-    uint8_t pd_in_len;                    /**< Decoded input process-data length, in bytes. */
-    uint8_t pd_out_len;                   /**< Decoded output process-data length, in bytes. */
-    uint16_t vendor_id;                   /**< Device VendorID. */
-    uint32_t device_id;                   /**< Device DeviceID. */
+    bool valid;                    /**< True when the fields hold a decoded page. */
+    uint8_t min_cycle_time;        /**< MinCycleTime raw octet. */
+    uint16_t min_cycle_time_100us; /**< Decoded MinCycleTime, in 100us units. */
+    uint8_t mseq_capability;       /**< M-sequenceCapability octet. */
+    bool isdu_supported;           /**< True if the device supports ISDU. */
+    uint8_t operate_mseq_code;     /**< M-sequence code used in OPERATE. */
+    uint8_t preoperate_mseq_code;  /**< M-sequence code used in PREOPERATE. */
+    uint8_t revision_id;           /**< RevisionID octet. */
+    uint8_t pd_in_descriptor;      /**< Input process-data descriptor octet. */
+    uint8_t pd_out_descriptor;     /**< Output process-data descriptor octet. */
+    uint8_t pd_in_len;             /**< Decoded input process-data length, in bytes. */
+    uint8_t pd_out_len;            /**< Decoded output process-data length, in bytes. */
+    uint16_t vendor_id;            /**< Device VendorID. */
+    uint32_t device_id;            /**< Device DeviceID. */
 } iolink_master_device_info_t;
 
 /** @} */ /* end of Diagnostics, timing & device info */
@@ -314,25 +317,30 @@ typedef struct
  * protocol buffers and service state; controller storage only tracks a port
  * array reference plus port count.
  */
-#define IOLINK_MASTER_PORT_STORAGE_BUDGET_SIZE 1280U       /**< Auditing budget for port storage, in bytes. */
-#define IOLINK_MASTER_CONTROLLER_STORAGE_BUDGET_SIZE 32U   /**< Auditing budget for controller storage, in bytes. */
-#define IOLINK_MASTER_PORT_STORAGE_SIZE 1280U              /**< Actual port opaque storage size, in bytes. */
-#define IOLINK_MASTER_CONTROLLER_STORAGE_SIZE 32U          /**< Actual controller opaque storage size, in bytes. */
+#define IOLINK_MASTER_PORT_STORAGE_BUDGET_SIZE \
+    1280U /**< Auditing budget for port storage, in bytes. */
+#define IOLINK_MASTER_CONTROLLER_STORAGE_BUDGET_SIZE \
+    32U /**< Auditing budget for controller storage, in bytes. */
+#define IOLINK_MASTER_PORT_STORAGE_SIZE 1280U /**< Actual port opaque storage size, in bytes. */
+#define IOLINK_MASTER_CONTROLLER_STORAGE_SIZE \
+    32U /**< Actual controller opaque storage size, in bytes. */
 
 /** @brief Caller-owned opaque storage for one master port (alignment-safe union). */
 typedef union
 {
-    void* align_ptr;                              /**< Pointer member forcing pointer alignment. */
-    uint32_t align_u32;                           /**< 32-bit member forcing word alignment. */
-    uint8_t storage[IOLINK_MASTER_PORT_STORAGE_SIZE]; /**< Raw backing bytes for the private port state. */
+    void* align_ptr;    /**< Pointer member forcing pointer alignment. */
+    uint32_t align_u32; /**< 32-bit member forcing word alignment. */
+    uint8_t storage[IOLINK_MASTER_PORT_STORAGE_SIZE]; /**< Raw backing bytes for the private port
+                                                         state. */
 } iolink_master_port_t;
 
 /** @brief Caller-owned opaque storage for a multi-port controller (alignment-safe union). */
 typedef union
 {
-    void* align_ptr;                                    /**< Pointer member forcing pointer alignment. */
-    uint32_t align_u32;                                 /**< 32-bit member forcing word alignment. */
-    uint8_t storage[IOLINK_MASTER_CONTROLLER_STORAGE_SIZE]; /**< Raw backing bytes for the private controller state. */
+    void* align_ptr;    /**< Pointer member forcing pointer alignment. */
+    uint32_t align_u32; /**< 32-bit member forcing word alignment. */
+    uint8_t storage[IOLINK_MASTER_CONTROLLER_STORAGE_SIZE]; /**< Raw backing bytes for the private
+                                                               controller state. */
 } iolink_master_controller_t;
 
 /** @} */ /* end of Opaque storage */
@@ -357,8 +365,7 @@ typedef union
  * @return ::IOLINK_MASTER_STATUS_OK, ::IOLINK_MASTER_ERR_INVALID_ARG, or a
  *         nonzero PHY init error forwarded from phy->init.
  */
-int iolink_master_init(iolink_master_port_t* port,
-                       const iolink_phy_api_t* phy,
+int iolink_master_init(iolink_master_port_t* port, const iolink_phy_api_t* phy,
                        const iolink_master_config_t* config);
 /**
  * @brief Validate that a PHY/config pair is complete enough for real hardware.
@@ -436,8 +443,7 @@ int iolink_master_tick_event(iolink_master_port_t* port, iolink_master_tick_even
  * @param now_100us Current monotonic time, in 100us units.
  * @return Poll/process status while applying monotonic 100us cycle pacing.
  */
-int iolink_master_tick_at(iolink_master_port_t* port,
-                          iolink_master_tick_event_t event,
+int iolink_master_tick_at(iolink_master_port_t* port, iolink_master_tick_event_t event,
                           uint32_t now_100us);
 /**
  * @brief Feed a received frame directly into a port.
@@ -468,9 +474,7 @@ iolink_master_state_t iolink_master_get_state(const iolink_master_port_t* port);
  *         when data is not valid yet, or
  *         ::IOLINK_MASTER_ERR_INVALID_ARG / ::IOLINK_MASTER_ERR_BUFFER_TOO_SMALL.
  */
-int iolink_master_get_pd_in(const iolink_master_port_t* port,
-                            uint8_t* buffer,
-                            uint8_t buffer_len,
+int iolink_master_get_pd_in(const iolink_master_port_t* port, uint8_t* buffer, uint8_t buffer_len,
                             uint8_t* out_len);
 /**
  * @brief Read the last on-request-data status octet.
@@ -504,8 +508,7 @@ int iolink_master_get_diagnostics(const iolink_master_port_t* port,
  * @param[out] timing  Destination timing structure.
  * @return ::IOLINK_MASTER_STATUS_OK or ::IOLINK_MASTER_ERR_INVALID_ARG.
  */
-int iolink_master_get_timing(const iolink_master_port_t* port,
-                             iolink_master_timing_t* timing);
+int iolink_master_get_timing(const iolink_master_port_t* port, iolink_master_timing_t* timing);
 
 /** @} */ /* end of Cyclic scheduling & I/O */
 
@@ -571,8 +574,7 @@ uint16_t iolink_master_decode_min_cycle_time_100us(uint8_t octet);
  * @return The composed Master Command octet from the R/W direction,
  *         communication channel, and 5-bit address.
  */
-uint8_t iolink_master_encode_master_command(bool read,
-                                            iolink_master_mc_channel_t channel,
+uint8_t iolink_master_encode_master_command(bool read, iolink_master_mc_channel_t channel,
                                             uint8_t address);
 /**
  * @brief Test whether a Master Command octet is a read.
@@ -604,8 +606,7 @@ uint8_t iolink_master_mc_address(uint8_t mc);
  * @return ::IOLINK_MASTER_STATUS_OK, ::IOLINK_MASTER_ERR_INVALID_ARG, or
  *         ::IOLINK_MASTER_PARAM_ERR_TOO_SHORT.
  */
-int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
-                                               uint8_t len,
+int iolink_master_parse_direct_parameter_page1(const uint8_t* page, uint8_t len,
                                                iolink_master_device_info_t* info);
 /**
  * @brief Parse and apply a Direct Parameter Page 1 buffer to a port.
@@ -616,8 +617,7 @@ int iolink_master_parse_direct_parameter_page1(const uint8_t* page,
  * @return ::IOLINK_MASTER_STATUS_OK, ::IOLINK_MASTER_ERR_INVALID_ARG, or
  *         ::IOLINK_MASTER_PARAM_ERR_TOO_SHORT.
  */
-int iolink_master_apply_direct_parameter_page1(iolink_master_port_t* port,
-                                               const uint8_t* page,
+int iolink_master_apply_direct_parameter_page1(iolink_master_port_t* port, const uint8_t* page,
                                                uint8_t len);
 /**
  * @brief Copy the stored device info out of a port.
@@ -688,11 +688,8 @@ int iolink_master_set_pd_out(iolink_master_port_t* port, const uint8_t* data, ui
  * @return ::IOLINK_MASTER_STATUS_OK when complete, ::IOLINK_MASTER_STATUS_PENDING
  *         while active, ::IOLINK_MASTER_ERR_INVALID_ARG, or an ISDU error.
  */
-int iolink_master_read_isdu(iolink_master_port_t* port,
-                            uint16_t index,
-                            uint8_t subindex,
-                            uint8_t* data,
-                            uint8_t* len);
+int iolink_master_read_isdu(iolink_master_port_t* port, uint16_t index, uint8_t subindex,
+                            uint8_t* data, uint8_t* len);
 /**
  * @brief Read the device info via ISDU services.
  *
@@ -713,11 +710,8 @@ int iolink_master_read_device_info(iolink_master_port_t* port);
  * @return ::IOLINK_MASTER_STATUS_OK when complete, ::IOLINK_MASTER_STATUS_PENDING
  *         while active, ::IOLINK_MASTER_ERR_INVALID_ARG, or an ISDU error.
  */
-int iolink_master_write_isdu(iolink_master_port_t* port,
-                             uint16_t index,
-                             uint8_t subindex,
-                             const uint8_t* data,
-                             uint8_t len);
+int iolink_master_write_isdu(iolink_master_port_t* port, uint16_t index, uint8_t subindex,
+                             const uint8_t* data, uint8_t len);
 /**
  * @brief Read the device Data Storage object.
  *
@@ -727,9 +721,7 @@ int iolink_master_write_isdu(iolink_master_port_t* port,
  * @return ::IOLINK_MASTER_STATUS_OK when complete, ::IOLINK_MASTER_STATUS_PENDING
  *         while active, ::IOLINK_MASTER_ERR_INVALID_ARG, or an ISDU error.
  */
-int iolink_master_read_data_storage(iolink_master_port_t* port,
-                                    uint8_t* data,
-                                    uint8_t* len);
+int iolink_master_read_data_storage(iolink_master_port_t* port, uint8_t* data, uint8_t* len);
 /**
  * @brief Write the device Data Storage object.
  *
@@ -739,9 +731,7 @@ int iolink_master_read_data_storage(iolink_master_port_t* port,
  * @return ::IOLINK_MASTER_STATUS_OK when complete, ::IOLINK_MASTER_STATUS_PENDING
  *         while active, ::IOLINK_MASTER_ERR_INVALID_ARG, or an ISDU error.
  */
-int iolink_master_write_data_storage(iolink_master_port_t* port,
-                                     const uint8_t* data,
-                                     uint8_t len);
+int iolink_master_write_data_storage(iolink_master_port_t* port, const uint8_t* data, uint8_t len);
 /**
  * @brief Restore a Data Storage image with readback verification.
  *
@@ -751,8 +741,7 @@ int iolink_master_write_data_storage(iolink_master_port_t* port,
  * @return ::IOLINK_MASTER_STATUS_OK after Data Storage download, write, end,
  *         and readback verification complete.
  */
-int iolink_master_restore_data_storage(iolink_master_port_t* port,
-                                       const uint8_t* data,
+int iolink_master_restore_data_storage(iolink_master_port_t* port, const uint8_t* data,
                                        uint8_t len);
 /**
  * @brief Read back an ISDU object and compare it to an expected value.
@@ -767,11 +756,8 @@ int iolink_master_restore_data_storage(iolink_master_port_t* port,
  *         ::IOLINK_MASTER_ERR_INVALID_ARG, ::IOLINK_MASTER_ISDU_ERR_VERIFY_FAILED,
  *         or an ISDU error.
  */
-int iolink_master_verify_isdu(iolink_master_port_t* port,
-                              uint16_t index,
-                              uint8_t subindex,
-                              const uint8_t* expected,
-                              uint8_t len);
+int iolink_master_verify_isdu(iolink_master_port_t* port, uint16_t index, uint8_t subindex,
+                              const uint8_t* expected, uint8_t len);
 /**
  * @brief Read back Data Storage and compare it to an expected image.
  *
@@ -783,8 +769,7 @@ int iolink_master_verify_isdu(iolink_master_port_t* port,
  *         ::IOLINK_MASTER_ERR_INVALID_ARG, ::IOLINK_MASTER_ISDU_ERR_VERIFY_FAILED,
  *         or an ISDU error.
  */
-int iolink_master_verify_data_storage(iolink_master_port_t* port,
-                                      const uint8_t* expected,
+int iolink_master_verify_data_storage(iolink_master_port_t* port, const uint8_t* expected,
                                       uint8_t len);
 /**
  * @brief Read the device's detailed status via ISDU.
@@ -795,8 +780,7 @@ int iolink_master_verify_data_storage(iolink_master_port_t* port,
  * @return ::IOLINK_MASTER_STATUS_OK when complete, ::IOLINK_MASTER_STATUS_PENDING
  *         while active, ::IOLINK_MASTER_ERR_INVALID_ARG, or an ISDU error.
  */
-int iolink_master_read_detailed_device_status(iolink_master_port_t* port,
-                                              uint8_t* data,
+int iolink_master_read_detailed_device_status(iolink_master_port_t* port, uint8_t* data,
                                               uint8_t* len);
 
 /** @} */ /* end of ISDU & Data Storage services */
@@ -834,10 +818,8 @@ int iolink_master_ack_event(iolink_master_port_t* port, uint16_t* event_code);
  *         while active, ::IOLINK_MASTER_ERR_INVALID_ARG,
  *         ::IOLINK_MASTER_ERR_BUFFER_TOO_SMALL, or an ISDU error.
  */
-int iolink_master_read_event_details(iolink_master_port_t* port,
-                                     iolink_master_event_t* events,
-                                     uint8_t max_events,
-                                     uint8_t* out_count);
+int iolink_master_read_event_details(iolink_master_port_t* port, iolink_master_event_t* events,
+                                     uint8_t max_events, uint8_t* out_count);
 
 /** @} */ /* end of Event services */
 
@@ -896,11 +878,8 @@ int iolink_master_store_parameter_download(iolink_master_port_t* port);
  * @return ::IOLINK_MASTER_STATUS_OK after download start, write, download end,
  *         and readback verification complete.
  */
-int iolink_master_write_parameter_block(iolink_master_port_t* port,
-                                        uint16_t index,
-                                        uint8_t subindex,
-                                        const uint8_t* data,
-                                        uint8_t len);
+int iolink_master_write_parameter_block(iolink_master_port_t* port, uint16_t index,
+                                        uint8_t subindex, const uint8_t* data, uint8_t len);
 
 /** @} */ /* end of Parameter server (block up/download) */
 
@@ -925,8 +904,7 @@ int iolink_master_write_parameter_block(iolink_master_port_t* port,
  *         first per-port init error.
  */
 int iolink_master_controller_init(iolink_master_controller_t* controller,
-                                  iolink_master_port_t* ports,
-                                  uint8_t port_count,
+                                  iolink_master_port_t* ports, uint8_t port_count,
                                   const iolink_phy_api_t* phys,
                                   const iolink_master_config_t* configs);
 /**
@@ -947,8 +925,7 @@ int iolink_master_controller_get_port_count(const iolink_master_controller_t* co
  * @return ::IOLINK_MASTER_STATUS_OK or ::IOLINK_MASTER_ERR_INVALID_ARG for
  *         NULL/out-of-range access.
  */
-int iolink_master_controller_get_port(iolink_master_controller_t* controller,
-                                      uint8_t index,
+int iolink_master_controller_get_port(iolink_master_controller_t* controller, uint8_t index,
                                       iolink_master_port_t** out_port);
 /**
  * @brief Tick every managed port, one response-timeout flag per port.
@@ -978,8 +955,7 @@ int iolink_master_controller_tick_events(iolink_master_controller_t* controller,
  * @return ::IOLINK_MASTER_STATUS_OK, ::IOLINK_MASTER_ERR_INVALID_ARG, or the
  *         first negative per-port time-aware tick result.
  */
-int iolink_master_controller_tick_at(iolink_master_controller_t* controller,
-                                     uint32_t now_100us);
+int iolink_master_controller_tick_at(iolink_master_controller_t* controller, uint32_t now_100us);
 /**
  * @brief Compute the next due tick time for a single port.
  *
@@ -990,8 +966,7 @@ int iolink_master_controller_tick_at(iolink_master_controller_t* controller,
  * @param[out] out_next_100us Filled with the next due tick time, in 100us units.
  * @return ::IOLINK_MASTER_STATUS_OK or ::IOLINK_MASTER_ERR_INVALID_ARG.
  */
-int iolink_master_get_next_tick_time(const iolink_master_port_t* port,
-                                     uint32_t now_100us,
+int iolink_master_get_next_tick_time(const iolink_master_port_t* port, uint32_t now_100us,
                                      uint32_t* out_next_100us);
 /**
  * @brief Compute the earliest next due tick time across all ports.
@@ -1002,8 +977,7 @@ int iolink_master_get_next_tick_time(const iolink_master_port_t* port,
  * @return ::IOLINK_MASTER_STATUS_OK or ::IOLINK_MASTER_ERR_INVALID_ARG.
  */
 int iolink_master_controller_get_next_tick_time(const iolink_master_controller_t* controller,
-                                                uint32_t now_100us,
-                                                uint32_t* out_next_100us);
+                                                uint32_t now_100us, uint32_t* out_next_100us);
 
 /** @} */ /* end of Multi-port controller */
 
