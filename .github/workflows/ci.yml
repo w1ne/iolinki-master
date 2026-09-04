@@ -14,8 +14,9 @@ on:
 jobs:
   ctest:
     name: cmake-ctest
-    # Pluto's repo runner is named `pluto-labwired-ci-runner` and exposes these labels.
-    runs-on: [self-hosted, Linux, X64, ci]
+    # Public repo -> GitHub-hosted runners are free and carry cc/cmake/ctest
+    # preinstalled. The self-hosted pluto runner was retired 2026-08-07.
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout iolinki-master
         uses: actions/checkout@v4
@@ -205,6 +206,65 @@ jobs:
 
       - name: Test
         run: ctest --test-dir iolinki-master/build --output-on-failure
+
+  # Non-blocking: the Zephyr simulation build uses a multi-GB toolchain image and
+  # west-pulls Zephyr + the iolinki device stack, which can exhaust a free
+  # runner. It is intentionally NOT a required check and is allowed to fail
+  # without blocking merges (mirrors the iolinki device repo's zephyr-validation
+  # job). It builds the native_sim iolink_master sample to prove the Zephyr
+  # module integration.
+  zephyr-validation:
+    name: zephyr-validation
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    container:
+      image: zephyrprojectrtos/zephyr-build:latest
+      options: --user root
+    env:
+      ZEPHYR_TOOLCHAIN_VARIANT: host
+    steps:
+      - name: Free up disk space
+        run: |
+          rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+                 /usr/local/.ghcup /usr/local/share/boost \
+                 /usr/local/lib/node_modules /usr/lib/google-cloud-sdk || true
+          df -h
+
+      - name: Checkout iolinki-master
+        uses: actions/checkout@v4
+        with:
+          path: iolinki-master
+
+      - name: Initialize west workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Use the master's own west.yml (self: iolinki-master) as the manifest,
+          # pulling Zephyr and the iolinki device stack alongside it.
+          west init -l iolinki-master
+          west update --narrow -o=--depth=1
+          west zephyr-export
+
+      - name: Build native_sim sample
+        shell: bash
+        run: |
+          set -euo pipefail
+          west build -p auto -b native_sim iolinki-master/samples/iolink_master
+
+  sbom-tools:
+    name: sbom-tools
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout iolinki-master
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run SBOM generator self-test
+        run: python3 tools/test_generate_sbom.py
 
   labwired-model:
     name: labwired-real-firmware-model
