@@ -360,12 +360,13 @@ static inline uint8_t iolink_master_ckt_type_bits(iolink_master_m_seq_type_t typ
     }
 }
 
-/** @brief Return the on-request-data length in octets for an M-sequence type. */
+/** @brief Return the on-request-data length in octets for an M-sequence type.
+ *
+ * Table A.10: TYPE_2_1 to TYPE_2_6 carry one OD octet; only TYPE_2_V is the
+ * two-octet variant (OPERATE M-sequence code 5). */
 static inline uint8_t iolink_master_od_len_for_type(iolink_master_m_seq_type_t type)
 {
     switch (type) {
-        case IOLINK_MASTER_M_SEQ_TYPE_2_1:
-        case IOLINK_MASTER_M_SEQ_TYPE_2_2:
         case IOLINK_MASTER_M_SEQ_TYPE_2_V:
             return 2U;
         default:
