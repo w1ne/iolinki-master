@@ -302,6 +302,59 @@ static void test_fake_device_serves_event_details(void** state)
     assert_int_equal(diagnostics.last_event_code, 0x4210U);
 }
 
+/** @brief A stray cyclic reply must not complete an active event readout.
+ *
+ * The readout is started while the reply to the last cyclic frame is still in
+ * flight; consuming that reply during the diagnosis phase must not be mistaken
+ * for the event memory StatusCode, which would complete the readout with count 0
+ * while the device's Event flag is still set.
+ */
+static void test_stray_cyclic_reply_does_not_complete_event_readout(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_event_t events[1];
+    uint8_t count = 0U;
+    const uint8_t memory[] = {0x01U, 0xE2U, 0x42U, 0x10U};
+    uint8_t i;
+
+    (void)state;
+
+    memset(events, 0, sizeof(events));
+    fake_iolink_device_set_event_pending(true);
+    fake_iolink_device_set_event_memory(memory, sizeof(memory));
+
+    assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &g_config), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+    /* Send a cyclic frame; its reply stays queued and in flight. */
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+
+    /* Start the event readout, then consume the in-flight cyclic reply. */
+    assert_int_equal(iolink_master_read_event_details(&port, events, 1U, &count),
+                     IOLINK_MASTER_STATUS_PENDING);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+
+    /* The stray cyclic OD must not be taken for the event StatusCode. */
+    assert_int_equal(iolink_master_read_event_details(&port, events, 1U, &count),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    for(i = 0U; i < 13U; i++)
+    {
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    }
+
+    assert_int_equal(iolink_master_read_event_details(&port, events, 1U, &count),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(count, 1U);
+    assert_int_equal(events[0].code, 0x4210U);
+}
+
 static void test_fake_device_ack_event_reads_event_code(void** state)
 {
     iolink_master_port_t port;
@@ -750,6 +803,8 @@ int main(void)
         cmocka_unit_test_setup(test_fake_device_exposes_event_pending_status,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_serves_event_details,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_stray_cyclic_reply_does_not_complete_event_readout,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_ack_event_reads_event_code,
                                reset_fixture),

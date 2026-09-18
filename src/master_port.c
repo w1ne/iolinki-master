@@ -360,7 +360,12 @@ static bool iolink_master_send_event(iolink_master_port_t* port)
     }
 
     if (frame_len > 0) {
-        (void) iolink_master_send_full(port, state->tx_buf, (size_t) frame_len);
+        if (iolink_master_send_full(port, state->tx_buf, (size_t) frame_len) && read) {
+            /* Arm the OD routing only once the diagnosis read is on the wire:
+             * the reply to a cyclic frame sent earlier may still land while the
+             * readout is active. */
+            state->event.od_expected = true;
+        }
     }
 
     if (!read) {
@@ -1025,16 +1030,23 @@ int iolink_master_poll_rx(iolink_master_port_t* port)
 /** @brief Route received OD octets to the active acyclic service.
  *
  * The DIAGNOSIS event readout (7.3.8) and the ISDU transport (7.3.6) are
- * mutually exclusive services; whichever is active consumes the reply OD.
+ * mutually exclusive services; whichever is active consumes the reply OD. While
+ * the event readout is active only the reply to an actually sent diagnosis read
+ * is routed into it: a stray cyclic reply in flight when the readout starts must
+ * not be captured as the event memory StatusCode.
  */
 static void iolink_master_route_od(iolink_master_port_t* port, const uint8_t* od, uint8_t od_len)
 {
+    iolink_master_port_state_t* state = iolink_master_port_state(port);
     bool read = false;
     uint8_t addr = 0U;
     uint8_t event_od_len = 1U;
 
-    if (iolink_master_event_channel_access(port, &read, &addr, &event_od_len) && read) {
-        iolink_master_event_on_od(port, od, od_len);
+    if (iolink_master_event_channel_access(port, &read, &addr, &event_od_len)) {
+        if (read && state->event.od_expected) {
+            state->event.od_expected = false;
+            iolink_master_event_on_od(port, od, od_len);
+        }
         return;
     }
 

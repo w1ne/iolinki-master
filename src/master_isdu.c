@@ -766,6 +766,7 @@ static void iolink_master_event_finish(iolink_master_port_t* port, int result)
 {
     iolink_master_port_state(port)->event.result = result;
     iolink_master_port_state(port)->event.phase = IOLINK_MASTER_EVENT_PHASE_NONE;
+    iolink_master_port_state(port)->event.od_expected = false;
 }
 
 /** @brief Start an event-memory service on the diagnosis channel (7.3.8.3 T2). */
