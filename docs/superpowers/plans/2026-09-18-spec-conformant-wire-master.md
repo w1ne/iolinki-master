@@ -197,3 +197,32 @@ the existing `docs/MISRA_DEVIATIONS.md` rows, which were refreshed accordingly.
 `test_master_real_iolinki_device` green against the sibling device, and physical
 wake-pulse/T_REN validation, remain open per the design's work split and merge
 order (slice L / hardware phase).
+
+### Review follow-up
+
+Commits `6477803` (tests/examples/sample) and `0c4136f` (`src/master_port.c`)
+drive startup through the 1-octet DeviceOperate CKS reply on every path and
+carry PD-out plus the M-sequence type bits in OPERATE ISDU frames.
+
+Hermetic result after the follow-up: `ctest --test-dir build
+--output-on-failure` -> 14/15 targets pass. `test_master_real_iolinki_device`
+is still red, and it is not only the ack.
+
+The cross-worktree lane needs the device slice's Type-0 OD-write framing fix:
+for a two-octet-OD M-sequence the device computes
+`req_len = IOLINK_M_SEQ_HEADER_LEN + ctx->od_len` (4 for TYPE_2) for the
+3-octet Type-0 DeviceOperate write. The frame never completes, so the device
+never answers it and startup clicks through PREOPERATE without the CKS ack.
+With that one line changed to `+ 1U`, the six profile-matrix cases pass against
+the real stack; the remaining ISDU cases then fail on FlowCTRL read
+segmentation (the master re-reads at START, which restarts the device's
+response pointer, so the assembled response duplicates `D1 13` and the CHKPDU
+check fails). Both are on the device/on-wire lane (slice L), not the master
+checksum work. Applied locally as a build-only experiment; the sibling worktree
+was left untouched.
+
+Raw interop result (`build/tests/test_master_real_iolinki_device`): 9 run,
+0 passed, 9 failed. Profile matrix exits at case 3 (`0xfffffffffffffffb` /
+"did not reach OPERATE"); the ISDU cases report "did not reach OPERATE" or
+`IOLINK_MASTER_ISDU_ERR_DEVICE` (0xfffffffc) with
+`last_isdu_error == 0x81` (segmentation).
