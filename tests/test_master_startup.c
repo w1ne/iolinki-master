@@ -881,14 +881,22 @@ static void test_process_startup_waits_for_type0_response_before_preoperate(void
     assert_int_equal(g_send_calls, 3);
     assert_int_equal(g_sent_len[2], (size_t)expected_len);
     assert_memory_equal(g_sent[2], expected, (size_t)expected_len);
+    /* Figure A.5: the write is answered by the CKS alone (oracle over [0x00] = 0x2D);
+       OPERATE is entered only once it is verified. */
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
+    {
+        const uint8_t operate_ack[1] = {0x2DU};
+        assert_int_equal(iolink_master_on_rx(&port, operate_ack, 1U), 0);
+    }
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     iolink_master_process(&port);
     /* A.2.4: the TYPE_2 cyclic message is MC, CKT, PD-out, OD with the A.1.6
-       checksum and the M-sequence type in CKT (here TYPE_2 -> 0x80, CKT 0xAD);
-       there is no trailing checksum octet in a request. */
+       checksum and the M-sequence type in CKT (TYPE_2 -> 0x80). A.1.6: the CKT
+       enters the checksum with its type bits in place, so the oracle over
+       [00 80 11 22 00 00] gives 0x05 -> CKT 0x85. No trailing checksum octet. */
     {
-        const uint8_t expected_cycle[] = {0x00U, 0xADU, 0x11U, 0x22U, 0x00U, 0x00U};
+        const uint8_t expected_cycle[] = {0x00U, 0x85U, 0x11U, 0x22U, 0x00U, 0x00U};
 
         expected_len = (int) sizeof(expected_cycle);
         assert_int_equal(g_send_calls, 4);

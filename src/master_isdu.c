@@ -540,7 +540,8 @@ int iolink_master_write_isdu(iolink_master_port_t* port, uint16_t index, uint8_t
 
         /* A.5.3: 2..15 direct, 17..238 with ExtLength; 16 and >238 are reserved. */
         if ((len > (uint8_t) (IOLINK_ISDU_BUFFER_SIZE - IOLINK_MASTER_ISDU_WRITE_HEADER_MAX)) ||
-            (total > IOLINK_MASTER_ISDU_EXT_MAX) || (total == 16U)) {
+            (((total > 15U) ? (total + 1U) : total) > IOLINK_MASTER_ISDU_EXT_MAX) ||
+            (total == 16U)) {
             return IOLINK_MASTER_ISDU_ERR_BUFFER_TOO_SMALL;
         }
 
@@ -557,7 +558,8 @@ int iolink_master_write_isdu(iolink_master_port_t* port, uint16_t index, uint8_t
                 (uint8_t) ((iolink_master_isdu_service(false, idx_len)
                             << IOLINK_MASTER_ISDU_SERVICE_SHIFT) |
                            IOLINK_MASTER_ISDU_LENGTH_EXTENDED);
-            isdu->request[pos++] = (uint8_t) total;
+            /* A.5.3 / Figure A.18 ex. 4: ExtLength counts the ExtLength octet too. */
+            isdu->request[pos++] = (uint8_t) (total + 1U);
         }
 
         if (idx_len == 3U) {

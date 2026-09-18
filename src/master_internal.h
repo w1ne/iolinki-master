@@ -150,6 +150,7 @@
 #define IOLINK_MASTER_STARTUP_STEP_WAKE 0U           /**< Emit the wake-up request. */
 #define IOLINK_MASTER_STARTUP_STEP_SEND_TYPE0 1U     /**< Send the TYPE_0 request. */
 #define IOLINK_MASTER_STARTUP_STEP_AWAIT_RESPONSE 2U /**< Await the device response. */
+#define IOLINK_MASTER_STARTUP_STEP_AWAIT_OPERATE_ACK 3U /**< Await the CKS reply to DeviceOperate. */
 /** @} */
 
 /** @brief Startup micro-sequence progress for a port. */

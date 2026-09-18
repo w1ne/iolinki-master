@@ -286,13 +286,14 @@ static void test_write_isdu_uses_extended_length_above_15_octets(void** state)
 
     memset(data, 0xAA, sizeof(data));
     enter_operate(&port);
-    /* 8-bit index, no subindex: 1(I-Service) + 1(index) + 60(data) + 1(CHK) = 63. */
+    /* 8-bit index, no subindex: 1(I-Service/Length) + 1(ExtLength) + 1(index) +
+       60(data) + 1(CHKPDU) = 64 (A.5.3 / Figure A.18 ex. 4: n counts ExtLength). */
     assert_int_equal(iolink_master_write_isdu(&port, 0x0010U, 0U, data, sizeof(data)), 1);
 
     stream_len = copy_request(&port, stream, sizeof(stream));
     assert_int_equal(stream_len, 64U);
     assert_int_equal(stream[0], 0x11U);  /* Write Request, Length = 1 -> ExtLength */
-    assert_int_equal(stream[1], 63U);    /* ExtLength = total ISDU octets (A.5.3) */
+    assert_int_equal(stream[1], 64U);    /* ExtLength = total ISDU octets incl. itself */
     assert_int_equal(stream[2], 0x10U);  /* Index */
     assert_memory_equal(&stream[3], data, sizeof(data));
 

@@ -479,6 +479,11 @@ static int fake_iolink_device_send(void* user, const uint8_t* data, size_t len)
     {
         g_device.transition_count++;
         g_device.link_state = FAKE_LINK_OPERATE;
+        /* Figure A.5: a Type-0 WRITE is answered by the CKS octet alone. */
+        g_device.rx_queue[0] = 0x00U;
+        g_device.rx_queue[0] = iolink_checksum6(g_device.rx_queue, 1U);
+        g_device.rx_len = 1U;
+        g_device.rx_pos = 0U;
         return (int)len;
     }
 
