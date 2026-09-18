@@ -94,7 +94,7 @@ static void test_controller_tick_all_ticks_each_port(void** state)
     assert_int_equal(g_send_calls[1], 1);
 }
 
-static void test_controller_tick_reports_first_error_but_ticks_all_ports(void** state)
+static void test_controller_tick_restarts_port_after_retry_exhaustion(void** state)
 {
     iolink_master_controller_t controller;
     iolink_master_port_t ports[2];
@@ -106,8 +106,9 @@ static void test_controller_tick_reports_first_error_but_ticks_all_ports(void** 
     iolink_master_port_state(&ports[0])->state = IOLINK_MASTER_STATE_OPERATE;
     iolink_master_port_state(&ports[0])->diagnostics.rx_retry_count = 2U;
 
-    assert_int_equal(iolink_master_controller_tick(&controller, timeouts), -2);
-    assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_ERROR);
+    /* 7.2.2.1: the exhausted port restarts communication; the other still ticks. */
+    assert_int_equal(iolink_master_controller_tick(&controller, timeouts), 0);
+    assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_STARTUP);
     assert_int_equal(g_send_calls[1], 1);
 }
 
@@ -128,7 +129,7 @@ static void test_controller_tick_events_allow_independent_port_events(void** sta
     assert_int_equal(g_send_calls[1], 1);
 }
 
-static void test_controller_tick_events_report_first_error_but_tick_all_ports(void** state)
+static void test_controller_tick_events_restart_port_after_retry_exhaustion(void** state)
 {
     iolink_master_controller_t controller;
     iolink_master_port_t ports[2];
@@ -143,8 +144,8 @@ static void test_controller_tick_events_report_first_error_but_tick_all_ports(vo
     iolink_master_port_state(&ports[0])->state = IOLINK_MASTER_STATE_OPERATE;
     iolink_master_port_state(&ports[0])->diagnostics.rx_retry_count = 2U;
 
-    assert_int_equal(iolink_master_controller_tick_events(&controller, events), -2);
-    assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(iolink_master_controller_tick_events(&controller, events), 0);
+    assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_STARTUP);
     assert_int_equal(g_send_calls[1], 1);
 }
 
@@ -196,6 +197,7 @@ static void test_controller_tick_at_times_out_missing_response_before_next_cycle
 
     configs[0] = g_configs[0];
     configs[0].min_cycle_time = 20U;
+    configs[0].response_timeout_100us = 20U;
 
     assert_int_equal(iolink_master_controller_init(&controller, ports, 1U, g_phys, configs), 0);
     iolink_master_port_state(&ports[0])->state = IOLINK_MASTER_STATE_OPERATE;
@@ -209,9 +211,9 @@ static void test_controller_tick_at_times_out_missing_response_before_next_cycle
     assert_int_equal(g_send_calls[0], 1);
     assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_OPERATE);
 
-    assert_int_equal(iolink_master_controller_tick_at(&controller, 120U), -2);
+    assert_int_equal(iolink_master_controller_tick_at(&controller, 120U), 0);
     assert_int_equal(g_send_calls[0], 1);
-    assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(iolink_master_get_state(&ports[0]), IOLINK_MASTER_STATE_STARTUP);
     assert_int_equal(iolink_master_get_diagnostics(&ports[0], &diagnostics), 0);
     assert_int_equal(diagnostics.response_timeouts, 1U);
 }
@@ -229,6 +231,8 @@ static void test_controller_next_tick_time_returns_earliest_port_deadline(void**
     configs[1] = g_configs[1];
     configs[0].min_cycle_time = 20U;
     configs[1].min_cycle_time = 40U;
+    configs[0].response_timeout_100us = 20U;
+    configs[1].response_timeout_100us = 40U;
 
     assert_int_equal(iolink_master_controller_init(&controller, ports, 2U, g_phys, configs), 0);
     iolink_master_port_state(&ports[0])->state = IOLINK_MASTER_STATE_OPERATE;
@@ -291,11 +295,11 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup(test_controller_init_initializes_each_port, reset_fixture),
         cmocka_unit_test_setup(test_controller_tick_all_ticks_each_port, reset_fixture),
-        cmocka_unit_test_setup(test_controller_tick_reports_first_error_but_ticks_all_ports,
+        cmocka_unit_test_setup(test_controller_tick_restarts_port_after_retry_exhaustion,
                                reset_fixture),
         cmocka_unit_test_setup(test_controller_tick_events_allow_independent_port_events,
                                reset_fixture),
-        cmocka_unit_test_setup(test_controller_tick_events_report_first_error_but_tick_all_ports,
+        cmocka_unit_test_setup(test_controller_tick_events_restart_port_after_retry_exhaustion,
                                reset_fixture),
         cmocka_unit_test_setup(test_controller_tick_at_paces_ports_by_each_cycle_time,
                                reset_fixture),

@@ -234,12 +234,22 @@ typedef struct
      */
     uint32_t isdu_timeout_100us;
     /**
+     * Master message delay T_DMT (Table 42), in bit times, applied after a
+     * wake-up before the first test message is transmitted. The spec range is
+     * 27..37 T_BIT; 0 selects the default of 32.
+     */
+    uint8_t t_dmt_tbit;
+    /**
+     * Wake-up retry delay T_DWU (Table 42), in 100us units, between successive
+     * wake-up request sequences. The spec range is 30..50 ms; 0 selects the
+     * default of 400 (40 ms).
+     */
+    uint32_t t_dwu_100us;
+    /**
      * Number of extra wake-up requests to issue at the current baudrate before
      * giving up (auto-baud: advancing to the next COM rate; fixed baud: erroring).
-     * 0 preserves the historical "one attempt then advance/error" behavior; real
-     * hardware bring-up should set this to a small count (the spec allows the
-     * master to retry the wake-up sequence) so a device that misses the first
-     * WURQ still links up.
+     * 0 selects the spec default n_WU = 2 (Table 42): the master makes up to
+     * n_WU + 1 successive wake-up requests.
      */
     uint8_t wake_retry_limit;
     void* event_user; /**< Opaque user pointer passed to event callbacks. */
@@ -330,10 +340,10 @@ typedef struct
  * array reference plus port count.
  */
 #define IOLINK_MASTER_PORT_STORAGE_BUDGET_SIZE \
-    1280U /**< Auditing budget for port storage, in bytes. */
+    1296U /**< Auditing budget for port storage, in bytes. */
 #define IOLINK_MASTER_CONTROLLER_STORAGE_BUDGET_SIZE \
     32U /**< Auditing budget for controller storage, in bytes. */
-#define IOLINK_MASTER_PORT_STORAGE_SIZE 1280U /**< Actual port opaque storage size, in bytes. */
+#define IOLINK_MASTER_PORT_STORAGE_SIZE 1296U /**< Actual port opaque storage size, in bytes. */
 #define IOLINK_MASTER_CONTROLLER_STORAGE_SIZE \
     32U /**< Actual controller opaque storage size, in bytes. */
 

@@ -27,8 +27,24 @@
 
 /** @brief RX/TX scratch buffer size; must hold the worst-case operate frame. */
 #define IOLINK_MASTER_FRAME_BUF_SIZE 64U
-/** @brief Checksum/response retry budget before entering the error state. */
+/** @brief Checksum/response retry budget before restarting communication (7.2.2.1). */
 #define IOLINK_MASTER_RX_RETRY_LIMIT 2U
+
+/** @name Timing defaults and conversion (Table 9, Table 42, A.3.5/A.3.6).
+ *  @{
+ */
+#define IOLINK_MASTER_T_BIT_COM1_NS 208330U /**< T_BIT at COM1 (208.33 us). */
+#define IOLINK_MASTER_T_BIT_COM2_NS 26040U  /**< T_BIT at COM2 (26.04 us). */
+#define IOLINK_MASTER_T_BIT_COM3_NS 4340U   /**< T_BIT at COM3 (4.34 us). */
+#define IOLINK_MASTER_NS_PER_100US 100000U  /**< Nanoseconds per 100us tick. */
+#define IOLINK_MASTER_DEFAULT_T_DMT_TBIT 32U /**< Default T_DMT in bit times (Table 42). */
+#define IOLINK_MASTER_DEFAULT_T_DWU_100US 400U /**< Default T_DWU, 40 ms (Table 42). */
+#define IOLINK_MASTER_DEFAULT_WAKE_RETRY_LIMIT 2U /**< Default n_WU (Table 42). */
+/** @brief UART frame length in bit times (1 start + 8 data + 1 parity + 1 stop). */
+#define IOLINK_MASTER_UART_FRAME_TBIT 11U
+/** @brief Maximum device response delay in bit times (t_A, A.3.5). */
+#define IOLINK_MASTER_T_A_MAX_TBIT 10U
+/** @} */
 /** @brief Wake-up request pattern (alternating bits) emitted when no wake_up hook is set. */
 #define IOLINK_MASTER_WAKEUP_BYTE 0x55U
 
@@ -266,6 +282,8 @@ typedef struct
     uint32_t cycle_count;                         /**< Number of cycles executed. */
     uint32_t last_cycle_start_100us;  /**< Last cycle start timestamp, in 100us units. */
     uint32_t response_deadline_100us; /**< Response deadline timestamp, in 100us units. */
+    uint32_t send_ready_at_100us;     /**< Earliest transmit timestamp, in 100us units. */
+    bool send_ready_valid;            /**< True when @c send_ready_at_100us gates transmits. */
     bool cycle_timer_valid;           /**< True once the cycle timer has a valid start. */
     bool awaiting_response;           /**< True while waiting on a device response. */
 } iolink_master_port_state_t;
@@ -412,6 +430,22 @@ void iolink_master_event_on_written(iolink_master_port_t* port);
  * Parameter Page 1, or 0 for the process-data types where Table A.10 fixes 0.
  */
 uint8_t iolink_master_mseq_capability_code(iolink_master_m_seq_type_t type, uint8_t od_len);
+
+/** @brief Run the port state machine applying the timestamped startup timing gates.
+ *
+ * Like ::iolink_master_process, but @p now_100us gates the T_DMT (Table 42) wait
+ * after a wake-up and the T_DWU wake-retry spacing. @p timed selects the gated
+ * path; the public ::iolink_master_process calls this with @c timed = false.
+ */
+void iolink_master_process_at(iolink_master_port_t* port, uint32_t now_100us, bool timed);
+
+/** @brief Apply a response/deadline timeout, honoring the timestamped wake spacing.
+ *
+ * Like ::iolink_master_on_timeout, but records the T_DWU deadline relative to
+ * @p now_100us. @p timed selects the gated path; the public
+ * ::iolink_master_on_timeout calls this with @c timed = false.
+ */
+int iolink_master_on_timeout_at(iolink_master_port_t* port, uint32_t now_100us, bool timed);
 
 /** @} */ /* end of iolinki_master_internal group */
 

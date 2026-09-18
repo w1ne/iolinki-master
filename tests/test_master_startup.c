@@ -513,10 +513,12 @@ static void test_auto_baudrate_startup_timeout_scans_com3_com2_com1_then_errors(
 {
     iolink_master_port_t port;
     iolink_master_config_t config = g_config;
+    uint8_t baud;
 
     (void)state;
 
     config.auto_baudrate = true;
+    config.wake_retry_limit = 2U;
 
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
     assert_int_equal(g_set_baudrate_calls, 1);
@@ -526,17 +528,26 @@ static void test_auto_baudrate_startup_timeout_scans_com3_com2_com1_then_errors(
     iolink_master_process(&port);
     assert_int_equal(iolink_master_port_state(&port)->startup.step, 1U);
 
-    assert_int_equal(iolink_master_on_timeout(&port), 1);
-    assert_int_equal(iolink_master_port_state(&port)->startup.step, 0U);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
+    /* Table 42: n_WU = 2 wake retries per baud, then the scan advances. */
+    for (baud = 0U; baud < 2U; baud++) {
+        assert_int_equal(iolink_master_on_timeout(&port), IOLINK_MASTER_STATUS_PENDING);
+        assert_int_equal(iolink_master_port_state(&port)->startup.step, 0U);
+    }
+    assert_int_equal(iolink_master_on_timeout(&port), IOLINK_MASTER_STATUS_PENDING);
     assert_int_equal(g_set_baudrate_calls, 2);
     assert_int_equal(g_baudrate_history[1], IOLINK_BAUDRATE_COM2);
 
-    assert_int_equal(iolink_master_on_timeout(&port), 1);
+    for (baud = 0U; baud < 2U; baud++) {
+        assert_int_equal(iolink_master_on_timeout(&port), IOLINK_MASTER_STATUS_PENDING);
+    }
+    assert_int_equal(iolink_master_on_timeout(&port), IOLINK_MASTER_STATUS_PENDING);
     assert_int_equal(g_set_baudrate_calls, 3);
     assert_int_equal(g_baudrate_history[2], IOLINK_BAUDRATE_COM1);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
 
+    for (baud = 0U; baud < 2U; baud++) {
+        assert_int_equal(iolink_master_on_timeout(&port), IOLINK_MASTER_STATUS_PENDING);
+    }
     assert_int_equal(iolink_master_on_timeout(&port), -2);
     assert_int_equal(g_set_baudrate_calls, 3);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
@@ -551,13 +562,16 @@ static void test_auto_baudrate_timeout_flushes_adapter_rx_before_baud_change(voi
 
     config.auto_baudrate = true;
     config.flush_rx = fake_flush_rx;
+    config.wake_retry_limit = 2U;
 
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), IOLINK_MASTER_STATUS_OK);
     assert_int_equal(g_flush_rx_calls, 1);
 
     iolink_master_process(&port);
     assert_int_equal(iolink_master_on_timeout(&port), IOLINK_MASTER_STATUS_PENDING);
-    assert_int_equal(g_flush_rx_calls, 2);
+    assert_int_equal(iolink_master_on_timeout(&port), IOLINK_MASTER_STATUS_PENDING);
+    assert_int_equal(iolink_master_on_timeout(&port), IOLINK_MASTER_STATUS_PENDING);
+    assert_int_equal(g_flush_rx_calls, 4);
     assert_int_equal(g_baudrate_history[1], IOLINK_BAUDRATE_COM2);
 }
 
@@ -588,6 +602,9 @@ static void test_fixed_baudrate_startup_timeout_enters_error(void** state)
     (void)state;
 
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
+    /* Table 42: the default wake budget is n_WU = 2 retries (3 requests). */
+    assert_int_equal(iolink_master_on_timeout(&port), IOLINK_MASTER_STATUS_PENDING);
+    assert_int_equal(iolink_master_on_timeout(&port), IOLINK_MASTER_STATUS_PENDING);
     assert_int_equal(iolink_master_on_timeout(&port), -2);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
     assert_int_equal(g_set_baudrate_calls, 1);
@@ -1078,6 +1095,25 @@ static void test_startup_can_validate_device_info_before_operate(void** state)
     assert_int_equal(info.device_id, 0x56789AU);
 }
 
+static void test_startup_probe_octet_stored_under_no_check(void** state)
+{
+    iolink_master_port_t port;
+    uint8_t startup_resp[2] = {0U};
+    const uint8_t probe = 0x2AU;
+
+    (void)state;
+
+    /* NO_CHECK must still latch the MinCycleTime probe octet (Table B.3). */
+    assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
+    assert_int_equal(iolink_master_port_state(&port)->config.inspection_level,
+                     IOLINK_MASTER_INSPECTION_NO_CHECK);
+
+    startup_resp[0] = probe;
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
+    assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)), 0);
+    assert_int_equal(iolink_master_port_state(&port)->device_info.min_cycle_time, probe);
+}
+
 static void test_poll_rx_accepts_startup_type0_response_from_phy(void** state)
 {
     iolink_master_port_t port;
@@ -1230,6 +1266,7 @@ int main(void)
                                reset_fake_phy),
         cmocka_unit_test_setup(test_startup_can_validate_device_info_before_operate,
                                reset_fake_phy),
+        cmocka_unit_test_setup(test_startup_probe_octet_stored_under_no_check, reset_fake_phy),
         cmocka_unit_test_setup(test_poll_rx_accepts_startup_type0_response_from_phy,
                                reset_fake_phy),
         cmocka_unit_test_setup(test_poll_rx_accepts_preoperate_type0_isdu_response_from_phy,

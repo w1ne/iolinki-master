@@ -124,6 +124,7 @@ static void test_public_api_exposes_scheduler_timing_state(void** state)
         .m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_0,
         .baudrate = IOLINK_BAUDRATE_COM3,
         .min_cycle_time = 20U,
+        .response_timeout_100us = 20U,
     };
     iolink_master_port_t port;
     iolink_master_timing_t timing;

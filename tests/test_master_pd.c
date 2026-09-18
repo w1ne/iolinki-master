@@ -268,7 +268,7 @@ static void test_on_rx_valid_response_resets_checksum_retry_count(void** state)
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 }
 
-static void test_operate_timeout_retries_twice_before_error_state(void** state)
+static void test_operate_timeout_retries_twice_then_restarts_communication(void** state)
 {
     iolink_master_port_t port = {0};
 
@@ -282,8 +282,11 @@ static void test_operate_timeout_retries_twice_before_error_state(void** state)
     assert_int_equal(iolink_master_on_timeout(&port), 1);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
-    assert_int_equal(iolink_master_on_timeout(&port), -2);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    /* 7.2.2.1: after the retries the master re-initiates communication via a wake-up. */
+    assert_int_equal(iolink_master_on_timeout(&port), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, IOLINK_MASTER_STARTUP_STEP_WAKE);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.rx_retry_count, 0U);
 }
 
 static void test_valid_response_resets_operate_timeout_retry_count(void** state)
@@ -384,7 +387,7 @@ int main(void)
         cmocka_unit_test(test_on_rx_bad_checksum_returns_error_and_increments_count),
         cmocka_unit_test(test_on_rx_bad_checksum_retries_twice_before_error_state),
         cmocka_unit_test(test_on_rx_valid_response_resets_checksum_retry_count),
-        cmocka_unit_test(test_operate_timeout_retries_twice_before_error_state),
+        cmocka_unit_test(test_operate_timeout_retries_twice_then_restarts_communication),
         cmocka_unit_test(test_valid_response_resets_operate_timeout_retry_count),
         cmocka_unit_test(test_on_rx_malformed_frame_returns_decode_error),
         cmocka_unit_test(test_on_rx_rejects_invalid_args),

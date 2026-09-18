@@ -57,15 +57,45 @@ static iolink_baudrate_t iolink_master_startup_baudrate(const iolink_master_port
     return state->config.baudrate;
 }
 
-/** @brief Return the response timeout in 100us units, falling back to the min cycle time when
- * unset. */
-static uint8_t iolink_master_response_timeout_100us(const iolink_master_port_state_t* state)
+/** @brief Return T_BIT in nanoseconds for a baudrate (Table 9, A.3.2). */
+static uint32_t iolink_master_t_bit_ns(iolink_baudrate_t baudrate)
 {
-    if (state->config.response_timeout_100us != 0U) {
-        return state->config.response_timeout_100us;
+    switch (baudrate) {
+        case IOLINK_BAUDRATE_COM1:
+            return IOLINK_MASTER_T_BIT_COM1_NS;
+        case IOLINK_BAUDRATE_COM2:
+            return IOLINK_MASTER_T_BIT_COM2_NS;
+        case IOLINK_BAUDRATE_COM3:
+        default:
+            return IOLINK_MASTER_T_BIT_COM3_NS;
+    }
+}
+
+/** @brief Convert a duration in bit times at @p baudrate to 100us ticks (rounded up). */
+static uint32_t iolink_master_tbit_to_100us(iolink_baudrate_t baudrate, uint32_t t_bit)
+{
+    uint64_t ns = (uint64_t) iolink_master_t_bit_ns(baudrate) * (uint64_t) t_bit;
+
+    return (uint32_t) ((ns + IOLINK_MASTER_NS_PER_100US - 1U) / IOLINK_MASTER_NS_PER_100US);
+}
+
+/** @brief Return the configured response timeout in 100us units.
+ *
+ * A.3.5/A.3.6: the deadline covers the master message (one 11 T_BIT UART frame)
+ * plus the maximum device response delay (10 T_BIT). The configured value is a
+ * lower bound; a value that would make the deadline zero still waits one tick.
+ */
+static uint32_t iolink_master_response_timeout_100us(const iolink_master_port_state_t* state)
+{
+    uint32_t frame_100us = iolink_master_tbit_to_100us(
+        state->config.baudrate, IOLINK_MASTER_UART_FRAME_TBIT + IOLINK_MASTER_T_A_MAX_TBIT);
+    uint32_t configured = state->config.response_timeout_100us;
+
+    if (configured < frame_100us) {
+        configured = frame_100us;
     }
 
-    return state->config.min_cycle_time;
+    return (configured == 0U) ? 1U : configured;
 }
 
 /** @brief Set the PHY line mode via the checked config callback or, failing that, the raw PHY. */
@@ -416,7 +446,7 @@ static int iolink_master_tick_common(iolink_master_port_t* port, iolink_master_t
         }
 
         state->awaiting_response = false;
-        timeout_ret = iolink_master_on_timeout(port);
+        timeout_ret = iolink_master_on_timeout_at(port, now_100us, pace_cycles);
         if (timeout_ret != IOLINK_MASTER_STATUS_OK) {
             return timeout_ret;
         }
@@ -431,7 +461,7 @@ static int iolink_master_tick_common(iolink_master_port_t* port, iolink_master_t
     }
 
     cycle_count_before = state->cycle_count;
-    iolink_master_process(port);
+    iolink_master_process_at(port, now_100us, pace_cycles);
 
     /* iolink_master_process() increments cycle_count through the port pointer on a
        successful operate send; cppcheck does not model that side effect. */
@@ -588,6 +618,37 @@ int iolink_master_restart(iolink_master_port_t* port)
 
 int iolink_master_on_timeout(iolink_master_port_t* port)
 {
+    return iolink_master_on_timeout_at(port, 0U, false);
+}
+
+/** @brief Effective wake-retry budget: configured value or the n_WU default (Table 42). */
+static uint8_t iolink_master_wake_retry_limit(const iolink_master_port_state_t* state)
+{
+    return (state->config.wake_retry_limit == 0U) ? IOLINK_MASTER_DEFAULT_WAKE_RETRY_LIMIT
+                                                  : state->config.wake_retry_limit;
+}
+
+/** @brief Effective T_DWU wake-retry spacing in 100us units (Table 42). */
+static uint32_t iolink_master_t_dwu_100us(const iolink_master_port_state_t* state)
+{
+    return (state->config.t_dwu_100us == 0U) ? IOLINK_MASTER_DEFAULT_T_DWU_100US
+                                             : state->config.t_dwu_100us;
+}
+
+/** @brief Arm the timestamped transmit gate for the next wake-up retry (T_DWU). */
+static void iolink_master_arm_wake_retry_gate(iolink_master_port_t* port, uint32_t now_100us,
+                                              bool timed)
+{
+    iolink_master_port_state_t* state = iolink_master_port_state(port);
+
+    if (timed) {
+        state->send_ready_at_100us = (uint32_t) (now_100us + iolink_master_t_dwu_100us(state));
+        state->send_ready_valid = true;
+    }
+}
+
+int iolink_master_on_timeout_at(iolink_master_port_t* port, uint32_t now_100us, bool timed)
+{
     int ret;
 
     if (port == NULL) {
@@ -609,8 +670,19 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
                 return IOLINK_MASTER_STATUS_PENDING;
             }
 
-            iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
-            return IOLINK_MASTER_ERR_RETRY_LIMIT;
+            /*
+             * 7.2.2.1: when the message retries are unsuccessful the master
+             * re-initiates communication via the Port-x handler beginning with a
+             * wake-up. Return to STARTUP and re-arm the retry budget instead of
+             * latching ERROR; ERROR stays reserved for PHY failures.
+             */
+            iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_STARTUP;
+            iolink_master_port_state(port)->startup.step = IOLINK_MASTER_STARTUP_STEP_WAKE;
+            iolink_master_port_state(port)->startup.wake_attempts = 0U;
+            iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
+            iolink_master_port_state(port)->awaiting_response = false;
+            iolink_master_arm_wake_retry_gate(port, now_100us, timed);
+            return IOLINK_MASTER_STATUS_PENDING;
         }
 
         return IOLINK_MASTER_STATUS_OK;
@@ -624,12 +696,14 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
      * Re-issue the wake-up request at the current baudrate before giving up on
      * it. A device can miss the first WURQ pulse; retrying the wake sequence is
      * spec-permitted and lets a slow-to-wake device still link up. Only advance
-     * the baud scan (or error) once the per-baud wake budget is exhausted.
+     * the baud scan (or error) once the per-baud wake budget is exhausted
+     * (n_WU + 1 attempts, Table 42). Successive retries are spaced by T_DWU.
      */
     if (iolink_master_port_state(port)->startup.wake_attempts <
-        iolink_master_port_state(port)->config.wake_retry_limit) {
+        iolink_master_wake_retry_limit(iolink_master_port_state(port))) {
         iolink_master_port_state(port)->startup.wake_attempts++;
-        iolink_master_port_state(port)->startup.step = 0U;
+        iolink_master_port_state(port)->startup.step = IOLINK_MASTER_STARTUP_STEP_WAKE;
+        iolink_master_arm_wake_retry_gate(port, now_100us, timed);
         return IOLINK_MASTER_STATUS_PENDING;
     }
 
@@ -639,13 +713,14 @@ int iolink_master_on_timeout(iolink_master_port_t* port)
                      sizeof(g_iolink_master_baudrate_scan[0])) -
                     1U))) {
         iolink_master_port_state(port)->startup.baudrate_index++;
-        iolink_master_port_state(port)->startup.step = 0U;
+        iolink_master_port_state(port)->startup.step = IOLINK_MASTER_STARTUP_STEP_WAKE;
         iolink_master_port_state(port)->startup.wake_attempts = 0U;
         ret = iolink_master_set_baudrate(port, iolink_master_startup_baudrate(port));
         if (ret != IOLINK_MASTER_STATUS_OK) {
             iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_ERROR;
             return ret;
         }
+        iolink_master_arm_wake_retry_gate(port, now_100us, timed);
         return IOLINK_MASTER_STATUS_PENDING;
     }
 
@@ -672,6 +747,11 @@ int iolink_master_tick_at(iolink_master_port_t* port, iolink_master_tick_event_t
 
 void iolink_master_process(iolink_master_port_t* port)
 {
+    iolink_master_process_at(port, 0U, false);
+}
+
+void iolink_master_process_at(iolink_master_port_t* port, uint32_t now_100us, bool timed)
+{
     int frame_len;
     size_t od_pos;
 
@@ -680,10 +760,28 @@ void iolink_master_process(iolink_master_port_t* port)
         return;
     }
 
+    if (timed && iolink_master_port_state(port)->send_ready_valid &&
+        (now_100us < iolink_master_port_state(port)->send_ready_at_100us)) {
+        /* Table 42: hold off until T_DMT (after a wake-up) or T_DWU (retry) elapsed. */
+        return;
+    }
+
     if (iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_STARTUP) {
         if (iolink_master_port_state(port)->startup.step == IOLINK_MASTER_STARTUP_STEP_WAKE) {
             if (iolink_master_wake_up(port)) {
                 iolink_master_port_state(port)->startup.step++;
+                if (timed) {
+                    uint8_t t_dmt = iolink_master_port_state(port)->config.t_dmt_tbit;
+
+                    if (t_dmt == 0U) {
+                        t_dmt = IOLINK_MASTER_DEFAULT_T_DMT_TBIT;
+                    }
+                    iolink_master_port_state(port)->send_ready_at_100us =
+                        now_100us +
+                        iolink_master_tbit_to_100us(iolink_master_port_state(port)->config.baudrate,
+                                                    t_dmt);
+                    iolink_master_port_state(port)->send_ready_valid = true;
+                }
             }
             return;
         }
@@ -925,6 +1023,9 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
         iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
         iolink_master_port_state(port)->startup.wake_attempts = 0U;
         iolink_master_port_state(port)->awaiting_response = false;
+        /* Table B.3: the startup probe reads MinCycleTime; keep it for every
+           inspection level, not only when device-info validation is enabled. */
+        iolink_master_port_state(port)->device_info.min_cycle_time = data[0];
         iolink_master_port_state(port)->state = IOLINK_MASTER_STATE_PREOPERATE;
         return IOLINK_MASTER_STATUS_OK;
     }
