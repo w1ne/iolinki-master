@@ -47,6 +47,17 @@ static int reset_fixture(void** state)
     return 0;
 }
 
+/** @brief Drain the CKS-only DeviceOperate reply queued by the fake device.
+ *
+ * Figure A.5: the DeviceOperate Type-0 WRITE is answered with the CKS octet alone
+ * (A.1.6 over [0x00] = 0x2D); the port enters OPERATE only after this reply is
+ * consumed and verified.
+ */
+static void consume_operate_ack(iolink_master_port_t* port)
+{
+    assert_int_equal(iolink_master_tick_event(port, IOLINK_MASTER_TICK_NONE), 1);
+}
+
 static void test_fake_device_drives_startup_and_paced_pd_cycle(void** state)
 {
     iolink_master_port_t port;
@@ -65,6 +76,7 @@ static void test_fake_device_drives_startup_and_paced_pd_cycle(void** state)
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
 
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
     assert_int_equal(fake_iolink_device_transition_count(), 1U);
 
@@ -119,6 +131,7 @@ static void test_fake_device_conformance_matrix_nominal_profiles(void** state)
         assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
         assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
         assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+        consume_operate_ack(&port);
         assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
         assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U), 0);
@@ -144,6 +157,7 @@ static void test_fake_device_can_inject_bad_operate_checksum(void** state)
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     fake_iolink_device_corrupt_next_response_checksum();
@@ -169,6 +183,7 @@ static void test_fake_device_can_drop_response_for_timeout_path(void** state)
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     fake_iolink_device_drop_next_response();
@@ -199,6 +214,7 @@ static void test_fake_device_truncated_response_is_discarded_after_timeout(void*
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     fake_iolink_device_truncate_next_response();
@@ -232,6 +248,7 @@ static void test_fake_device_exposes_event_pending_status(void** state)
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
@@ -239,7 +256,7 @@ static void test_fake_device_exposes_event_pending_status(void** state)
 
     assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
     assert_true(diagnostics.event_pending);
-    assert_true((diagnostics.od_status & IOLINK_OD_STATUS_EVENT) != 0U);
+    assert_true((diagnostics.od_status & 0x80U) != 0U);
 }
 
 static void test_fake_device_serves_event_details(void** state)
@@ -248,20 +265,21 @@ static void test_fake_device_serves_event_details(void** state)
     iolink_master_diagnostics_t diagnostics;
     iolink_master_event_t events[1];
     uint8_t count = 0U;
-    const uint8_t details[] = {0xE2U, 0x42U, 0x10U};
+    const uint8_t memory[] = {0x01U, 0xE2U, 0x42U, 0x10U};
     uint8_t i;
 
     (void)state;
 
     memset(events, 0, sizeof(events));
     fake_iolink_device_set_event_pending(true);
-    fake_iolink_device_set_isdu_object(IOLINK_IDX_DETAILED_DEVICE_STATUS, 0U, details, sizeof(details));
+    fake_iolink_device_set_event_memory(memory, sizeof(memory));
 
     assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &g_config), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     assert_int_equal(iolink_master_read_event_details(&port, events, 1U, &count),
@@ -289,18 +307,20 @@ static void test_fake_device_ack_event_reads_event_code(void** state)
     iolink_master_port_t port;
     iolink_master_diagnostics_t diagnostics;
     uint16_t event_code = 0U;
+    const uint8_t memory[] = {0x01U, 0xE2U, 0x42U, 0x10U};
     uint8_t i;
 
     (void)state;
 
     fake_iolink_device_set_event_pending(true);
-    fake_iolink_device_set_event_code(0x1803U);
+    fake_iolink_device_set_event_memory(memory, sizeof(memory));
 
     assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &g_config), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
@@ -310,16 +330,16 @@ static void test_fake_device_ack_event_reads_event_code(void** state)
 
     assert_int_equal(iolink_master_ack_event(&port, &event_code), IOLINK_MASTER_STATUS_PENDING);
 
-    for(i = 0U; i < 11U; i++)
+    for(i = 0U; i < 20U; i++)
     {
-        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
-        assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+        (void)iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE);
+        (void)iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE);
     }
 
     assert_int_equal(iolink_master_ack_event(&port, &event_code), IOLINK_MASTER_STATUS_OK);
-    assert_int_equal(event_code, 0x1803U);
+    assert_int_equal(event_code, 0x4210U);
     assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
-    assert_int_equal(diagnostics.last_event_code, 0x1803U);
+    assert_int_equal(diagnostics.last_event_code, 0x4210U);
 }
 
 static void test_fake_device_dispatches_event_pending_on_rising_edge(void** state)
@@ -337,6 +357,7 @@ static void test_fake_device_dispatches_event_pending_on_rising_edge(void** stat
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     /* The first operate response carrying the OD Event flag dispatches once. */
@@ -356,7 +377,7 @@ static void test_fake_device_dispatches_decoded_events_to_handler(void** state)
     iolink_master_config_t config = g_config;
     iolink_master_event_t events[1];
     uint8_t count = 0U;
-    const uint8_t details[] = {0xE2U, 0x42U, 0x10U};
+    const uint8_t memory[] = {0x01U, 0xE2U, 0x42U, 0x10U};
     uint8_t i;
 
     (void)state;
@@ -364,14 +385,14 @@ static void test_fake_device_dispatches_decoded_events_to_handler(void** state)
     memset(events, 0, sizeof(events));
     config.event_handler = on_event;
     fake_iolink_device_set_event_pending(true);
-    fake_iolink_device_set_isdu_object(IOLINK_IDX_DETAILED_DEVICE_STATUS, 0U, details,
-                                       sizeof(details));
+    fake_iolink_device_set_event_memory(memory, sizeof(memory));
 
     assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &config), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     assert_int_equal(iolink_master_read_event_details(&port, events, 1U, &count),
@@ -409,6 +430,7 @@ static void test_fake_device_serves_isdu_object_dictionary_read(void** state)
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len),
@@ -445,6 +467,7 @@ static void test_fake_device_accepts_isdu_object_dictionary_write(void** state)
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     assert_int_equal(iolink_master_write_isdu(&port, 0x0010U, 0U, updated_value, sizeof(updated_value)),
@@ -492,6 +515,7 @@ static void test_fake_device_verifies_written_data_storage(void** state)
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     assert_int_equal(iolink_master_write_data_storage(&port, updated_value, sizeof(updated_value)),
@@ -536,6 +560,7 @@ static void test_fake_device_restores_data_storage_block(void** state)
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
+    consume_operate_ack(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     ret = iolink_master_restore_data_storage(&port, restored_value, sizeof(restored_value));

@@ -122,7 +122,12 @@ typedef enum
     IOLINK_MASTER_PARAM_ERR_PD_SIZE = -4,    /**< Process-data size mismatch. */
     IOLINK_MASTER_PARAM_ERR_M_SEQUENCE = -5, /**< Unsupported M-sequence capability. */
     IOLINK_MASTER_PARAM_ERR_VENDOR_ID = -6,  /**< VendorID mismatch. */
-    IOLINK_MASTER_PARAM_ERR_DEVICE_ID = -7   /**< DeviceID mismatch. */
+    IOLINK_MASTER_PARAM_ERR_DEVICE_ID = -7,  /**< DeviceID mismatch. */
+    /**
+     * Reserved Direct Parameter Page 1 ProcessData descriptor (Table B.6):
+     * BYTE = 1 with Length 0/1, or BYTE = 0 with Length 17..31.
+     */
+    IOLINK_MASTER_PARAM_ERR_PD_DESCRIPTOR = -8
 } iolink_master_parameter_result_t;
 
 /**
@@ -223,12 +228,28 @@ typedef struct
     uint32_t expected_device_id;    /**< Expected DeviceID for identity checks. */
     uint8_t response_timeout_100us; /**< Device response deadline, in 100us units. */
     /**
+     * ISDU response watchdog (ISDUTime, 7.3.6.3 / Table 102), in 100us units.
+     * 0 selects the default of 50000 (5 s). It bounds how long the master keeps
+     * polling the ISDU channel while the device answers "busy"/"no service".
+     */
+    uint32_t isdu_timeout_100us;
+    /**
+     * Master message delay T_DMT (Table 42), in bit times, applied after a
+     * wake-up before the first test message is transmitted. The spec range is
+     * 27..37 T_BIT; 0 selects the default of 32.
+     */
+    uint8_t t_dmt_tbit;
+    /**
+     * Wake-up retry delay T_DWU (Table 42), in 100us units, between successive
+     * wake-up request sequences. The spec range is 30..50 ms; 0 selects the
+     * default of 400 (40 ms).
+     */
+    uint32_t t_dwu_100us;
+    /**
      * Number of extra wake-up requests to issue at the current baudrate before
      * giving up (auto-baud: advancing to the next COM rate; fixed baud: erroring).
-     * 0 preserves the historical "one attempt then advance/error" behavior; real
-     * hardware bring-up should set this to a small count (the spec allows the
-     * master to retry the wake-up sequence) so a device that misses the first
-     * WURQ still links up.
+     * 0 selects the spec default n_WU = 2 (Table 42): the master makes up to
+     * n_WU + 1 successive wake-up requests.
      */
     uint8_t wake_retry_limit;
     void* event_user; /**< Opaque user pointer passed to event callbacks. */
@@ -256,8 +277,9 @@ typedef struct
 /** @brief Runtime diagnostics snapshot for a port. */
 typedef struct
 {
-    uint8_t od_status;                /**< Last on-request-data status octet. */
-    bool event_pending;               /**< True while an OD Event flag is set. */
+    uint8_t od_status;                /**< Last reply CKS octet (A.1.5). */
+    uint8_t device_status;            /**< Last DeviceStatus octet read via ISDU (0x0024). */
+    bool event_pending;               /**< True while the reply Event flag (CKS bit 7) is set. */
     uint8_t rx_retry_count;           /**< Current consecutive RX retry count. */
     uint32_t checksum_errors;         /**< Cumulative checksum errors. */
     uint32_t send_errors;             /**< Cumulative transmit errors. */
@@ -271,7 +293,7 @@ typedef struct
     int last_service_result;          /**< Result of the last acyclic service. */
     uint8_t last_event_count;         /**< Number of events in the last event read. */
     uint16_t last_event_code;         /**< Most recent decoded event code. */
-    uint8_t last_isdu_error;          /**< Most recent ISDU error code. */
+    uint16_t last_isdu_error;         /**< Most recent ISDU ErrorType (ErrorCode<<8|AdditionalCode). */
 } iolink_master_diagnostics_t;
 
 /** @brief Read-only scheduler-visible timing snapshot for a port. */
@@ -318,10 +340,10 @@ typedef struct
  * array reference plus port count.
  */
 #define IOLINK_MASTER_PORT_STORAGE_BUDGET_SIZE \
-    1280U /**< Auditing budget for port storage, in bytes. */
+    1296U /**< Auditing budget for port storage, in bytes. */
 #define IOLINK_MASTER_CONTROLLER_STORAGE_BUDGET_SIZE \
     32U /**< Auditing budget for controller storage, in bytes. */
-#define IOLINK_MASTER_PORT_STORAGE_SIZE 1280U /**< Actual port opaque storage size, in bytes. */
+#define IOLINK_MASTER_PORT_STORAGE_SIZE 1296U /**< Actual port opaque storage size, in bytes. */
 #define IOLINK_MASTER_CONTROLLER_STORAGE_SIZE \
     32U /**< Actual controller opaque storage size, in bytes. */
 

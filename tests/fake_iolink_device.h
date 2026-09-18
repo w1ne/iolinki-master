@@ -17,6 +17,7 @@ void fake_iolink_device_set_direct_parameter_page1(uint8_t min_cycle_time,
 void fake_iolink_device_set_data_storage(const uint8_t* data, uint8_t len);
 void fake_iolink_device_set_event_pending(bool pending);
 void fake_iolink_device_set_event_code(uint16_t event_code);
+void fake_iolink_device_set_event_memory(const uint8_t* memory, uint8_t len);
 void fake_iolink_device_corrupt_next_response_checksum(void);
 void fake_iolink_device_drop_next_response(void);
 void fake_iolink_device_truncate_next_response(void);

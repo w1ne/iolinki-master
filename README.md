@@ -9,12 +9,13 @@ The master API is built around caller-owned opaque storage. Public users allocat
 `iolink_master_port_t` or `iolink_master_controller_t`; private state lives in
 `src/` and is not exposed through the public header.
 
-> **Status: `v0.1.0` — protocol-core, simulation-validated.** The stack is
-> exercised against a co-designed simulated device and an on-wire firmware model,
-> not yet against real IO-Link silicon. It is **not** a conformant hardware master
-> yet (open: wake-response baud detection, physical wake-pulse timing, official
-> conformance). See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
-> and [`CHANGELOG.md`](CHANGELOG.md).
+> **Status: protocol-core, simulation-validated.** The stack speaks the IO-Link
+> V1.1.5 wire (checksum A.1.6, ISDU transport 7.3.6, diagnosis-channel events
+> 7.3.8, Table A.10 codes and the C6 timing rules) and is exercised against the
+> `iolinki` device stack and an on-wire firmware model — not yet against real
+> IO-Link silicon (open: physical wake-pulse timing, official conformance). See
+> [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) and
+> [`CHANGELOG.md`](CHANGELOG.md).
 
 Documentation:
 

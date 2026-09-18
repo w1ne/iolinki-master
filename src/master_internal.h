@@ -27,8 +27,24 @@
 
 /** @brief RX/TX scratch buffer size; must hold the worst-case operate frame. */
 #define IOLINK_MASTER_FRAME_BUF_SIZE 64U
-/** @brief Checksum/response retry budget before entering the error state. */
+/** @brief Checksum/response retry budget before restarting communication (7.2.2.1). */
 #define IOLINK_MASTER_RX_RETRY_LIMIT 2U
+
+/** @name Timing defaults and conversion (Table 9, Table 42, A.3.5/A.3.6).
+ *  @{
+ */
+#define IOLINK_MASTER_T_BIT_COM1_NS 208330U /**< T_BIT at COM1 (208.33 us). */
+#define IOLINK_MASTER_T_BIT_COM2_NS 26040U  /**< T_BIT at COM2 (26.04 us). */
+#define IOLINK_MASTER_T_BIT_COM3_NS 4340U   /**< T_BIT at COM3 (4.34 us). */
+#define IOLINK_MASTER_NS_PER_100US 100000U  /**< Nanoseconds per 100us tick. */
+#define IOLINK_MASTER_DEFAULT_T_DMT_TBIT 32U /**< Default T_DMT in bit times (Table 42). */
+#define IOLINK_MASTER_DEFAULT_T_DWU_100US 400U /**< Default T_DWU, 40 ms (Table 42). */
+#define IOLINK_MASTER_DEFAULT_WAKE_RETRY_LIMIT 2U /**< Default n_WU (Table 42). */
+/** @brief UART frame length in bit times (1 start + 8 data + 1 parity + 1 stop). */
+#define IOLINK_MASTER_UART_FRAME_TBIT 11U
+/** @brief Maximum device response delay in bit times (t_A, A.3.5). */
+#define IOLINK_MASTER_T_A_MAX_TBIT 10U
+/** @} */
 /** @brief Wake-up request pattern (alternating bits) emitted when no wake_up hook is set. */
 #define IOLINK_MASTER_WAKEUP_BYTE 0x55U
 
@@ -87,7 +103,15 @@
 /** @brief Master Command comm-channel field position (pairs with IOLINK_MC_COMM_CHANNEL_MASK). */
 #define IOLINK_MASTER_MC_COMM_CHANNEL_SHIFT 5U
 
-/** @name ISDU framing.
+/** @name Reply checksum octet (CKS) flags (A.1.5).
+ *  @{
+ */
+#define IOLINK_MASTER_CKS_EVENT 0x80U     /**< Bit 7: an event is pending (freeze until acked). */
+#define IOLINK_MASTER_CKS_PD_INVALID 0x40U /**< Bit 6: PD-in is invalid (set = invalid). */
+#define IOLINK_MASTER_CKS_CHECKSUM_MASK 0x3FU /**< Bits 0-5: the A.1.6 message checksum. */
+/** @} */
+
+/** @name ISDU framing (7.3.6.1, A.5).
  *  @{
  */
 #define IOLINK_MASTER_ISDU_SERVICE_SHIFT 4U     /**< Shift of the ISDU service nibble. */
@@ -95,9 +119,12 @@
 #define IOLINK_MASTER_ISDU_LENGTH_NIBBLE_MAX \
     15U /**< Max length representable in the length nibble. */
 #define IOLINK_MASTER_ISDU_LENGTH_EXTENDED \
-    0x0FU /**< Length nibble value selecting extended length. */
-#define IOLINK_MASTER_ISDU_WRITE_HEADER_MAX 5U /**< Max ISDU write header length, in bytes. */
-#define IOLINK_MASTER_ISDU_READ_HEADER_LEN 4U  /**< ISDU read header length, in bytes. */
+    0x01U /**< Length nibble value selecting ExtLength (Table A.14). */
+#define IOLINK_MASTER_ISDU_EXT_MIN 17U /**< Minimum total length using ExtLength (A.5.3). */
+#define IOLINK_MASTER_ISDU_EXT_MAX 238U /**< Maximum total length using ExtLength (A.5.3). */
+#define IOLINK_MASTER_ISDU_WRITE_HEADER_MAX 7U /**< Max ISDU write header incl. ExtLength+CHKPDU. */
+#define IOLINK_MASTER_ISDU_READ_HEADER_MAX 6U  /**< Max ISDU read header incl. ExtLength+CHKPDU. */
+#define IOLINK_MASTER_ISDU_CHKPDU_LEN 1U       /**< CHKPDU octet length (A.5.6). */
 /** @} */
 
 /** @name Data Storage record header + event-entry framing.
@@ -106,6 +133,9 @@
 #define IOLINK_MASTER_DS_RECORD_HEADER_LEN 4U /**< Data Storage record header length, in bytes. */
 #define IOLINK_MASTER_EVENT_ENTRY_LEN 3U      /**< Length of one event entry, in bytes. */
 #define IOLINK_MASTER_MAX_EVENTS 8U           /**< Maximum events decoded per read. */
+#define IOLINK_MASTER_EVENT_MEMORY_LEN 19U    /**< Table 58 event memory size (0x00-0x12). */
+#define IOLINK_MASTER_EVENT_SLOT_MAX 6U       /**< Highest Table 58 event slot. */
+#define IOLINK_MASTER_EVENT_STATUS_DETAILS 0x80U /**< StatusCode bit 7: details present. */
 #define IOLINK_MASTER_EVENT_QUALIFIER_MODE_SHIFT 4U /**< Event-qualifier mode field shift. */
 #define IOLINK_MASTER_EVENT_QUALIFIER_MODE_MASK \
     0x03U                                        /**< Mask of the event-qualifier mode field. */
@@ -120,6 +150,7 @@
 #define IOLINK_MASTER_STARTUP_STEP_WAKE 0U           /**< Emit the wake-up request. */
 #define IOLINK_MASTER_STARTUP_STEP_SEND_TYPE0 1U     /**< Send the TYPE_0 request. */
 #define IOLINK_MASTER_STARTUP_STEP_AWAIT_RESPONSE 2U /**< Await the device response. */
+#define IOLINK_MASTER_STARTUP_STEP_AWAIT_OPERATE_ACK 3U /**< Await the CKS reply to DeviceOperate. */
 /** @} */
 
 /** @brief Startup micro-sequence progress for a port. */
@@ -130,26 +161,77 @@ typedef struct
     uint8_t wake_attempts;  /**< Wake-up requests issued at the current baudrate. */
 } iolink_master_startup_state_t;
 
-/** @brief In-flight ISDU request/response state machine for a port. */
+/** @brief Transport phase of the master ISDU handler (7.3.6.3, Figure 51). */
+typedef enum
+{
+    IOLINK_MASTER_ISDU_PHASE_NONE = 0, /**< Idle: no ISDU service in progress. */
+    IOLINK_MASTER_ISDU_PHASE_REQUEST,  /**< Sending the request octet stream (T2/T3). */
+    IOLINK_MASTER_ISDU_PHASE_WAIT,     /**< Polling until the response starts (T5). */
+    IOLINK_MASTER_ISDU_PHASE_RESPONSE, /**< Receiving response octets (T7). */
+} iolink_master_isdu_phase_t;
+
+/** @brief In-flight ISDU request/response state machine for a port.
+ *
+ * The ISDU octet stream (7.3.6.1, A.5) is assembled in @c request or received
+ * into @c response; it is segmented over M-sequences on the ISDU channel with
+ * the FlowCTRL counter carried in the MC address bits (A.1.2, Table 52).
+ */
 typedef struct
 {
     iolink_master_isdu_op_t op;                /**< Current ISDU operation kind. */
+    iolink_master_isdu_phase_t phase;          /**< Current transport phase. */
     uint16_t index;                            /**< ISDU index being accessed. */
     uint8_t subindex;                          /**< ISDU subindex being accessed. */
     uint8_t request[IOLINK_ISDU_BUFFER_SIZE];  /**< Assembled ISDU request buffer. */
-    uint8_t request_len;                       /**< Total request length, in bytes. */
-    uint8_t request_pos;                       /**< Bytes of the request already sent. */
-    uint8_t request_seq;                       /**< Request flow-control sequence counter. */
-    bool request_control_phase;                /**< True while in the request control phase. */
-    bool request_sent;                         /**< True once the full request is sent. */
+    uint16_t request_len;                      /**< Total request length, in bytes. */
+    uint16_t request_pos;                      /**< Bytes of the request already sent. */
+    uint8_t flowctrl;                          /**< Next outgoing FlowCTRL (Table 52). */
+    uint8_t chk;                               /**< Running CHKPDU accumulator (A.5.6). */
+    uint16_t expected_len;                     /**< Declared ISDU stream length, in bytes. */
     uint8_t response[IOLINK_ISDU_BUFFER_SIZE]; /**< Assembled ISDU response buffer. */
     uint16_t response_len;                     /**< Total response length, in bytes. */
-    uint8_t response_seq;                      /**< Response flow-control sequence counter. */
-    bool response_expect_control; /**< True while expecting a response control octet. */
-    bool response_last;           /**< True on the final response segment. */
-    bool done;                    /**< True once the operation has completed. */
-    uint8_t error;                /**< ISDU error code (0 = none). */
+    uint16_t response_pos;                     /**< Bytes of the response already decoded. */
+    bool done;          /**< True once the operation has completed. */
+    bool idle_pending;  /**< True when the T8 FlowCTRL IDLE read must be sent. */
+    bool abort_pending; /**< True when an ABORT M-sequence must be sent (Table 52/53 T11). */
+    uint16_t error;     /**< ISDU ErrorType (ErrorCode<<8|AdditionalCode). */
 } iolink_master_isdu_state_t;
+
+/** @brief Transport phase of the master Event handler (7.3.8.3, Figure 55). */
+typedef enum
+{
+    IOLINK_MASTER_EVENT_PHASE_NONE = 0, /**< Idle: no event service in progress. */
+    IOLINK_MASTER_EVENT_PHASE_READ,     /**< Reading the event memory (T2/T3). */
+    IOLINK_MASTER_EVENT_PHASE_WRITE,    /**< Confirming StatusCode (T8). */
+} iolink_master_event_phase_t;
+
+/** @brief Kind of event service requested through the diagnosis channel. */
+typedef enum
+{
+    IOLINK_MASTER_EVENT_REQ_NONE = 0, /**< No request. */
+    IOLINK_MASTER_EVENT_REQ_CODE,     /**< Report the first active event code. */
+    IOLINK_MASTER_EVENT_REQ_DETAILS,  /**< Read and deliver all active events. */
+    IOLINK_MASTER_EVENT_REQ_ACK,      /**< Read active events, then confirm. */
+} iolink_master_event_req_t;
+
+/** @brief Event-handler state: Table 58 event memory readout over DIAGNOSIS.
+ *
+ * The master reads the event memory octet by octet (7.3.8.2/Table 59) and, when
+ * the request asks for confirmation, writes any value to the StatusCode at
+ * address 0 to release the device's frozen event memory (Table 59 T8).
+ */
+typedef struct
+{
+    iolink_master_event_phase_t phase; /**< Current transport phase. */
+    iolink_master_event_req_t request; /**< Active service kind. */
+    uint8_t addr;                      /**< Next event-memory address to read. */
+    uint8_t needed;                    /**< Total memory octets to collect. */
+    uint8_t memory[IOLINK_MASTER_EVENT_MEMORY_LEN]; /**< Collected memory image. */
+    uint8_t len;                       /**< Octets collected so far. */
+    uint8_t last_slot;                 /**< Highest active event slot (1..6). */
+    bool status_seen;                  /**< True once the StatusCode is decoded. */
+    int result;                        /**< Latched final result. */
+} iolink_master_event_state_t;
 
 /** @brief Receive assembly buffer for a port. */
 typedef struct
@@ -195,11 +277,14 @@ typedef struct
     iolink_master_diagnostics_t diagnostics;      /**< Runtime diagnostics counters. */
     iolink_master_device_info_t device_info;      /**< Decoded device identification. */
     iolink_master_isdu_state_t isdu;              /**< In-flight ISDU state machine. */
+    iolink_master_event_state_t event;            /**< Event-memory readout state machine. */
     iolink_master_block_state_t block;            /**< Parameter block operation state. */
     iolink_master_rx_state_t rx;                  /**< Receive assembly buffer. */
     uint32_t cycle_count;                         /**< Number of cycles executed. */
     uint32_t last_cycle_start_100us;  /**< Last cycle start timestamp, in 100us units. */
     uint32_t response_deadline_100us; /**< Response deadline timestamp, in 100us units. */
+    uint32_t send_ready_at_100us;     /**< Earliest transmit timestamp, in 100us units. */
+    bool send_ready_valid;            /**< True when @c send_ready_at_100us gates transmits. */
     bool cycle_timer_valid;           /**< True once the cycle timer has a valid start. */
     bool awaiting_response;           /**< True while waiting on a device response. */
 } iolink_master_port_state_t;
@@ -254,6 +339,23 @@ static inline const iolink_master_controller_state_t* iolink_master_controller_c
     return (const iolink_master_controller_state_t*) (const void*) controller->storage;
 }
 
+/** @brief Return the A.1.3 CKT M-sequence type field (bits 6-7) for an M-sequence type. */
+static inline uint8_t iolink_master_ckt_type_bits(iolink_master_m_seq_type_t type)
+{
+    switch (type) {
+        case IOLINK_MASTER_M_SEQ_TYPE_1_1:
+        case IOLINK_MASTER_M_SEQ_TYPE_1_2:
+        case IOLINK_MASTER_M_SEQ_TYPE_1_V:
+            return 0x40U;
+        case IOLINK_MASTER_M_SEQ_TYPE_2_1:
+        case IOLINK_MASTER_M_SEQ_TYPE_2_2:
+        case IOLINK_MASTER_M_SEQ_TYPE_2_V:
+            return 0x80U;
+        default:
+            return 0x00U;
+    }
+}
+
 /** @brief Return the on-request-data length in octets for an M-sequence type. */
 static inline uint8_t iolink_master_od_len_for_type(iolink_master_m_seq_type_t type)
 {
@@ -280,6 +382,71 @@ static inline bool iolink_master_response_due_at(const iolink_master_port_t* por
 void iolink_master_isdu_fill_od(iolink_master_port_t* port, uint8_t* od, uint8_t od_len);
 /** @brief Consume the on-request-data octets of a received frame into ISDU state. */
 void iolink_master_isdu_on_od(iolink_master_port_t* port, const uint8_t* od, uint8_t od_len);
+
+/** @brief Return true while an ISDU service is being transported on the ISDU channel.
+ *
+ * When true, @p read reports the required M-sequence direction (true = device to
+ * master) and @p flowctrl the FlowCTRL value (Table 52) to place in the MC
+ * address bits. The caller builds @c MC = read<<7 | IOLINK_MC_CHANNEL_ISDU |
+ * flowctrl (A.1.2).
+ */
+bool iolink_master_isdu_channel_access(const iolink_master_port_t* port, bool* read,
+                                       uint8_t* flowctrl);
+
+/** @brief Consume a pending ISDU ABORT request (Table 53 T11).
+ *
+ * Returns true once per latched transport error, after which the caller must
+ * emit an ISDU-channel ABORT M-sequence. The latch is cleared before returning
+ * so the caller does not need to touch private state.
+ */
+bool iolink_master_isdu_take_abort(iolink_master_port_t* port);
+
+/** @brief Consume a pending T8 IDLE request (Table 53).
+ *
+ * Returns true once after a response has been decoded, after which the caller
+ * must conclude the service with an ISDU-channel read carrying FlowCTRL IDLE.
+ */
+bool iolink_master_isdu_take_idle(iolink_master_port_t* port);
+
+/** @brief Return true while an event-memory service is active on DIAGNOSIS.
+ *
+ * When true, @p read reports the M-sequence direction (true = device to master,
+ * a memory read; false = master write of the StatusCode confirmation), @p addr
+ * the event-memory address to place in the MC address bits, and @p od_len the
+ * number of OD octets to include (1 for a read of one memory octet).
+ */
+bool iolink_master_event_channel_access(const iolink_master_port_t* port, bool* read, uint8_t* addr,
+                                        uint8_t* od_len);
+
+/** @brief Consume the OD octets of an event-memory read reply (Table 59 T3). */
+void iolink_master_event_on_od(iolink_master_port_t* port, const uint8_t* od, uint8_t od_len);
+
+/** @brief Consume the reply to the StatusCode confirmation write (Table 59 T8). */
+void iolink_master_event_on_written(iolink_master_port_t* port);
+
+/** @brief Derive the OPERATE M-sequence capability code (Table A.10).
+ *
+ * @p type is the configured M-sequence type and @p od_len its on-request-data
+ * octet count. Returns the OPERATE code (0/1/4/5/6/7) advertised in Direct
+ * Parameter Page 1, or 0 for the process-data types where Table A.10 fixes 0.
+ */
+uint8_t iolink_master_mseq_capability_code(iolink_master_m_seq_type_t type, uint8_t od_len);
+
+/** @brief Run the port state machine applying the timestamped startup timing gates.
+ *
+ * Like ::iolink_master_process, but @p now_100us gates the T_DMT (Table 42) wait
+ * after a wake-up and the T_DWU wake-retry spacing. @p timed selects the gated
+ * path; the public ::iolink_master_process calls this with @c timed = false.
+ */
+void iolink_master_process_at(iolink_master_port_t* port, uint32_t now_100us, bool timed);
+
+/** @brief Apply a response/deadline timeout, honoring the timestamped wake spacing.
+ *
+ * Like ::iolink_master_on_timeout, but records the T_DWU deadline relative to
+ * @p now_100us. @p timed selects the gated path; the public
+ * ::iolink_master_on_timeout calls this with @c timed = false.
+ */
+int iolink_master_on_timeout_at(iolink_master_port_t* port, uint32_t now_100us, bool timed);
 
 /** @} */ /* end of iolinki_master_internal group */
 

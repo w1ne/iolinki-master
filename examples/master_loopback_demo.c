@@ -79,27 +79,29 @@ static int demo_phy_send(void* user, const uint8_t* data, size_t len)
        ((data[0] & IOLINK_MC_COMM_CHANNEL_MASK) == 0x20U))
     {
         response[0] = 0x00U;
-        response[1] = iolink_checksum_ck(response[0], 0U);
+        response[1] = iolink_checksum6(response, 2U);
         queue_bytes(response, 2U);
         return (int)len;
     }
 
-    /* Transition to OPERATE: Type-0 DeviceOperate write (MC 0x20, OD 0x99); no
-       response per spec. */
+    /* Transition to OPERATE: Type-0 DeviceOperate write (MC 0x20, OD 0x99).
+       Figure A.5: the device answers with the CKS octet alone. */
     if((len == IOLINK_M_SEQ_MIN_LEN) && (data[0] == 0x20U) &&
-       (data[1] == IOLINK_CMD_DEVICE_OPERATE))
+       (data[IOLINK_M_SEQ_HEADER_LEN] == IOLINK_CMD_DEVICE_OPERATE))
     {
+        response[0] = 0x2DU;
+        queue_bytes(response, 1U);
         return (int)len;
     }
 
-    if(len == 6U)
+    if(len == 5U)
     {
-        response[0] = IOLINK_OD_STATUS_PD_VALID;
-        response[1] = 0x5AU;
+        /* A.2.4/A.1.5 reply: [PD-in][OD...] CKS, no status octet; flags in CKS bits 7/6. */
+        response[0] = 0x5AU;
+        response[1] = 0x00U;
         response[2] = 0x00U;
-        response[3] = 0x00U;
-        response[4] = iolink_crc6(response, 4U);
-        queue_bytes(response, 5U);
+        response[3] = iolink_checksum6(response, 4U);
+        queue_bytes(response, 4U);
         return (int)len;
     }
 
@@ -159,6 +161,11 @@ int main(void)
     }
 
     iolink_master_process(&port);
+    /* Figure A.5: consume the CKS-only DeviceOperate reply, then enter OPERATE. */
+    if(iolink_master_poll_rx(&port) != 1)
+    {
+        return 6;
+    }
     if(iolink_master_get_state(&port) != IOLINK_MASTER_STATE_OPERATE)
     {
         return 6;

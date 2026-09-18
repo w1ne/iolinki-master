@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **BREAKING: spec-conformant wire (IO-Link V1.1.5).** The master now speaks the
+  spec message checksum (A.1.6), reply layout (A.1.5: `[PD-in][OD] CKS`, no
+  status octet), ISDU transport with Length/ExtLength/CHKPDU and FlowCTRL
+  segmentation (7.3.6, A.5, Table 52), events over the DIAGNOSIS channel
+  (7.3.8, Table 58/59), Table A.10 OPERATE M-sequence codes, Table B.6
+  descriptor validation, and the C6 timing rules. This is wire-incompatible
+  with every prior release. `IOLINK_MASTER_PORT_STORAGE_SIZE` grew from 1280 to
+  1296 bytes to hold the extra timing state.
 - **Magic numbers extracted to named constants** (`src/master_internal.h`): the
   retry budget, wake-up byte, frame buffer size, Direct Parameter Page 1 field
   offsets, MinCycleTime / M-sequenceCapability / ProcessData-descriptor bit
@@ -19,16 +27,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deviations are recorded in [`docs/MISRA_DEVIATIONS.md`](docs/MISRA_DEVIATIONS.md);
   `check_quality.sh` now also finds the Debian x86_64 cppcheck MISRA addon path.
 
+### Added
+- **Startup timing config**: `t_dmt_tbit` (T_DMT, default 32 bit times) and
+  `t_dwu_100us` (T_DWU, default 400 = 40 ms); `wake_retry_limit` now defaults to
+  the spec n_WU = 2 when 0, and the response deadline is floored at (11 + 10)
+  T_BIT per A.3.5/A.3.6.
+
 ### Fixed
 - **ProcessData descriptor decode** (`master_parameters.c`): isolate the Length
   field to bits 0-4 per Table B.6 so a device that sets the (legal) SIO bit, or
   reports a sub-byte bit length, is decoded to the correct octet count.
+- **Retry recovery** (`master_port.c`): after RX retry exhaustion the port
+  returns to STARTUP and re-issues a wake-up (7.2.2.1) instead of latching
+  ERROR; ERROR stays reserved for PHY failures.
+- **Startup probe** (`master_port.c`): the MinCycleTime probe octet is stored in
+  `device_info.min_cycle_time` under every inspection level, including
+  `NO_CHECK`.
 
 ### Documented
 - **Spec conformance audit** against Interface & System Spec V1.1.5 in
-  `docs/IMPLEMENTATION_STATUS.md`: field encodings are conformant; the
-  startup/OPERATE-transition octets and the ISDU I-Service nibble are known
-  co-designed deviations pending a coordinated master+device change.
+  `docs/IMPLEMENTATION_STATUS.md`: the wire, ISDU transport, events, codes and
+  timing are now conformant for the master slice (C1..C6); the former
+  startup/OPERATE-transition and ISDU I-Service deviations are gone.
 
 ## [0.2.0] - 2026-07-04
 

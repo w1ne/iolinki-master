@@ -7,6 +7,7 @@
 #include <cmocka.h>
 
 #include "iolinki/crc.h"
+#include "test_wire_helpers.h"
 #include "iolinki/protocol.h"
 #include "iolinki_master/master.h"
 
@@ -51,6 +52,14 @@ static void queue_bytes(const uint8_t* data, uint8_t len)
     g_rx_pos = 0U;
 }
 
+/** @brief Queue the CKS-only DeviceOperate reply (A.1.6 over [0x00] = 0x2D). */
+static void queue_operate_ack(void)
+{
+    static const uint8_t ack[1] = {0x2DU};
+
+    queue_bytes(ack, sizeof(ack));
+}
+
 static const iolink_phy_api_t g_phy = {
     .send = fake_send,
     .recv_byte = fake_recv_byte,
@@ -80,7 +89,8 @@ static void test_public_api_drives_startup_and_latches_process_data(void** state
     };
     iolink_master_port_t port;
     uint8_t startup_resp[2] = {0U};
-    const uint8_t operate_resp[] = {0x20U, 0xA5U, 0x00U, 0x0DU};
+    /* A.1.5 reply: [PD-in=0xA5][OD][CKS] for TYPE_1_1 (one OD octet). */
+    uint8_t operate_resp[3] = {0xA5U, 0x00U, 0U};
     uint8_t pd[1] = {0U};
     uint8_t len = 0U;
 
@@ -97,15 +107,22 @@ static void test_public_api_drives_startup_and_latches_process_data(void** state
     assert_int_equal(iolink_master_tick(&port, false), 0);
     assert_int_equal(g_send_calls, 2);
 
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     queue_bytes(startup_resp, sizeof(startup_resp));
     assert_int_equal(iolink_master_tick(&port, false), 1);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
     /* Transition to OPERATE is the Type-0 DeviceOperate write (MC 0x20, OD 0x99). */
     assert_int_equal(g_sent[g_send_calls - 1][0],
                      iolink_master_encode_master_command(false, IOLINK_MASTER_MC_CHANNEL_PAGE, 0x00U));
-    assert_int_equal(g_sent[g_send_calls - 1][1], IOLINK_CMD_DEVICE_OPERATE);
+    assert_int_equal(g_sent[g_send_calls - 1][IOLINK_M_SEQ_HEADER_LEN],
+                     IOLINK_CMD_DEVICE_OPERATE);
 
+    /* Figure A.5: the DeviceOperate write is answered with the CKS octet alone. */
+    queue_operate_ack();
+    assert_int_equal(iolink_master_tick(&port, false), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+
+    operate_resp[2] = test_ck6_reply(operate_resp, 2U, 0U);
     queue_bytes(operate_resp, sizeof(operate_resp));
     assert_int_equal(iolink_master_tick(&port, false), 1);
     assert_int_equal(iolink_master_get_pd_in(&port, pd, sizeof(pd), &len), 0);
@@ -120,6 +137,7 @@ static void test_public_api_exposes_scheduler_timing_state(void** state)
         .m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_0,
         .baudrate = IOLINK_BAUDRATE_COM3,
         .min_cycle_time = 20U,
+        .response_timeout_100us = 20U,
     };
     iolink_master_port_t port;
     iolink_master_timing_t timing;
@@ -138,11 +156,14 @@ static void test_public_api_exposes_scheduler_timing_state(void** state)
                      IOLINK_MASTER_STATUS_OK);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE),
                      IOLINK_MASTER_STATUS_OK);
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)),
                      IOLINK_MASTER_STATUS_OK);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE),
                      IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
+    queue_operate_ack();
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U),
@@ -154,7 +175,7 @@ static void test_public_api_exposes_scheduler_timing_state(void** state)
     assert_int_equal(timing.response_deadline_100us, 120U);
 
     startup_resp[0] = 0x00U;
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)),
                      IOLINK_MASTER_STATUS_OK);
     assert_int_equal(iolink_master_get_timing(&port, &timing), IOLINK_MASTER_STATUS_OK);

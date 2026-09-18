@@ -8,6 +8,7 @@
 #include <cmocka.h>
 
 #include "iolinki/crc.h"
+#include "test_wire_helpers.h"
 #include "iolinki/protocol.h"
 #include "../src/master_internal.h"
 
@@ -50,6 +51,14 @@ static void queue_bytes(const uint8_t* data, uint8_t len)
     memcpy(g_rx_queue, data, len);
     g_rx_len = len;
     g_rx_pos = 0U;
+}
+
+/** @brief Queue the CKS-only DeviceOperate reply (A.1.6 over [0x00] = 0x2D). */
+static void queue_operate_ack(void)
+{
+    static const uint8_t ack[1] = {0x2DU};
+
+    queue_bytes(ack, sizeof(ack));
 }
 
 static const iolink_phy_api_t g_phy = {
@@ -105,17 +114,23 @@ static void test_tick_drains_rx_before_sending_next_frame(void** state)
     assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
 
     startup_resp[0] = 0x00U;
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     queue_bytes(startup_resp, sizeof(startup_resp));
 
     assert_int_equal(iolink_master_tick(&port, false), 1);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
     assert_int_equal(g_send_calls, 3);
     assert_int_equal(g_sent_len[2], 3U);
     assert_int_equal(g_sent[2][0],
                      iolink_master_encode_master_command(false, IOLINK_MASTER_MC_CHANNEL_PAGE,
                                                          IOLINK_MASTER_DPP1_OFF_MASTER_COMMAND));
-    assert_int_equal(g_sent[2][1], IOLINK_CMD_DEVICE_OPERATE);
+    assert_int_equal(g_sent[2][IOLINK_M_SEQ_HEADER_LEN], IOLINK_CMD_DEVICE_OPERATE);
+
+    /* Figure A.5: the DeviceOperate write is answered with the CKS octet alone;
+       a non-transmitting tick consumes it before the port enters OPERATE. */
+    queue_operate_ack();
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 }
 
 static void test_tick_applies_timeout_before_transmit(void** state)
@@ -128,8 +143,9 @@ static void test_tick_applies_timeout_before_transmit(void** state)
     iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
     iolink_master_port_state(&port)->diagnostics.rx_retry_count = 2U;
 
-    assert_int_equal(iolink_master_tick(&port, true), -2);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    /* 7.2.2.1: retry exhaustion restarts communication rather than latching ERROR. */
+    assert_int_equal(iolink_master_tick(&port, true), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
     assert_int_equal(g_send_calls, 0);
 }
 
@@ -146,7 +162,7 @@ static void test_tick_event_none_drains_rx_without_transmitting(void** state)
     assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
 
     startup_resp[0] = 0x00U;
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     queue_bytes(startup_resp, sizeof(startup_resp));
 
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
@@ -167,17 +183,22 @@ static void test_tick_event_cycle_due_transmits_after_rx(void** state)
     assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
 
     startup_resp[0] = 0x00U;
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     queue_bytes(startup_resp, sizeof(startup_resp));
 
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 1);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
     assert_int_equal(g_send_calls, 3);
     assert_int_equal(g_sent_len[2], 3U);
     assert_int_equal(g_sent[2][0],
                      iolink_master_encode_master_command(false, IOLINK_MASTER_MC_CHANNEL_PAGE,
                                                          IOLINK_MASTER_DPP1_OFF_MASTER_COMMAND));
-    assert_int_equal(g_sent[2][1], IOLINK_CMD_DEVICE_OPERATE);
+    assert_int_equal(g_sent[2][IOLINK_M_SEQ_HEADER_LEN], IOLINK_CMD_DEVICE_OPERATE);
+
+    /* Figure A.5: consume the CKS-only DeviceOperate reply before OPERATE. */
+    queue_operate_ack();
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 }
 
 static void test_tick_event_response_timeout_applies_before_transmit(void** state)
@@ -190,8 +211,8 @@ static void test_tick_event_response_timeout_applies_before_transmit(void** stat
     iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
     iolink_master_port_state(&port)->diagnostics.rx_retry_count = 2U;
 
-    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_RESPONSE_TIMEOUT), -2);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_RESPONSE_TIMEOUT), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
     assert_int_equal(g_send_calls, 0);
 }
 
@@ -215,11 +236,16 @@ static void test_tick_event_response_timeout_reports_pending_retry(void** state)
 static void test_tick_at_paces_operate_cycles_by_min_cycle_time(void** state)
 {
     iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
     uint32_t next_due = 0U;
 
     (void)state;
 
-    assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
+    /* A response timeout equal to the min cycle time keeps the deadline aligned
+       with the next cycle so this test isolates the cycle pacing (A.3.5). */
+    config.response_timeout_100us = 20U;
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &config), 0);
     iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
 
     assert_int_equal(iolink_master_get_next_tick_time(&port, 100U, &next_due), 0);
@@ -341,6 +367,89 @@ static void test_tick_at_tracks_cycle_jitter_diagnostics(void** state)
     assert_int_equal(diagnostics.max_cycle_jitter_100us, 5U);
 }
 
+static void test_tick_at_holds_first_message_for_t_dmt_after_wake(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_tick_event_t event = IOLINK_MASTER_TICK_CYCLE_DUE;
+
+    (void)state;
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
+
+    /* Wake-up at t=0; COM3 T_DMT = 32 * 4.34us = 139us -> 2 ticks of 100us. */
+    assert_int_equal(iolink_master_tick_at(&port, event, 0U), 0);
+    assert_int_equal(g_send_calls, 1);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step,
+                     IOLINK_MASTER_STARTUP_STEP_SEND_TYPE0);
+    assert_int_equal(iolink_master_port_state(&port)->send_ready_at_100us, 2U);
+
+    /* T_DMT not yet elapsed: the test message is held off (Table 42). */
+    assert_int_equal(iolink_master_tick_at(&port, event, 1U), 0);
+    assert_int_equal(g_send_calls, 1);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step,
+                     IOLINK_MASTER_STARTUP_STEP_SEND_TYPE0);
+
+    /* At t=200us (2 ticks) the first test message is sent. */
+    assert_int_equal(iolink_master_tick_at(&port, event, 2U), 0);
+    assert_int_equal(g_send_calls, 2);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step,
+                     IOLINK_MASTER_STARTUP_STEP_AWAIT_RESPONSE);
+}
+
+static void test_tick_at_spaces_wake_retries_by_t_dwu(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+    iolink_master_tick_event_t cycle = IOLINK_MASTER_TICK_CYCLE_DUE;
+
+    (void)state;
+
+    config.wake_retry_limit = 1U;
+    config.t_dwu_100us = 400U; /* 40 ms (Table 42). */
+
+    assert_int_equal(iolink_master_init(&port, &g_phy, &config), 0);
+    iolink_master_process(&port);
+    assert_int_equal(g_send_calls, 1);
+
+    /* The wake-up attempt fails; the retry is armed for now + T_DWU. */
+    assert_int_equal(iolink_master_on_timeout_at(&port, 100U, true),
+                     IOLINK_MASTER_STATUS_PENDING);
+    assert_int_equal(iolink_master_port_state(&port)->send_ready_at_100us, 500U);
+
+    /* Before T_DWU elapsed no new wake-up is transmitted. */
+    assert_int_equal(iolink_master_tick_at(&port, cycle, 499U), 0);
+    assert_int_equal(g_send_calls, 1);
+
+    /* At T_DWU the wake-up retry goes out. */
+    assert_int_equal(iolink_master_tick_at(&port, cycle, 500U), 0);
+    assert_int_equal(g_send_calls, 2);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step,
+                     IOLINK_MASTER_STARTUP_STEP_SEND_TYPE0);
+}
+
+static void test_response_deadline_has_a_t_bit_floor(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_config_t config = g_config;
+
+    (void)state;
+
+    /* A.3.5/A.3.6: deadline >= one UART frame (11 T_BIT) + t_A (10 T_BIT). */
+    config.response_timeout_100us = 0U;
+    config.baudrate = IOLINK_BAUDRATE_COM3;
+    assert_int_equal(iolink_master_init(&port, &g_phy, &config), 0);
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U), 0);
+    assert_int_equal(iolink_master_port_state(&port)->response_deadline_100us, 101U);
+
+    reset_fixture(state);
+    config.baudrate = IOLINK_BAUDRATE_COM1; /* 21 * 208.33us = 4375us -> 44 ticks. */
+    assert_int_equal(iolink_master_init(&port, &g_phy, &config), 0);
+    iolink_master_port_state(&port)->state = IOLINK_MASTER_STATE_OPERATE;
+    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U), 0);
+    assert_int_equal(iolink_master_port_state(&port)->response_deadline_100us, 144U);
+}
+
 static void test_tick_rejects_null_port(void** state)
 {
     (void)state;
@@ -372,6 +481,10 @@ int main(void)
         cmocka_unit_test_setup(test_tick_at_counts_late_cycle_slips, reset_fixture),
         cmocka_unit_test_setup(test_tick_at_tracks_cycle_jitter_diagnostics,
                                reset_fixture),
+        cmocka_unit_test_setup(test_tick_at_holds_first_message_for_t_dmt_after_wake,
+                               reset_fixture),
+        cmocka_unit_test_setup(test_tick_at_spaces_wake_retries_by_t_dwu, reset_fixture),
+        cmocka_unit_test_setup(test_response_deadline_has_a_t_bit_floor, reset_fixture),
         cmocka_unit_test_setup(test_tick_rejects_null_port, reset_fixture),
     };
 

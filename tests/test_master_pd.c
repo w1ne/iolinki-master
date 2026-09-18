@@ -49,6 +49,16 @@ static const iolink_phy_api_t g_recv_phy = {
     .recv_byte = fake_recv_byte,
 };
 
+/* A.1.5 reply helpers: [PD-in][OD] CKS with the flags OR-ed into CKS bits 7/6. */
+static uint8_t operate_cks(uint8_t pd, uint8_t od, uint8_t flags)
+{
+    /* A.1.6: the CKS octet is covered with its checksum bits set to zero but its
+       flag bits (7:6) included, so the flags are part of the checksum input. */
+    uint8_t msg[3] = {pd, od, (uint8_t) (flags & 0xC0U)};
+
+    return (uint8_t) (iolink_checksum6(msg, sizeof(msg)) | (flags & 0xC0U));
+}
+
 static const iolink_master_config_t g_config = {
     .m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_2_1,
     .baudrate = IOLINK_BAUDRATE_COM3,
@@ -60,7 +70,7 @@ static const iolink_master_config_t g_config = {
 static void test_on_rx_valid_response_latches_pd(void** state)
 {
     iolink_master_port_t port = {0};
-    const uint8_t frame[] = {0x20U, 0xA5U, 0x00U, 0x0DU};
+    const uint8_t frame[] = {0xA5U, 0x00U, operate_cks(0xA5U, 0x00U, 0U)};
     uint8_t pd[1] = {0U};
     uint8_t len = 0U;
 
@@ -78,7 +88,7 @@ static void test_on_rx_valid_response_latches_pd(void** state)
 static void test_poll_rx_latches_complete_operate_response_from_phy(void** state)
 {
     iolink_master_port_t port = {0};
-    const uint8_t frame[] = {0x20U, 0xA5U, 0x00U, 0x0DU};
+    const uint8_t frame[] = {0xA5U, 0x00U, operate_cks(0xA5U, 0x00U, 0U)};
     uint8_t pd[1] = {0U};
     uint8_t len = 0U;
 
@@ -99,8 +109,8 @@ static void test_poll_rx_latches_complete_operate_response_from_phy(void** state
 static void test_poll_rx_keeps_partial_response_until_complete(void** state)
 {
     iolink_master_port_t port = {0};
-    const uint8_t partial[] = {0x20U, 0xA5U};
-    const uint8_t rest[] = {0x00U, 0x0DU};
+    const uint8_t partial[] = {0xA5U};
+    const uint8_t rest[] = {0x00U, 0x22U};
     uint8_t pd[1] = {0U};
     uint8_t len = 0U;
 
@@ -139,10 +149,10 @@ static void test_poll_rx_enters_error_on_phy_receive_error(void** state)
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
 }
 
-static void test_on_rx_latches_od_status_for_diagnostics(void** state)
+static void test_on_rx_latches_cks_for_diagnostics(void** state)
 {
     iolink_master_port_t port = {0};
-    uint8_t frame[] = {0xA3U, 0xA5U, 0x00U, 0x00U};
+    uint8_t frame[] = {0xA5U, 0x00U, 0x00U};
     uint8_t status = 0U;
     iolink_master_diagnostics_t diagnostics;
 
@@ -150,15 +160,15 @@ static void test_on_rx_latches_od_status_for_diagnostics(void** state)
 
     iolink_master_port_state(&port)->config.pd_in_len = 1U;
     iolink_master_port_state(&port)->od_len = 1U;
-    frame[3] = iolink_crc6(frame, 3U);
+    /* Event flag set in CKS bit 7; the PD-invalid flag (bit 6) is clear. */
+    frame[2] = operate_cks(0xA5U, 0x00U, IOLINK_MASTER_CKS_EVENT);
 
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), 0);
     assert_int_equal(iolink_master_get_od_status(&port, &status), 0);
-    assert_int_equal(status, 0xA3U);
+    assert_int_equal(status, frame[2]);
     assert_true(iolink_master_port_state(&port)->diagnostics.event_pending);
-    assert_int_equal(iolink_master_get_device_status(&port), IOLINK_DEVICE_STATUS_FAILURE);
     assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
-    assert_int_equal(diagnostics.od_status, 0xA3U);
+    assert_int_equal(diagnostics.od_status, frame[2]);
     assert_true(diagnostics.event_pending);
     assert_int_equal(diagnostics.link_quality_percent, 100U);
 }
@@ -204,7 +214,7 @@ static void test_get_device_status_returns_failure_for_null_port(void** state)
 static void test_on_rx_bad_checksum_returns_error_and_increments_count(void** state)
 {
     iolink_master_port_t port = {0};
-    const uint8_t frame[] = {0x20U, 0xA5U, 0x00U, 0x00U};
+    const uint8_t frame[] = {0xA5U, 0x00U, 0x00U};
 
     (void)state;
 
@@ -218,7 +228,7 @@ static void test_on_rx_bad_checksum_returns_error_and_increments_count(void** st
 static void test_on_rx_bad_checksum_retries_twice_before_error_state(void** state)
 {
     iolink_master_port_t port = {0};
-    const uint8_t frame[] = {0x20U, 0xA5U, 0x00U, 0x00U};
+    const uint8_t frame[] = {0xA5U, 0x00U, 0x00U};
 
     (void)state;
 
@@ -240,8 +250,8 @@ static void test_on_rx_bad_checksum_retries_twice_before_error_state(void** stat
 static void test_on_rx_valid_response_resets_checksum_retry_count(void** state)
 {
     iolink_master_port_t port = {0};
-    const uint8_t bad_frame[] = {0x20U, 0xA5U, 0x00U, 0x00U};
-    const uint8_t good_frame[] = {0x20U, 0xA5U, 0x00U, 0x0DU};
+    const uint8_t bad_frame[] = {0xA5U, 0x00U, 0x00U};
+    const uint8_t good_frame[] = {0xA5U, 0x00U, operate_cks(0xA5U, 0x00U, 0U)};
 
     (void)state;
 
@@ -258,7 +268,7 @@ static void test_on_rx_valid_response_resets_checksum_retry_count(void** state)
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 }
 
-static void test_operate_timeout_retries_twice_before_error_state(void** state)
+static void test_operate_timeout_retries_twice_then_restarts_communication(void** state)
 {
     iolink_master_port_t port = {0};
 
@@ -272,14 +282,17 @@ static void test_operate_timeout_retries_twice_before_error_state(void** state)
     assert_int_equal(iolink_master_on_timeout(&port), 1);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
-    assert_int_equal(iolink_master_on_timeout(&port), -2);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    /* 7.2.2.1: after the retries the master re-initiates communication via a wake-up. */
+    assert_int_equal(iolink_master_on_timeout(&port), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step, IOLINK_MASTER_STARTUP_STEP_WAKE);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.rx_retry_count, 0U);
 }
 
 static void test_valid_response_resets_operate_timeout_retry_count(void** state)
 {
     iolink_master_port_t port = {0};
-    const uint8_t good_frame[] = {0x20U, 0xA5U, 0x00U, 0x0DU};
+    const uint8_t good_frame[] = {0xA5U, 0x00U, operate_cks(0xA5U, 0x00U, 0U)};
 
     (void)state;
 
@@ -298,7 +311,7 @@ static void test_valid_response_resets_operate_timeout_retry_count(void** state)
 static void test_on_rx_malformed_frame_returns_decode_error(void** state)
 {
     iolink_master_port_t port = {0};
-    const uint8_t frame[] = {0x20U, 0xA5U};
+    const uint8_t frame[] = {0xA5U, 0x00U};
 
     (void)state;
 
@@ -312,7 +325,7 @@ static void test_on_rx_malformed_frame_returns_decode_error(void** state)
 static void test_on_rx_rejects_invalid_args(void** state)
 {
     iolink_master_port_t port = {0};
-    const uint8_t frame[] = {0x20U, 0xA5U, 0x00U, 0x0DU};
+    const uint8_t frame[] = {0xA5U, 0x00U, operate_cks(0xA5U, 0x00U, 0U)};
 
     (void)state;
 
@@ -367,14 +380,14 @@ int main(void)
         cmocka_unit_test(test_poll_rx_latches_complete_operate_response_from_phy),
         cmocka_unit_test(test_poll_rx_keeps_partial_response_until_complete),
         cmocka_unit_test(test_poll_rx_enters_error_on_phy_receive_error),
-        cmocka_unit_test(test_on_rx_latches_od_status_for_diagnostics),
+        cmocka_unit_test(test_on_rx_latches_cks_for_diagnostics),
         cmocka_unit_test(test_diagnostics_reports_derived_link_quality),
         cmocka_unit_test(test_get_od_status_rejects_invalid_args),
         cmocka_unit_test(test_get_device_status_returns_failure_for_null_port),
         cmocka_unit_test(test_on_rx_bad_checksum_returns_error_and_increments_count),
         cmocka_unit_test(test_on_rx_bad_checksum_retries_twice_before_error_state),
         cmocka_unit_test(test_on_rx_valid_response_resets_checksum_retry_count),
-        cmocka_unit_test(test_operate_timeout_retries_twice_before_error_state),
+        cmocka_unit_test(test_operate_timeout_retries_twice_then_restarts_communication),
         cmocka_unit_test(test_valid_response_resets_operate_timeout_retry_count),
         cmocka_unit_test(test_on_rx_malformed_frame_returns_decode_error),
         cmocka_unit_test(test_on_rx_rejects_invalid_args),
