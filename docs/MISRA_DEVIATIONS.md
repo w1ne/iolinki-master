@@ -15,9 +15,9 @@ Rule 15.7 (all `if … else if` chains terminated with an `else`).
 | Rule | Type | Where | Rationale |
 | --- | --- | --- | --- |
 | **11.5** | Required | `master_internal.h` opaque-storage accessors (×4) | `void*` → private-state pointer. The public ABI is caller-owned, heap-free, and opaque; the `_storage_must_fit` static asserts guarantee size and the `iolink_master_*_t` union alignment members guarantee alignment. Annotated at the source. |
-| **19.2** | Advisory | `master.h` `iolink_master_port_t` / `_controller_t` (×N) | The `union` keyword. Used only for the opaque caller-owned storage types, which need a fixed size and worst-case alignment. No other unions exist. |
+| **19.2** | Advisory | `master.h` `iolink_master_port_t` / `_controller_t` and their use sites in `master_port.c` (×N) | The `union` keyword. Used only for the opaque caller-owned storage types, which need a fixed size and worst-case alignment. No other unions exist. |
 | **10.4** | Required | status/error comparisons (×22) | The public API returns `int` for status/error codes (a deliberate, forward-compatible ABI choice) and compares against named `IOLINK_MASTER_*` enum constants. The comparisons are value-correct; unifying the essential type would change the public return type. |
-| **15.5** | Advisory | throughout (×~200) | Multiple `return` statements (guard-clause early exits). The style is the established idiom in this stack and is clearer than deep nesting; single-exit restructuring would reduce readability. |
+| **15.5** | Advisory | throughout (×~210) | Multiple `return` statements (guard-clause early exits), including the timestamped `iolink_master_process_at` / `iolink_master_on_timeout_at` paths. The style is the established idiom in this stack and is clearer than deep nesting; single-exit restructuring would reduce readability. |
 | **13.3** | Advisory | buffer index post-increments (×9) | `buf[i++]` within a larger expression. Local, idiomatic, and clear; no sequencing ambiguity. |
 | **10.8** | Advisory | `master_parameters.c`, `master_port.c` (×2) | Composite expression cast to a narrower type / enum. Each operand is masked to range before the cast, so the conversion is value-safe. |
 | **9.3** | Advisory | `{0U}` array initializers (×2) | A partial initializer that zero-initializes the whole array per C. Intentional. |

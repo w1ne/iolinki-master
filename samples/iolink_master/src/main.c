@@ -97,24 +97,29 @@ static int demo_phy_send(void* user, const uint8_t* data, size_t len)
         return (int)len;
     }
 
-    if((len == IOLINK_M_SEQ_TYPE0_LEN) && (data[0] == 0x00U))
+    /* Startup probe (7.3.2.2 T1): Type-0 READ of a Direct Parameter octet on the
+       page channel (MC 0xA2). Answer with a valid 2-octet Type-0 frame. */
+    if((len == IOLINK_M_SEQ_TYPE0_LEN) && ((data[0] & IOLINK_MC_RW_MASK) != 0U) &&
+       ((data[0] & IOLINK_MC_COMM_CHANNEL_MASK) == 0x20U))
     {
-        /* A.1.5 TYPE_0 reply: one OD octet plus CKS. */
         response[0] = 0x00U;
-        response[1] = 0x00U;
         response[1] = iolink_checksum6(response, 2U);
         queue_bytes(response, 2U);
         return (int)len;
     }
 
-    if((len == IOLINK_M_SEQ_TYPE0_LEN) && (data[0] == IOLINK_MC_TRANSITION_COMMAND))
+    /* Transition to OPERATE: Type-0 DeviceOperate write (MC 0x20, OD 0x99); no
+       response per spec. */
+    if((len == IOLINK_M_SEQ_MIN_LEN) && (data[0] == 0x20U) &&
+       (data[IOLINK_M_SEQ_HEADER_LEN] == IOLINK_CMD_DEVICE_OPERATE))
     {
         return (int)len;
     }
 
     if(len == 5U)
     {
-        /* A.2.4/A.1.5 OPERATE reply: [PD-in][OD...] CKS, no status octet. */
+        /* A.2.4/A.1.5 OPERATE reply: [PD-in][OD...] CKS, no status octet; flags
+           live in CKS bits 7/6. */
         response[0] = 0x5AU;
         response[1] = 0x00U;
         response[2] = 0x00U;
