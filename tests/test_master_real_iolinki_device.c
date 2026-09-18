@@ -584,7 +584,7 @@ test_master_reads_mandatory_identity_objects_with_real_iolinki_device_stack(
   iolink_master_port_t master;
   uint8_t pd_out[2] = {0x31U, 0x32U};
   const uint8_t vendor_id[] = {0xFFU, 0xFFU};
-  const uint8_t device_id[] = {0x00U, 0x00U, 0x00U, 0x01U};
+  const uint8_t device_id[] = {0x00U, 0x00U, 0x01U}; /* B.1.9: DeviceID is 3 octets */
   const uint8_t profile_characteristic[] = {0x00U, 0x00U};
   static const uint8_t vendor_name[] = "iolinki";
   static const uint8_t product_name[] = "Generic IO-Link Device";
@@ -805,8 +805,9 @@ static void test_master_observes_real_device_access_locks(void **state) {
                                        ds_image, sizeof(ds_image)),
       IOLINK_MASTER_ISDU_ERR_DEVICE);
   assert_int_equal(iolink_master_get_diagnostics(&master, &diagnostics), 0);
+  /* ErrorType 0x80 0x23 (IDX_NOT_ACCESSIBLE, Table C.1) as ErrorCode<<8 | AdditionalCode. */
   assert_int_equal(diagnostics.last_isdu_error,
-                   IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+                   (0x80U << 8U) | IOLINK_ISDU_ERROR_WRITE_PROTECTED);
   assert_int_equal(diagnostics.last_service_result,
                    IOLINK_MASTER_ISDU_ERR_DEVICE);
 
