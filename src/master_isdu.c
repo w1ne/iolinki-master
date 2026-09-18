@@ -312,6 +312,11 @@ void iolink_master_isdu_on_od(iolink_master_port_t* port, const uint8_t* od, uin
             isdu->response_len = 0U;
             isdu->response_pos = 0U;
             isdu->expected_len = 0U;
+            /* Table 52: the octets in this reply were fetched by START; the next
+               read must carry COUNT 1. Leaving START in place re-polls the
+               device, which repeats the same octets (7.3.6.2) and the assembled
+               response duplicates its first segment. */
+            isdu->flowctrl = 1U;
         }
 
         if (isdu->response_len >= IOLINK_ISDU_BUFFER_SIZE) {
