@@ -211,7 +211,7 @@ static void test_validate_device_info_rejects_incompatible_cycle_pd_and_mseq(voi
     assert_int_equal(iolink_master_validate_device_info(&port), -3);
 
     memcpy(page, g_page1, sizeof(page));
-    page[0x05] = 0x18U;
+    page[0x05] = 0x08U;
     assert_int_equal(iolink_master_apply_direct_parameter_page1(&port, page, sizeof(page)), 0);
     assert_int_equal(iolink_master_validate_device_info(&port), -4);
 
@@ -298,8 +298,8 @@ static void test_select_config_from_device_info_maps_all_public_mseq_profiles(vo
         {0x01U, 0x10U, 0x10U, IOLINK_MASTER_M_SEQ_TYPE_2_2, 2U, 2U},
         {0x02U, 0x08U, 0x08U, IOLINK_MASTER_M_SEQ_TYPE_1_1, 1U, 1U},
         {0x03U, 0x10U, 0x10U, IOLINK_MASTER_M_SEQ_TYPE_1_2, 2U, 2U},
-        {0x0AU, 0x83U, 0x83U, IOLINK_MASTER_M_SEQ_TYPE_1_V, 4U, 4U},
-        {0x0BU, 0x84U, 0x84U, IOLINK_MASTER_M_SEQ_TYPE_2_V, 5U, 5U},
+        {0x0CU, 0x83U, 0x83U, IOLINK_MASTER_M_SEQ_TYPE_2_V, 4U, 4U},
+        {0x0AU, 0x84U, 0x84U, IOLINK_MASTER_M_SEQ_TYPE_2_V, 5U, 5U},
     };
     uint8_t page[16];
     iolink_master_device_info_t info;
@@ -374,7 +374,7 @@ static void test_select_config_from_device_info_rejects_invalid_inputs(void** st
                      IOLINK_MASTER_STATUS_PENDING);
 
     info.valid = true;
-    info.operate_mseq_code = 7U;
+    info.operate_mseq_code = 3U;
     assert_int_equal(iolink_master_select_config_from_device_info(&info, &config),
                      IOLINK_MASTER_PARAM_ERR_M_SEQUENCE);
 }
@@ -541,6 +541,98 @@ static void test_select_config_adopts_decoded_cycle_time_and_clamps(void** state
     assert_int_equal(config.min_cycle_time, 0xFFU);
 }
 
+static void test_parse_direct_parameter_page1_rejects_reserved_pd_descriptors(void** state)
+{
+    const uint8_t reserved[] = {
+        0x80U, /* BYTE = 1, Length 0. */
+        0x81U, /* BYTE = 1, Length 1. */
+        0x11U, /* BYTE = 0, Length 17. */
+        0x1FU, /* BYTE = 0, Length 31. */
+    };
+    uint8_t page[16];
+    iolink_master_device_info_t info;
+    size_t i;
+
+    (void)state;
+
+    for(i = 0U; i < (sizeof(reserved) / sizeof(reserved[0])); i++)
+    {
+        memcpy(page, g_page1, sizeof(page));
+        page[0x05] = reserved[i];
+        assert_int_equal(iolink_master_parse_direct_parameter_page1(page, sizeof(page), &info),
+                         IOLINK_MASTER_PARAM_ERR_PD_DESCRIPTOR);
+    }
+
+    for(i = 0U; i < (sizeof(reserved) / sizeof(reserved[0])); i++)
+    {
+        memcpy(page, g_page1, sizeof(page));
+        page[0x06] = reserved[i];
+        assert_int_equal(iolink_master_parse_direct_parameter_page1(page, sizeof(page), &info),
+                         IOLINK_MASTER_PARAM_ERR_PD_DESCRIPTOR);
+    }
+
+    /* The boundary just outside each reserved range stays valid. */
+    memcpy(page, g_page1, sizeof(page));
+    page[0x05] = 0x82U; /* BYTE = 1, Length 2. */
+    page[0x06] = 0x10U; /* BYTE = 0, Length 16. */
+    assert_int_equal(iolink_master_parse_direct_parameter_page1(page, sizeof(page), &info),
+                     IOLINK_MASTER_STATUS_OK);
+}
+
+static void test_mseq_capability_code_matches_table_a10(void** state)
+{
+    static const struct
+    {
+        iolink_master_m_seq_type_t type;
+        uint8_t od_len;
+        uint8_t expected_code;
+    } cases[] = {
+        {IOLINK_MASTER_M_SEQ_TYPE_0, 1U, 0U},
+        {IOLINK_MASTER_M_SEQ_TYPE_1_1, 1U, 0U},
+        {IOLINK_MASTER_M_SEQ_TYPE_1_2, 2U, 1U},
+        {IOLINK_MASTER_M_SEQ_TYPE_1_V, 8U, 6U},
+        {IOLINK_MASTER_M_SEQ_TYPE_1_V, 32U, 7U},
+        {IOLINK_MASTER_M_SEQ_TYPE_2_1, 1U, 0U},
+        {IOLINK_MASTER_M_SEQ_TYPE_2_2, 1U, 0U},
+        {IOLINK_MASTER_M_SEQ_TYPE_2_V, 1U, 4U},
+        {IOLINK_MASTER_M_SEQ_TYPE_2_V, 2U, 5U},
+        {IOLINK_MASTER_M_SEQ_TYPE_2_V, 8U, 6U},
+        {IOLINK_MASTER_M_SEQ_TYPE_2_V, 32U, 7U},
+    };
+    size_t i;
+
+    (void)state;
+
+    for(i = 0U; i < (sizeof(cases) / sizeof(cases[0])); i++)
+    {
+        assert_int_equal(iolink_master_mseq_capability_code(cases[i].type, cases[i].od_len),
+                         cases[i].expected_code);
+    }
+}
+
+static void test_validate_accepts_every_table_a10_code_for_its_type(void** state)
+{
+    const uint8_t codes[] = {6U, 7U};
+    uint8_t page[16];
+    iolink_master_device_info_t info;
+    iolink_master_config_t config = g_config;
+    size_t i;
+
+    (void)state;
+
+    config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_1_V;
+    for(i = 0U; i < (sizeof(codes) / sizeof(codes[0])); i++)
+    {
+        memcpy(page, g_page1, sizeof(page));
+        page[0x03] = (uint8_t) (0x01U | (codes[i] << 1U)); /* ISDU, TYPE_1_V code. */
+        page[0x06] = (uint8_t) (0x83U);                    /* Keep 4 PD-out octets. */
+        assert_int_equal(iolink_master_parse_direct_parameter_page1(page, sizeof(page), &info),
+                         IOLINK_MASTER_STATUS_OK);
+        assert_int_equal(iolink_master_validate_config_against_device_info(&info, &config),
+                         IOLINK_MASTER_STATUS_OK);
+    }
+}
+
 static void test_master_command_encode_decode_round_trips(void** state)
 {
     uint8_t mc;
@@ -589,6 +681,9 @@ int main(void)
         cmocka_unit_test(test_parse_direct_parameter_page1_decodes_cycle_time_time_base),
         cmocka_unit_test(test_validate_config_compares_decoded_cycle_time),
         cmocka_unit_test(test_select_config_adopts_decoded_cycle_time_and_clamps),
+        cmocka_unit_test(test_parse_direct_parameter_page1_rejects_reserved_pd_descriptors),
+        cmocka_unit_test(test_mseq_capability_code_matches_table_a10),
+        cmocka_unit_test(test_validate_accepts_every_table_a10_code_for_its_type),
         cmocka_unit_test(test_master_command_encode_decode_round_trips),
     };
 

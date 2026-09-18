@@ -90,18 +90,80 @@ static uint8_t iolink_master_decode_pd_descriptor(uint8_t descriptor)
                       IOLINK_MASTER_PD_DESC_BITS_PER_OCTET);
 }
 
-/** @brief Map a configured M-sequence type to its OPERATE capability code (0, 1, or 5). */
-static uint8_t iolink_master_mseq_capability_code(iolink_master_m_seq_type_t type)
+/** @brief Return true if a ProcessData descriptor uses a reserved BYTE/Length combination.
+ *
+ * Table B.6: BYTE = 1 with Length 0 or 1 is reserved, and BYTE = 0 with Length
+ * 17..31 is reserved.
+ */
+static bool iolink_master_pd_descriptor_is_reserved(uint8_t descriptor)
+{
+    uint8_t length = (uint8_t) (descriptor & IOLINK_MASTER_PD_DESC_LENGTH_MASK);
+
+    if ((descriptor & IOLINK_MASTER_PD_DESC_BYTE_BIT) != 0U) {
+        return (length < 2U);
+    }
+
+    return (length >= 17U);
+}
+
+/** @brief Map a configured M-sequence type/OD width to its OPERATE capability code (Table A.10).
+ *
+ * The OPERATE M-sequence code is derived from the OD octet count and the PD
+ * configuration. TYPE_1_2 (2 OD, no PD) is code 1; TYPE_1_1 (interleaved) and the
+ * TYPE_2_x process-data types are code 0; TYPE_1_V uses code 6 (8 OD) or 7
+ * (32 OD); TYPE_2_V uses codes 4/5/6/7 by OD width.
+ */
+uint8_t iolink_master_mseq_capability_code(iolink_master_m_seq_type_t type, uint8_t od_len)
+{
+    switch (type) {
+        case IOLINK_MASTER_M_SEQ_TYPE_1_2:
+            return 1U;
+        case IOLINK_MASTER_M_SEQ_TYPE_1_V:
+            return (od_len == 32U) ? 7U : 6U;
+        case IOLINK_MASTER_M_SEQ_TYPE_2_V:
+            switch (od_len) {
+                case 1U:
+                    return 4U;
+                case 2U:
+                    return 5U;
+                case 8U:
+                    return 6U;
+                case 32U:
+                    return 7U;
+                default:
+                    return 0U;
+            }
+        case IOLINK_MASTER_M_SEQ_TYPE_0:
+        case IOLINK_MASTER_M_SEQ_TYPE_1_1:
+        case IOLINK_MASTER_M_SEQ_TYPE_2_1:
+        case IOLINK_MASTER_M_SEQ_TYPE_2_2:
+        default:
+            return 0U;
+    }
+}
+
+/** @brief Return true if an OPERATE capability code is valid for a configured M-sequence type.
+ *
+ * Table A.10 maps several codes to the same type family (TYPE_2_V uses codes
+ * 4/5/6/7 by OD width, TYPE_1_V uses 6/7); validation accepts the full valid set.
+ */
+static bool iolink_master_mseq_code_compatible(iolink_master_m_seq_type_t type, uint8_t code)
 {
     switch (type) {
         case IOLINK_MASTER_M_SEQ_TYPE_1_1:
         case IOLINK_MASTER_M_SEQ_TYPE_1_2:
-            return 1U;
+            /* Table A.10: code 1 (2 OD, no PD) or 0 (interleaved, PD present). */
+            return (code == 0U) || (code == 1U);
+        case IOLINK_MASTER_M_SEQ_TYPE_0:
+        case IOLINK_MASTER_M_SEQ_TYPE_2_1:
+        case IOLINK_MASTER_M_SEQ_TYPE_2_2:
+            return (code == 0U);
         case IOLINK_MASTER_M_SEQ_TYPE_1_V:
+            return (code == 6U) || (code == 7U);
         case IOLINK_MASTER_M_SEQ_TYPE_2_V:
-            return 5U;
+            return (code >= 4U) && (code <= 7U);
         default:
-            return 0U;
+            return false;
     }
 }
 
@@ -129,8 +191,14 @@ static bool iolink_master_mseq_type_from_capability_code(uint8_t code, bool isdu
         case 1U:
             *type = isdu_supported ? IOLINK_MASTER_M_SEQ_TYPE_1_2 : IOLINK_MASTER_M_SEQ_TYPE_1_1;
             return true;
+        case 4U:
+        case 6U:
+        case 7U:
+            /* Table A.10: TYPE_2_V variable/8/32 OD variants. */
+            *type = IOLINK_MASTER_M_SEQ_TYPE_2_V;
+            return true;
         case 5U:
-            *type = isdu_supported ? IOLINK_MASTER_M_SEQ_TYPE_2_V : IOLINK_MASTER_M_SEQ_TYPE_1_V;
+            *type = IOLINK_MASTER_M_SEQ_TYPE_2_V;
             return true;
         default:
             return false;
@@ -146,6 +214,11 @@ int iolink_master_parse_direct_parameter_page1(const uint8_t* page, uint8_t len,
 
     if (len < IOLINK_MASTER_DPP1_LEN) {
         return IOLINK_MASTER_PARAM_ERR_TOO_SHORT;
+    }
+
+    if (iolink_master_pd_descriptor_is_reserved(page[IOLINK_MASTER_DPP1_OFF_PD_IN_DESC]) ||
+        iolink_master_pd_descriptor_is_reserved(page[IOLINK_MASTER_DPP1_OFF_PD_OUT_DESC])) {
+        return IOLINK_MASTER_PARAM_ERR_PD_DESCRIPTOR;
     }
 
     (void) memset(info, 0, sizeof(*info));
@@ -248,7 +321,7 @@ int iolink_master_validate_config_against_device_info(const iolink_master_device
         return IOLINK_MASTER_PARAM_ERR_PD_SIZE;
     }
 
-    if (iolink_master_mseq_capability_code(config->m_seq_type) != info->operate_mseq_code) {
+    if (!iolink_master_mseq_code_compatible(config->m_seq_type, info->operate_mseq_code)) {
         return IOLINK_MASTER_PARAM_ERR_M_SEQUENCE;
     }
 

@@ -405,6 +405,14 @@ void iolink_master_event_on_od(iolink_master_port_t* port, const uint8_t* od, ui
 /** @brief Consume the reply to the StatusCode confirmation write (Table 59 T8). */
 void iolink_master_event_on_written(iolink_master_port_t* port);
 
+/** @brief Derive the OPERATE M-sequence capability code (Table A.10).
+ *
+ * @p type is the configured M-sequence type and @p od_len its on-request-data
+ * octet count. Returns the OPERATE code (0/1/4/5/6/7) advertised in Direct
+ * Parameter Page 1, or 0 for the process-data types where Table A.10 fixes 0.
+ */
+uint8_t iolink_master_mseq_capability_code(iolink_master_m_seq_type_t type, uint8_t od_len);
+
 /** @} */ /* end of iolinki_master_internal group */
 
 #endif /* IOLINKI_MASTER_INTERNAL_H */

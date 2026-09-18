@@ -122,7 +122,12 @@ typedef enum
     IOLINK_MASTER_PARAM_ERR_PD_SIZE = -4,    /**< Process-data size mismatch. */
     IOLINK_MASTER_PARAM_ERR_M_SEQUENCE = -5, /**< Unsupported M-sequence capability. */
     IOLINK_MASTER_PARAM_ERR_VENDOR_ID = -6,  /**< VendorID mismatch. */
-    IOLINK_MASTER_PARAM_ERR_DEVICE_ID = -7   /**< DeviceID mismatch. */
+    IOLINK_MASTER_PARAM_ERR_DEVICE_ID = -7,  /**< DeviceID mismatch. */
+    /**
+     * Reserved Direct Parameter Page 1 ProcessData descriptor (Table B.6):
+     * BYTE = 1 with Length 0/1, or BYTE = 0 with Length 17..31.
+     */
+    IOLINK_MASTER_PARAM_ERR_PD_DESCRIPTOR = -8
 } iolink_master_parameter_result_t;
 
 /**
