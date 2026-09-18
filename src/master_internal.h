@@ -230,6 +230,10 @@ typedef struct
     uint8_t len;                       /**< Octets collected so far. */
     uint8_t last_slot;                 /**< Highest active event slot (1..6). */
     bool status_seen;                  /**< True once the StatusCode is decoded. */
+    /** True from a diagnosis READ send until its reply OD is consumed: only the
+     *  reply to a diagnosis read may be routed into the event memory. A cyclic
+     *  reply still in flight when the readout starts must not complete it. */
+    bool od_expected;
     int result;                        /**< Latched final result. */
 } iolink_master_event_state_t;
 
