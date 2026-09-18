@@ -87,7 +87,7 @@ static int demo_phy_send(void* user, const uint8_t* data, size_t len)
     /* Transition to OPERATE: Type-0 DeviceOperate write (MC 0x20, OD 0x99); no
        response per spec. */
     if((len == IOLINK_M_SEQ_MIN_LEN) && (data[0] == 0x20U) &&
-       (data[1] == IOLINK_CMD_DEVICE_OPERATE))
+       (data[IOLINK_M_SEQ_HEADER_LEN] == IOLINK_CMD_DEVICE_OPERATE))
     {
         return (int)len;
     }

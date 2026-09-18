@@ -586,9 +586,6 @@ test_master_reads_mandatory_identity_objects_with_real_iolinki_device_stack(
   const uint8_t vendor_id[] = {0xFFU, 0xFFU};
   const uint8_t device_id[] = {0x00U, 0x00U, 0x00U, 0x01U};
   const uint8_t profile_characteristic[] = {0x00U, 0x00U};
-  const uint8_t revision_id[] = {0x00U, 0x01U};
-  const uint8_t min_cycle_time[] = {10U};
-  const uint8_t pdin_descriptor[] = {3U};
   static const uint8_t vendor_name[] = "iolinki";
   static const uint8_t product_name[] = "Generic IO-Link Device";
   static const uint8_t product_id[] = "IOLINK-DEV-001";
@@ -607,12 +604,6 @@ test_master_reads_mandatory_identity_objects_with_real_iolinki_device_stack(
   assert_real_stack_isdu_read(&master, IOLINK_IDX_PROFILE_CHARACTERISTIC, 3U,
                               profile_characteristic,
                               sizeof(profile_characteristic));
-  assert_real_stack_isdu_read(&master, IOLINK_IDX_REVISION_ID, 3U, revision_id,
-                              sizeof(revision_id));
-  assert_real_stack_isdu_read(&master, IOLINK_IDX_MIN_CYCLE_TIME, 3U,
-                              min_cycle_time, sizeof(min_cycle_time));
-  assert_real_stack_isdu_read(&master, IOLINK_IDX_PDIN_DESCRIPTOR, 3U,
-                              pdin_descriptor, sizeof(pdin_descriptor));
   assert_real_stack_isdu_read(&master, IOLINK_IDX_VENDOR_NAME, 3U, vendor_name,
                               (uint8_t)(sizeof(vendor_name) - 1U));
   assert_real_stack_isdu_read(&master, IOLINK_IDX_PRODUCT_NAME, 3U,

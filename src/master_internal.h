@@ -95,7 +95,7 @@
 #define IOLINK_MASTER_CKS_CHECKSUM_MASK 0x3FU /**< Bits 0-5: the A.1.6 message checksum. */
 /** @} */
 
-/** @name ISDU framing.
+/** @name ISDU framing (7.3.6.1, A.5).
  *  @{
  */
 #define IOLINK_MASTER_ISDU_SERVICE_SHIFT 4U     /**< Shift of the ISDU service nibble. */
@@ -103,9 +103,12 @@
 #define IOLINK_MASTER_ISDU_LENGTH_NIBBLE_MAX \
     15U /**< Max length representable in the length nibble. */
 #define IOLINK_MASTER_ISDU_LENGTH_EXTENDED \
-    0x0FU /**< Length nibble value selecting extended length. */
-#define IOLINK_MASTER_ISDU_WRITE_HEADER_MAX 5U /**< Max ISDU write header length, in bytes. */
-#define IOLINK_MASTER_ISDU_READ_HEADER_LEN 4U  /**< ISDU read header length, in bytes. */
+    0x01U /**< Length nibble value selecting ExtLength (Table A.14). */
+#define IOLINK_MASTER_ISDU_EXT_MIN 17U /**< Minimum total length using ExtLength (A.5.3). */
+#define IOLINK_MASTER_ISDU_EXT_MAX 238U /**< Maximum total length using ExtLength (A.5.3). */
+#define IOLINK_MASTER_ISDU_WRITE_HEADER_MAX 7U /**< Max ISDU write header incl. ExtLength+CHKPDU. */
+#define IOLINK_MASTER_ISDU_READ_HEADER_MAX 6U  /**< Max ISDU read header incl. ExtLength+CHKPDU. */
+#define IOLINK_MASTER_ISDU_CHKPDU_LEN 1U       /**< CHKPDU octet length (A.5.6). */
 /** @} */
 
 /** @name Data Storage record header + event-entry framing.
@@ -138,25 +141,40 @@ typedef struct
     uint8_t wake_attempts;  /**< Wake-up requests issued at the current baudrate. */
 } iolink_master_startup_state_t;
 
-/** @brief In-flight ISDU request/response state machine for a port. */
+/** @brief Transport phase of the master ISDU handler (7.3.6.3, Figure 51). */
+typedef enum
+{
+    IOLINK_MASTER_ISDU_PHASE_NONE = 0, /**< Idle: no ISDU service in progress. */
+    IOLINK_MASTER_ISDU_PHASE_REQUEST,  /**< Sending the request octet stream (T2/T3). */
+    IOLINK_MASTER_ISDU_PHASE_WAIT,     /**< Polling until the response starts (T5). */
+    IOLINK_MASTER_ISDU_PHASE_RESPONSE, /**< Receiving response octets (T7). */
+} iolink_master_isdu_phase_t;
+
+/** @brief In-flight ISDU request/response state machine for a port.
+ *
+ * The ISDU octet stream (7.3.6.1, A.5) is assembled in @c request or received
+ * into @c response; it is segmented over M-sequences on the ISDU channel with
+ * the FlowCTRL counter carried in the MC address bits (A.1.2, Table 52).
+ */
 typedef struct
 {
     iolink_master_isdu_op_t op;                /**< Current ISDU operation kind. */
+    iolink_master_isdu_phase_t phase;          /**< Current transport phase. */
     uint16_t index;                            /**< ISDU index being accessed. */
     uint8_t subindex;                          /**< ISDU subindex being accessed. */
     uint8_t request[IOLINK_ISDU_BUFFER_SIZE];  /**< Assembled ISDU request buffer. */
-    uint8_t request_len;                       /**< Total request length, in bytes. */
-    uint8_t request_pos;                       /**< Bytes of the request already sent. */
-    uint8_t request_seq;                       /**< Request flow-control sequence counter. */
-    bool request_control_phase;                /**< True while in the request control phase. */
-    bool request_sent;                         /**< True once the full request is sent. */
+    uint16_t request_len;                      /**< Total request length, in bytes. */
+    uint16_t request_pos;                      /**< Bytes of the request already sent. */
+    uint8_t flowctrl;                          /**< Next outgoing FlowCTRL (Table 52). */
+    uint8_t chk;                               /**< Running CHKPDU accumulator (A.5.6). */
+    uint16_t expected_len;                     /**< Declared ISDU stream length, in bytes. */
     uint8_t response[IOLINK_ISDU_BUFFER_SIZE]; /**< Assembled ISDU response buffer. */
     uint16_t response_len;                     /**< Total response length, in bytes. */
-    uint8_t response_seq;                      /**< Response flow-control sequence counter. */
-    bool response_expect_control; /**< True while expecting a response control octet. */
-    bool response_last;           /**< True on the final response segment. */
-    bool done;                    /**< True once the operation has completed. */
-    uint8_t error;                /**< ISDU error code (0 = none). */
+    uint16_t response_pos;                     /**< Bytes of the response already decoded. */
+    bool done;          /**< True once the operation has completed. */
+    bool idle_pending;  /**< True when the T8 FlowCTRL IDLE read must be sent. */
+    bool abort_pending; /**< True when an ABORT M-sequence must be sent (Table 52/53 T11). */
+    uint16_t error;     /**< ISDU ErrorType (ErrorCode<<8|AdditionalCode). */
 } iolink_master_isdu_state_t;
 
 /** @brief Receive assembly buffer for a port. */
@@ -305,6 +323,31 @@ static inline bool iolink_master_response_due_at(const iolink_master_port_t* por
 void iolink_master_isdu_fill_od(iolink_master_port_t* port, uint8_t* od, uint8_t od_len);
 /** @brief Consume the on-request-data octets of a received frame into ISDU state. */
 void iolink_master_isdu_on_od(iolink_master_port_t* port, const uint8_t* od, uint8_t od_len);
+
+/** @brief Return true while an ISDU service is being transported on the ISDU channel.
+ *
+ * When true, @p read reports the required M-sequence direction (true = device to
+ * master) and @p flowctrl the FlowCTRL value (Table 52) to place in the MC
+ * address bits. The caller builds @c MC = read<<7 | IOLINK_MC_CHANNEL_ISDU |
+ * flowctrl (A.1.2).
+ */
+bool iolink_master_isdu_channel_access(const iolink_master_port_t* port, bool* read,
+                                       uint8_t* flowctrl);
+
+/** @brief Consume a pending ISDU ABORT request (Table 53 T11).
+ *
+ * Returns true once per latched transport error, after which the caller must
+ * emit an ISDU-channel ABORT M-sequence. The latch is cleared before returning
+ * so the caller does not need to touch private state.
+ */
+bool iolink_master_isdu_take_abort(iolink_master_port_t* port);
+
+/** @brief Consume a pending T8 IDLE request (Table 53).
+ *
+ * Returns true once after a response has been decoded, after which the caller
+ * must conclude the service with an ISDU-channel read carrying FlowCTRL IDLE.
+ */
+bool iolink_master_isdu_take_idle(iolink_master_port_t* port);
 
 /** @} */ /* end of iolinki_master_internal group */
 

@@ -27,6 +27,10 @@ if(CMOCKA_FOUND)
     target_link_libraries(test_master_isdu iolinki_master ${CMOCKA_LIBRARIES})
     add_test(NAME test_master_isdu COMMAND test_master_isdu)
 
+    add_executable(test_master_isdu_wire test_master_isdu_wire.c)
+    target_link_libraries(test_master_isdu_wire iolinki_master ${CMOCKA_LIBRARIES})
+    add_test(NAME test_master_isdu_wire COMMAND test_master_isdu_wire)
+
     add_executable(test_master_isdu_public test_master_isdu_public.c)
     target_link_libraries(test_master_isdu_public iolinki_master ${CMOCKA_LIBRARIES})
     add_test(NAME test_master_isdu_public COMMAND test_master_isdu_public)

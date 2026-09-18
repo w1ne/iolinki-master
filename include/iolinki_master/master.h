@@ -223,6 +223,12 @@ typedef struct
     uint32_t expected_device_id;    /**< Expected DeviceID for identity checks. */
     uint8_t response_timeout_100us; /**< Device response deadline, in 100us units. */
     /**
+     * ISDU response watchdog (ISDUTime, 7.3.6.3 / Table 102), in 100us units.
+     * 0 selects the default of 50000 (5 s). It bounds how long the master keeps
+     * polling the ISDU channel while the device answers "busy"/"no service".
+     */
+    uint32_t isdu_timeout_100us;
+    /**
      * Number of extra wake-up requests to issue at the current baudrate before
      * giving up (auto-baud: advancing to the next COM rate; fixed baud: erroring).
      * 0 preserves the historical "one attempt then advance/error" behavior; real
@@ -272,7 +278,7 @@ typedef struct
     int last_service_result;          /**< Result of the last acyclic service. */
     uint8_t last_event_count;         /**< Number of events in the last event read. */
     uint16_t last_event_code;         /**< Most recent decoded event code. */
-    uint8_t last_isdu_error;          /**< Most recent ISDU error code. */
+    uint16_t last_isdu_error;         /**< Most recent ISDU ErrorType (ErrorCode<<8|AdditionalCode). */
 } iolink_master_diagnostics_t;
 
 /** @brief Read-only scheduler-visible timing snapshot for a port. */

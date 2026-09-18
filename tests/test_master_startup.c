@@ -988,25 +988,12 @@ static void feed_preoperate_isdu_response_bytes(iolink_master_port_t* port,
                                                 uint8_t len)
 {
     uint8_t i;
-    uint8_t ctrl;
     uint8_t frame[2];
 
+    /* A.1.5 TYPE_0 reply: one OD octet plus CKS; the ISDU response stream is
+       delivered one octet per read M-sequence (7.3.6.2). */
     for(i = 0U; i < len; i++)
     {
-        ctrl = i;
-        if(i == 0U)
-        {
-            ctrl |= IOLINK_ISDU_CTRL_START;
-        }
-        if(i == (uint8_t)(len - 1U))
-        {
-            ctrl |= IOLINK_ISDU_CTRL_LAST;
-        }
-
-        frame[0] = ctrl;
-        frame[1] = test_ck6_type0(frame[0]);
-        assert_int_equal(iolink_master_on_rx(port, frame, sizeof(frame)), 0);
-
         frame[0] = data[i];
         frame[1] = test_ck6_type0(frame[0]);
         assert_int_equal(iolink_master_on_rx(port, frame, sizeof(frame)), 0);
@@ -1049,19 +1036,42 @@ static void test_startup_can_validate_device_info_before_operate(void** state)
     assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)), 0);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
 
+    /* Drive the ISDU request (index 0x0000) onto the ISDU channel until the
+       transport waits for the response, then deliver the Read Response (+). */
+    iolink_master_process(&port);
+    iolink_master_process(&port);
     iolink_master_process(&port);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
-    assert_int_equal(g_send_calls, 2);
+    assert_int_equal(iolink_master_port_state(&port)->isdu.phase,
+                     IOLINK_MASTER_ISDU_PHASE_WAIT);
 
-    iolink_master_process(&port);
-    assert_int_equal(g_send_calls, 3);
-    assert_int_equal(g_sent_len[2], 2U);
-    assert_int_equal(g_sent[2][0], IOLINK_ISDU_CTRL_START);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
+    {
+        uint8_t response[24] = {0U};
+        uint8_t chk = 0U;
+        uint8_t i;
 
-    feed_preoperate_isdu_response_bytes(&port, page1, sizeof(page1));
+        /* Read Response (+), Length = 1, ExtLength = 2 + 16 + 1 = 19 (A.5.3). */
+        response[0] = 0xD1U;
+        response[1] = 19U;
+        memcpy(&response[2], page1, sizeof(page1));
+        for(i = 0U; i < (uint8_t)(2U + sizeof(page1)); i++)
+        {
+            chk ^= response[i];
+        }
+        response[(uint8_t)(2U + sizeof(page1))] = chk;
 
-    iolink_master_process(&port);
+        feed_preoperate_isdu_response_bytes(&port, response, 19U);
+    }
+
+    for(uint8_t guard = 0U; guard < 16U; guard++)
+    {
+        iolink_master_process(&port);
+        if(iolink_master_get_state(&port) == IOLINK_MASTER_STATE_OPERATE)
+        {
+            break;
+        }
+    }
+
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
     assert_int_equal(iolink_master_get_device_info(&port, &info), 0);
     assert_int_equal(info.vendor_id, 0x1234U);

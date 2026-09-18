@@ -171,6 +171,77 @@ static bool iolink_master_wake_up(iolink_master_port_t* port)
     return false;
 }
 
+/** @brief Send one M-sequence on the ISDU channel if a service is in progress.
+ *
+ * The ISDU octet stream (7.3.6.1, A.5) is segmented over the ISDU channel with
+ * the FlowCTRL counter in the MC address bits (7.3.6.2, Table 52): requests are
+ * write M-sequences carrying OD octets, response polling/reads are read
+ * M-sequences. A latched transport error is signalled with FlowCTRL ABORT
+ * (Table 53 T11). Returns true when a frame was emitted.
+ */
+static bool iolink_master_send_isdu(iolink_master_port_t* port)
+{
+    iolink_master_port_state_t* state = iolink_master_port_state(port);
+    uint8_t od[IOLINK_ISDU_BUFFER_SIZE] = {0U};
+    bool read = false;
+    uint8_t flowctrl = IOLINK_FLOWCTRL_IDLE;
+    uint8_t mc;
+    int frame_len;
+
+    if (iolink_master_isdu_take_abort(port)) {
+        state->tx_buf[0] = iolink_master_encode_master_command(true, IOLINK_MASTER_MC_CHANNEL_ISDU,
+                                                              IOLINK_FLOWCTRL_ABORT);
+        frame_len = iolink_frame_encode_type0(state->tx_buf[0], state->tx_buf,
+                                              sizeof(state->tx_buf));
+        if (frame_len > 0) {
+            (void) iolink_master_send_full(port, state->tx_buf, (size_t) frame_len);
+        }
+        return frame_len > 0;
+    }
+
+    if (iolink_master_isdu_take_idle(port)) {
+        /* T8: one last read with FlowCTRL IDLE concludes the service. */
+        state->tx_buf[0] = iolink_master_encode_master_command(true, IOLINK_MASTER_MC_CHANNEL_ISDU,
+                                                              IOLINK_FLOWCTRL_IDLE);
+        frame_len = iolink_frame_encode_type0(state->tx_buf[0], state->tx_buf,
+                                              sizeof(state->tx_buf));
+        if (frame_len > 0) {
+            (void) iolink_master_send_full(port, state->tx_buf, (size_t) frame_len);
+        }
+        return frame_len > 0;
+    }
+
+    if (!iolink_master_isdu_channel_access(port, &read, &flowctrl)) {
+        return false;
+    }
+
+    mc = iolink_master_encode_master_command(read, IOLINK_MASTER_MC_CHANNEL_ISDU, flowctrl);
+    if (read) {
+        /* Response polling/read: MC + CKT only; the transport advances FlowCTRL
+           without consuming request data. */
+        (void) iolink_master_isdu_fill_od(port, od, state->od_len);
+        frame_len = iolink_frame_encode_type0(mc, state->tx_buf, sizeof(state->tx_buf));
+    }
+    else {
+        uint8_t i;
+
+        iolink_master_isdu_fill_od(port, od, state->od_len);
+        state->tx_buf[0] = mc;
+        state->tx_buf[1] = 0x00U;
+        for (i = 0U; i < state->od_len; i++) {
+            state->tx_buf[(size_t) IOLINK_M_SEQ_HEADER_LEN + i] = od[i];
+        }
+        frame_len = (int) ((size_t) IOLINK_M_SEQ_HEADER_LEN + state->od_len);
+        state->tx_buf[1] = (uint8_t) (state->tx_buf[1] |
+                                      iolink_checksum6(state->tx_buf, (size_t) frame_len));
+    }
+
+    if (frame_len > 0) {
+        (void) iolink_master_send_full(port, state->tx_buf, (size_t) frame_len);
+    }
+    return frame_len > 0;
+}
+
 /** @brief Return true if a new OPERATE cycle is due at the given timestamp (or pacing is inactive).
  */
 static bool iolink_master_cycle_due_at(const iolink_master_port_t* port, uint32_t now_100us)
@@ -576,16 +647,7 @@ void iolink_master_process(iolink_master_port_t* port)
     if (iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_PREOPERATE) {
         int ret;
 
-        if ((iolink_master_port_state(port)->isdu.op != IOLINK_MASTER_ISDU_OP_NONE) &&
-            !iolink_master_port_state(port)->isdu.done) {
-            uint8_t od = 0U;
-            iolink_master_isdu_fill_od(port, &od, 1U);
-            frame_len = iolink_frame_encode_type0(od, iolink_master_port_state(port)->tx_buf,
-                                                  sizeof(iolink_master_port_state(port)->tx_buf));
-            if (frame_len > 0) {
-                (void) iolink_master_send_full(port, iolink_master_port_state(port)->tx_buf,
-                                               (size_t) frame_len);
-            }
+        if (iolink_master_send_isdu(port)) {
             return;
         }
 
@@ -626,6 +688,12 @@ void iolink_master_process(iolink_master_port_t* port)
     }
 
     if (iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_OPERATE) {
+        /* An active ISDU service takes the cycle; it is transported on the ISDU
+           channel rather than piggybacked on the process-data M-sequence. */
+        if (iolink_master_send_isdu(port)) {
+            return;
+        }
+
         if ((iolink_master_port_state(port)->config.m_seq_type == IOLINK_MASTER_M_SEQ_TYPE_0) &&
             (iolink_master_port_state(port)->config.pd_in_len == 0U) &&
             (iolink_master_port_state(port)->pd_out_len == 0U)) {

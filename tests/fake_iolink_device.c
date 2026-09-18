@@ -10,7 +10,7 @@
 
 #define FAKE_IOLINK_DEVICE_OBJECT_MAX_LEN 16U
 #define FAKE_IOLINK_DEVICE_OBJECT_MAX_COUNT 4U
-#define FAKE_IOLINK_DEVICE_ISDU_REQUEST_MAX_LEN 8U
+#define FAKE_IOLINK_DEVICE_ISDU_REQUEST_MAX_LEN 80U
 
 /* Coarse link state, used to disambiguate the startup probe (a page-channel
    Type-0 read seen only once, right after wake-up) from later PREOPERATE ISDU
@@ -50,7 +50,7 @@ typedef struct
     uint8_t isdu_request_len;
     bool isdu_request_expect_data;
     bool isdu_request_last_control;
-    uint8_t isdu_response[FAKE_IOLINK_DEVICE_OBJECT_MAX_LEN];
+    uint8_t isdu_response[128];
     uint8_t isdu_response_len;
     uint8_t isdu_response_pos;
     bool isdu_response_active;
@@ -89,40 +89,108 @@ static fake_iolink_device_object_t* fake_iolink_device_find_or_create_object(uin
     return object;
 }
 
-static void fake_iolink_device_prepare_isdu_error(uint8_t error)
+/** @brief Append the XOR of every octet as the final CHKPDU (A.5.6). */
+static void fake_iolink_device_isdu_append_chkpdu(void)
 {
-    g_device.isdu_response[0] = 0x80U;
-    g_device.isdu_response[1] = error;
-    g_device.isdu_response_len = 2U;
+    uint8_t chk = 0U;
+    uint8_t i;
+
+    for(i = 0U; i < g_device.isdu_response_len; i++)
+    {
+        chk ^= g_device.isdu_response[i];
+    }
+    g_device.isdu_response[g_device.isdu_response_len++] = chk;
+}
+
+/** @brief Build a negative response carrying ErrorType = ErrorCode, AdditionalCode. */
+static void fake_iolink_device_prepare_isdu_error(uint8_t error_code, uint8_t additional_code)
+{
+    g_device.isdu_response[0] = 0xC4U; /* Read/Write Response (-), Length = 4 */
+    g_device.isdu_response[1] = error_code;
+    g_device.isdu_response[2] = additional_code;
+    g_device.isdu_response_len = 3U;
+    fake_iolink_device_isdu_append_chkpdu();
     g_device.isdu_response_pos = 0U;
     g_device.isdu_response_active = true;
 }
 
+/** @brief Build the positive ack of a Write Request (Table A.13). */
 static void fake_iolink_device_prepare_isdu_ack(void)
 {
-    g_device.isdu_response[0] = 0x00U;
+    g_device.isdu_response[0] = 0x52U; /* Write Response (+), Length = 2 */
     g_device.isdu_response_len = 1U;
+    fake_iolink_device_isdu_append_chkpdu();
     g_device.isdu_response_pos = 0U;
     g_device.isdu_response_active = true;
 }
 
+/** @brief Build a positive Read Response (+) carrying @p data (Table A.13). */
+static void fake_iolink_device_prepare_isdu_read_data(const uint8_t* data, uint8_t len)
+{
+    uint16_t total = (uint16_t)(1U + len + 1U);
+
+    if(total <= 15U)
+    {
+        g_device.isdu_response[0] = (uint8_t)(0xD0U | (uint8_t)total);
+        memcpy(&g_device.isdu_response[1], data, len);
+        g_device.isdu_response_len = (uint8_t)(1U + len);
+    }
+    else
+    {
+        /* Extended form adds the ExtLength octet to the total (A.5.3). */
+        total = (uint16_t)(2U + len + 1U);
+        g_device.isdu_response[0] = 0xD1U; /* Length = 1 selects ExtLength (A.5.3) */
+        g_device.isdu_response[1] = (uint8_t)total;
+        memcpy(&g_device.isdu_response[2], data, len);
+        g_device.isdu_response_len = (uint8_t)(2U + len);
+    }
+
+    fake_iolink_device_isdu_append_chkpdu();
+    g_device.isdu_response_pos = 0U;
+    g_device.isdu_response_active = true;
+}
+
+/** @brief Decode the accumulated ISDU request stream and stage the response. */
 static void fake_iolink_device_prepare_isdu_response(void)
 {
     uint8_t service;
     uint16_t index;
     uint8_t subindex;
-    uint8_t len;
+    uint8_t index_len;
+    uint8_t payload_start;
+    uint8_t payload_len;
     fake_iolink_device_object_t* object;
 
-    if(g_device.isdu_request_len < 4U)
+    if(g_device.isdu_request_len < 2U)
     {
-        fake_iolink_device_prepare_isdu_error(IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+        fake_iolink_device_prepare_isdu_error(0x80U, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
         return;
     }
 
     service = (uint8_t)(g_device.isdu_request[0] >> 4);
-    index = (uint16_t)(((uint16_t)g_device.isdu_request[1] << 8) | g_device.isdu_request[2]);
-    subindex = g_device.isdu_request[3];
+    index_len = (uint8_t)(service & 0x07U);
+
+    if((index_len == 0U) || (g_device.isdu_request_len < (uint8_t)(2U + index_len)))
+    {
+        fake_iolink_device_prepare_isdu_error(0x80U, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+        return;
+    }
+
+    if(index_len == 1U)
+    {
+        index = g_device.isdu_request[1];
+        subindex = 0U;
+    }
+    else if(index_len == 2U)
+    {
+        index = g_device.isdu_request[1];
+        subindex = g_device.isdu_request[2];
+    }
+    else
+    {
+        index = (uint16_t)(((uint16_t)g_device.isdu_request[1] << 8) | g_device.isdu_request[2]);
+        subindex = g_device.isdu_request[3];
+    }
 
     /* Accept the spec Table A.12 read I-Service codes (0x9/0xA/0xB). */
     if((service == 0x09U) || (service == 0x0AU) || (service == 0x0BU))
@@ -130,112 +198,93 @@ static void fake_iolink_device_prepare_isdu_response(void)
         object = fake_iolink_device_find_object(index, subindex);
         if(object == NULL)
         {
-            fake_iolink_device_prepare_isdu_error(IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+            fake_iolink_device_prepare_isdu_error(0x80U, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
             return;
         }
 
-        memcpy(g_device.isdu_response, object->data, object->len);
-        g_device.isdu_response_len = object->len;
-        g_device.isdu_response_pos = 0U;
-        g_device.isdu_response_active = true;
+        fake_iolink_device_prepare_isdu_read_data(object->data, object->len);
         return;
     }
 
     /* Accept the spec Table A.12 write I-Service codes (0x1/0x2/0x3). */
     if((service == 0x01U) || (service == 0x02U) || (service == 0x03U))
     {
-        len = (uint8_t)(g_device.isdu_request[0] & 0x0FU);
-        if((len == 0x0FU) || (g_device.isdu_request_len < (uint8_t)(4U + len)) ||
-           (len > FAKE_IOLINK_DEVICE_OBJECT_MAX_LEN))
+        uint8_t total = g_device.isdu_request_len;
+
+        /* A.5.6: the last octet is CHKPDU. */
+        payload_start = (uint8_t)(1U + index_len);
+        payload_len = (uint8_t)(total - payload_start - 1U);
+        if(payload_len > FAKE_IOLINK_DEVICE_OBJECT_MAX_LEN)
         {
-            fake_iolink_device_prepare_isdu_error(IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+            fake_iolink_device_prepare_isdu_error(0x80U, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
             return;
         }
 
         object = fake_iolink_device_find_or_create_object(index, subindex);
         if(object == NULL)
         {
-            fake_iolink_device_prepare_isdu_error(IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+            fake_iolink_device_prepare_isdu_error(0x80U, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
             return;
         }
 
-        memcpy(object->data, &g_device.isdu_request[4], len);
-        object->len = len;
+        if(payload_len > 0U)
+        {
+            memcpy(object->data, &g_device.isdu_request[payload_start], payload_len);
+        }
+        object->len = payload_len;
         object->valid = true;
         fake_iolink_device_prepare_isdu_ack();
         return;
     }
 
-    fake_iolink_device_prepare_isdu_error(IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+    fake_iolink_device_prepare_isdu_error(0x80U, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
 }
 
+/** @brief Accrue one ISDU request octet and stage the response once complete. */
 static void fake_iolink_device_on_master_od(uint8_t od)
 {
-    if(!g_device.isdu_request_expect_data)
-    {
-        if((g_device.isdu_request_len == 0U) && ((od & IOLINK_ISDU_CTRL_START) == 0U))
-        {
-            return;
-        }
-
-        if((od & IOLINK_ISDU_CTRL_START) != 0U)
-        {
-            g_device.isdu_request_len = 0U;
-        }
-
-        g_device.isdu_request_last_control = ((od & IOLINK_ISDU_CTRL_LAST) != 0U);
-        g_device.isdu_request_expect_data = true;
-        return;
-    }
+    uint16_t total;
+    uint16_t declared;
 
     if(g_device.isdu_request_len < FAKE_IOLINK_DEVICE_ISDU_REQUEST_MAX_LEN)
     {
         g_device.isdu_request[g_device.isdu_request_len++] = od;
     }
 
-    if(g_device.isdu_request_last_control)
+    if(g_device.isdu_request_len < 2U)
+    {
+        return;
+    }
+
+    declared = (uint16_t)(g_device.isdu_request[0] & 0x0FU);
+    if(declared == 1U)
+    {
+        declared = g_device.isdu_request[1];
+    }
+    if(declared < 2U)
+    {
+        return;
+    }
+
+    total = g_device.isdu_request_len;
+    if(total >= declared)
     {
         fake_iolink_device_prepare_isdu_response();
         g_device.isdu_request_len = 0U;
     }
-
-    g_device.isdu_request_expect_data = false;
 }
 
+/** @brief Return the next octet of the staged ISDU response stream (0 when idle). */
 static uint8_t fake_iolink_device_next_response_od(void)
 {
-    uint8_t data_index;
     uint8_t od;
 
-    if(!g_device.isdu_response_active || (g_device.isdu_response_len == 0U))
+    if(!g_device.isdu_response_active || (g_device.isdu_response_pos >= g_device.isdu_response_len))
     {
         return 0U;
     }
 
-    data_index = (uint8_t)(g_device.isdu_response_pos / 2U);
-    if((g_device.isdu_response_pos & 1U) == 0U)
-    {
-        od = (uint8_t)(data_index & IOLINK_ISDU_CTRL_SEQ_MASK);
-        if(data_index == 0U)
-        {
-            od |= IOLINK_ISDU_CTRL_START;
-        }
-        if((uint8_t)(data_index + 1U) >= g_device.isdu_response_len)
-        {
-            od |= IOLINK_ISDU_CTRL_LAST;
-        }
-    }
-    else
-    {
-        od = g_device.isdu_response[data_index];
-    }
-
-    g_device.isdu_response_pos++;
-    if(g_device.isdu_response_pos >= (uint8_t)(g_device.isdu_response_len * 2U))
-    {
-        g_device.isdu_response_active = false;
-    }
-
+    od = g_device.isdu_response[g_device.isdu_response_pos++];
     return od;
 }
 
@@ -267,7 +316,7 @@ static void fake_iolink_device_queue_type0(uint8_t value)
     g_device.rx_pos = 0U;
 }
 
-static void fake_iolink_device_queue_operate_response(void)
+static void fake_iolink_device_queue_operate_response(bool deliver_od)
 {
     uint8_t pos = 0U;
     uint8_t i;
@@ -289,7 +338,8 @@ static void fake_iolink_device_queue_operate_response(void)
 
     for(i = 0U; i < g_device.od_len; i++)
     {
-        g_device.rx_queue[pos++] = fake_iolink_device_next_response_od();
+        g_device.rx_queue[pos++] =
+            deliver_od ? fake_iolink_device_next_response_od() : 0U;
     }
 
     /* A.1.5: CKS carries the Event flag in bit 7 (0x80). */
@@ -335,10 +385,39 @@ static int fake_iolink_device_send(void* user, const uint8_t* data, size_t len)
         return (int)len;
     }
 
+    /* ISDU channel (A.1.2, Table A.1): FlowCTRL lives in the MC address bits.
+       A write M-sequence carries request octets; every message is answered. */
+    if((data[0] & IOLINK_MC_COMM_CHANNEL_MASK) == IOLINK_MC_CHANNEL_ISDU)
+    {
+        size_t i;
+
+        if((data[0] & IOLINK_MC_RW_MASK) == 0U)
+        {
+            for(i = IOLINK_M_SEQ_HEADER_LEN; i < len; i++)
+            {
+                fake_iolink_device_on_master_od(data[i]);
+            }
+        }
+
+        /* A write M-sequence is answered with "no service" (Table A.14); only a
+           read M-sequence delivers response octets. */
+        if(g_device.link_state == FAKE_LINK_OPERATE)
+        {
+            fake_iolink_device_queue_operate_response((data[0] & IOLINK_MC_RW_MASK) != 0U);
+        }
+        else
+        {
+            fake_iolink_device_queue_type0((data[0] & IOLINK_MC_RW_MASK) != 0U
+                                               ? fake_iolink_device_next_response_od()
+                                               : 0U);
+        }
+        return (int)len;
+    }
+
     /* Spec DeviceOperate: Type-0 WRITE of MasterCommand 0x99 to Direct Parameter
        address 0x00 on the page channel (MC 0x20). Establishes communication. */
     if((len == IOLINK_M_SEQ_MIN_LEN) && (data[0] == 0x20U) &&
-       (data[1] == IOLINK_CMD_DEVICE_OPERATE))
+       (data[IOLINK_M_SEQ_HEADER_LEN] == IOLINK_CMD_DEVICE_OPERATE))
     {
         g_device.transition_count++;
         g_device.link_state = FAKE_LINK_OPERATE;
@@ -371,18 +450,13 @@ static int fake_iolink_device_send(void* user, const uint8_t* data, size_t len)
         {
             g_device.link_state = FAKE_LINK_PREOPERATE;
         }
-        fake_iolink_device_on_master_od(data[0]);
         fake_iolink_device_queue_type0(fake_iolink_device_next_response_od());
         return (int)len;
     }
 
     g_device.operate_cycle_count++;
     g_device.link_state = FAKE_LINK_OPERATE;
-    if(len > IOLINK_M_SEQ_HEADER_LEN)
-    {
-        fake_iolink_device_on_master_od(data[IOLINK_M_SEQ_HEADER_LEN]);
-    }
-    fake_iolink_device_queue_operate_response();
+    fake_iolink_device_queue_operate_response(false);
     return (int)len;
 }
 
