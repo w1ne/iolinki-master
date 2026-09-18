@@ -73,6 +73,7 @@ static int reset_fake_phy(void** state)
 static void enter_operate(iolink_master_port_t* port)
 {
     uint8_t startup_resp[2] = {0U};
+    static const uint8_t operate_ack[1] = {0x2DU};
 
     assert_int_equal(iolink_master_init(port, &g_fake_phy, &g_config), 0);
 
@@ -81,6 +82,11 @@ static void enter_operate(iolink_master_port_t* port)
     startup_resp[1] = test_ck6_type0(startup_resp[0]);
     assert_int_equal(iolink_master_on_rx(port, startup_resp, sizeof(startup_resp)), 0);
     iolink_master_process(port);
+
+    /* Figure A.5: the DeviceOperate Type-0 WRITE is answered with the CKS octet
+       alone (oracle over [0x00] = 0x2D); the port enters OPERATE only after it
+       has consumed and verified that reply. */
+    assert_int_equal(iolink_master_on_rx(port, operate_ack, sizeof(operate_ack)), 0);
 
     assert_int_equal(iolink_master_get_state(port), IOLINK_MASTER_STATE_OPERATE);
     assert_int_equal(g_send_calls, 3);

@@ -52,6 +52,14 @@ static void queue_bytes(const uint8_t* data, uint8_t len)
     g_rx_pos = 0U;
 }
 
+/** @brief Queue the CKS-only DeviceOperate reply (A.1.6 over [0x00] = 0x2D). */
+static void queue_operate_ack(void)
+{
+    static const uint8_t ack[1] = {0x2DU};
+
+    queue_bytes(ack, sizeof(ack));
+}
+
 static const iolink_phy_api_t g_phy = {
     .send = fake_send,
     .recv_byte = fake_recv_byte,
@@ -102,12 +110,17 @@ static void test_public_api_drives_startup_and_latches_process_data(void** state
     startup_resp[1] = test_ck6_type0(startup_resp[0]);
     queue_bytes(startup_resp, sizeof(startup_resp));
     assert_int_equal(iolink_master_tick(&port, false), 1);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
     /* Transition to OPERATE is the Type-0 DeviceOperate write (MC 0x20, OD 0x99). */
     assert_int_equal(g_sent[g_send_calls - 1][0],
                      iolink_master_encode_master_command(false, IOLINK_MASTER_MC_CHANNEL_PAGE, 0x00U));
     assert_int_equal(g_sent[g_send_calls - 1][IOLINK_M_SEQ_HEADER_LEN],
                      IOLINK_CMD_DEVICE_OPERATE);
+
+    /* Figure A.5: the DeviceOperate write is answered with the CKS octet alone. */
+    queue_operate_ack();
+    assert_int_equal(iolink_master_tick(&port, false), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     operate_resp[2] = test_ck6_reply(operate_resp, 2U, 0U);
     queue_bytes(operate_resp, sizeof(operate_resp));
@@ -148,6 +161,9 @@ static void test_public_api_exposes_scheduler_timing_state(void** state)
                      IOLINK_MASTER_STATUS_OK);
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE),
                      IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
+    queue_operate_ack();
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U),

@@ -108,11 +108,13 @@ static int demo_phy_send(void* user, const uint8_t* data, size_t len)
         return (int)len;
     }
 
-    /* Transition to OPERATE: Type-0 DeviceOperate write (MC 0x20, OD 0x99); no
-       response per spec. */
+    /* Transition to OPERATE: Type-0 DeviceOperate write (MC 0x20, OD 0x99).
+       Figure A.5: the device answers with the CKS octet alone. */
     if((len == IOLINK_M_SEQ_MIN_LEN) && (data[0] == 0x20U) &&
        (data[IOLINK_M_SEQ_HEADER_LEN] == IOLINK_CMD_DEVICE_OPERATE))
     {
+        response[0] = 0x2DU;
+        queue_bytes(response, 1U);
         return (int)len;
     }
 
@@ -189,6 +191,8 @@ int main(void)
 
     /* Transition into OPERATE and run one cyclic exchange. */
     iolink_master_process(&port);
+    /* Figure A.5: consume the CKS-only DeviceOperate reply, then enter OPERATE. */
+    (void)iolink_master_poll_rx(&port);
     if(iolink_master_get_state(&port) != IOLINK_MASTER_STATE_OPERATE)
     {
         LOG_ERR("port did not reach OPERATE");

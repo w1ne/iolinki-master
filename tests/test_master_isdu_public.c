@@ -60,6 +60,8 @@ static void feed_type0_byte(iolink_master_port_t* port, uint8_t byte)
 
 static void enter_type0_operate(iolink_master_port_t* port)
 {
+    static const uint8_t operate_ack[1] = {0x2DU};
+
     assert_int_equal(iolink_master_init(port, &g_phy, &g_config), IOLINK_MASTER_STATUS_OK);
     assert_int_equal(iolink_master_tick_event(port, IOLINK_MASTER_TICK_CYCLE_DUE),
                      IOLINK_MASTER_STATUS_OK);
@@ -72,6 +74,9 @@ static void enter_type0_operate(iolink_master_port_t* port)
     assert_int_equal(iolink_master_get_state(port), IOLINK_MASTER_STATE_PREOPERATE);
 
     assert_int_equal(iolink_master_tick_event(port, IOLINK_MASTER_TICK_CYCLE_DUE),
+                     IOLINK_MASTER_STATUS_OK);
+    /* Figure A.5: consume the CKS-only reply to DeviceOperate before OPERATE. */
+    assert_int_equal(iolink_master_on_rx(port, operate_ack, sizeof(operate_ack)),
                      IOLINK_MASTER_STATUS_OK);
     assert_int_equal(iolink_master_get_state(port), IOLINK_MASTER_STATE_OPERATE);
 }

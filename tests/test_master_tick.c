@@ -53,6 +53,14 @@ static void queue_bytes(const uint8_t* data, uint8_t len)
     g_rx_pos = 0U;
 }
 
+/** @brief Queue the CKS-only DeviceOperate reply (A.1.6 over [0x00] = 0x2D). */
+static void queue_operate_ack(void)
+{
+    static const uint8_t ack[1] = {0x2DU};
+
+    queue_bytes(ack, sizeof(ack));
+}
+
 static const iolink_phy_api_t g_phy = {
     .send = fake_send,
     .recv_byte = fake_recv_byte,
@@ -110,13 +118,19 @@ static void test_tick_drains_rx_before_sending_next_frame(void** state)
     queue_bytes(startup_resp, sizeof(startup_resp));
 
     assert_int_equal(iolink_master_tick(&port, false), 1);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
     assert_int_equal(g_send_calls, 3);
     assert_int_equal(g_sent_len[2], 3U);
     assert_int_equal(g_sent[2][0],
                      iolink_master_encode_master_command(false, IOLINK_MASTER_MC_CHANNEL_PAGE,
                                                          IOLINK_MASTER_DPP1_OFF_MASTER_COMMAND));
     assert_int_equal(g_sent[2][IOLINK_M_SEQ_HEADER_LEN], IOLINK_CMD_DEVICE_OPERATE);
+
+    /* Figure A.5: the DeviceOperate write is answered with the CKS octet alone;
+       a non-transmitting tick consumes it before the port enters OPERATE. */
+    queue_operate_ack();
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 }
 
 static void test_tick_applies_timeout_before_transmit(void** state)
@@ -173,13 +187,18 @@ static void test_tick_event_cycle_due_transmits_after_rx(void** state)
     queue_bytes(startup_resp, sizeof(startup_resp));
 
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 1);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
     assert_int_equal(g_send_calls, 3);
     assert_int_equal(g_sent_len[2], 3U);
     assert_int_equal(g_sent[2][0],
                      iolink_master_encode_master_command(false, IOLINK_MASTER_MC_CHANNEL_PAGE,
                                                          IOLINK_MASTER_DPP1_OFF_MASTER_COMMAND));
     assert_int_equal(g_sent[2][IOLINK_M_SEQ_HEADER_LEN], IOLINK_CMD_DEVICE_OPERATE);
+
+    /* Figure A.5: consume the CKS-only DeviceOperate reply before OPERATE. */
+    queue_operate_ack();
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 }
 
 static void test_tick_event_response_timeout_applies_before_transmit(void** state)

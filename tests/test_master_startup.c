@@ -42,8 +42,8 @@ static iolink_baudrate_t g_last_baudrate;
 static iolink_baudrate_t g_baudrate_history[8];
 static char g_io_direction_log[24];
 static uint8_t g_io_direction_log_len;
-static uint8_t g_sent[8][64];
-static size_t g_sent_len[8];
+static uint8_t g_sent[9][64];
+static size_t g_sent_len[9];
 
 static int fake_phy_init(void* user)
 {
@@ -141,7 +141,7 @@ static int fake_phy_send(void* user, const uint8_t* data, size_t len)
     (void)user;
     assert_non_null(data);
     assert_in_range(len, 1U, sizeof(g_sent[0]));
-    assert_in_range(g_send_calls, 0, 7);
+    assert_in_range(g_send_calls, 0, 8);
 
     memcpy(g_sent[g_send_calls], data, len);
     g_sent_len[g_send_calls] = len;
@@ -1091,6 +1091,14 @@ static void test_startup_can_validate_device_info_before_operate(void** state)
     for(uint8_t guard = 0U; guard < 16U; guard++)
     {
         iolink_master_process(&port);
+        if(iolink_master_port_state(&port)->startup.step ==
+           IOLINK_MASTER_STARTUP_STEP_AWAIT_OPERATE_ACK)
+        {
+            /* Figure A.5: the DeviceOperate write is answered with the CKS octet
+               alone; consume it here so the loop leaves the AWAIT step. */
+            static const uint8_t operate_ack[1] = {0x2DU};
+            assert_int_equal(iolink_master_on_rx(&port, operate_ack, sizeof(operate_ack)), 0);
+        }
         if(iolink_master_get_state(&port) == IOLINK_MASTER_STATE_OPERATE)
         {
             break;

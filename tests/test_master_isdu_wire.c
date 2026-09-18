@@ -101,6 +101,13 @@ static void feed_type0_byte(iolink_master_port_t* port, uint8_t byte)
     assert_int_equal(iolink_master_on_rx(port, frame, sizeof(frame)), IOLINK_MASTER_STATUS_OK);
 }
 
+static void feed_operate_ack(iolink_master_port_t* port)
+{
+    static const uint8_t ack[1] = {0x2DU};
+
+    assert_int_equal(iolink_master_on_rx(port, ack, sizeof(ack)), IOLINK_MASTER_STATUS_OK);
+}
+
 static void enter_type0_operate(iolink_master_port_t* port)
 {
     assert_int_equal(iolink_master_init(port, &g_phy, &g_config), IOLINK_MASTER_STATUS_OK);
@@ -111,6 +118,7 @@ static void enter_type0_operate(iolink_master_port_t* port)
     feed_type0_byte(port, 0x00U);
     assert_int_equal(iolink_master_tick_event(port, IOLINK_MASTER_TICK_CYCLE_DUE),
                      IOLINK_MASTER_STATUS_OK);
+    feed_operate_ack(port);
     assert_int_equal(iolink_master_get_state(port), IOLINK_MASTER_STATE_OPERATE);
 }
 
