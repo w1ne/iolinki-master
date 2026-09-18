@@ -87,6 +87,14 @@
 /** @brief Master Command comm-channel field position (pairs with IOLINK_MC_COMM_CHANNEL_MASK). */
 #define IOLINK_MASTER_MC_COMM_CHANNEL_SHIFT 5U
 
+/** @name Reply checksum octet (CKS) flags (A.1.5).
+ *  @{
+ */
+#define IOLINK_MASTER_CKS_EVENT 0x80U     /**< Bit 7: an event is pending (freeze until acked). */
+#define IOLINK_MASTER_CKS_PD_INVALID 0x40U /**< Bit 6: PD-in is invalid (set = invalid). */
+#define IOLINK_MASTER_CKS_CHECKSUM_MASK 0x3FU /**< Bits 0-5: the A.1.6 message checksum. */
+/** @} */
+
 /** @name ISDU framing.
  *  @{
  */
@@ -252,6 +260,23 @@ static inline const iolink_master_controller_state_t* iolink_master_controller_c
     const iolink_master_controller_t* controller)
 {
     return (const iolink_master_controller_state_t*) (const void*) controller->storage;
+}
+
+/** @brief Return the A.1.3 CKT M-sequence type field (bits 6-7) for an M-sequence type. */
+static inline uint8_t iolink_master_ckt_type_bits(iolink_master_m_seq_type_t type)
+{
+    switch (type) {
+        case IOLINK_MASTER_M_SEQ_TYPE_1_1:
+        case IOLINK_MASTER_M_SEQ_TYPE_1_2:
+        case IOLINK_MASTER_M_SEQ_TYPE_1_V:
+            return 0x40U;
+        case IOLINK_MASTER_M_SEQ_TYPE_2_1:
+        case IOLINK_MASTER_M_SEQ_TYPE_2_2:
+        case IOLINK_MASTER_M_SEQ_TYPE_2_V:
+            return 0x80U;
+        default:
+            return 0x00U;
+    }
 }
 
 /** @brief Return the on-request-data length in octets for an M-sequence type. */

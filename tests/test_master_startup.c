@@ -8,6 +8,7 @@
 #include <cmocka.h>
 
 #include "iolinki/crc.h"
+#include "test_wire_helpers.h"
 #include "iolinki/frame.h"
 #include "iolinki/protocol.h"
 #include "../src/master_internal.h"
@@ -848,7 +849,7 @@ static void test_process_startup_waits_for_type0_response_before_preoperate(void
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
 
     startup_resp[0] = 0x00U;
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)), 0);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
 
@@ -866,15 +867,17 @@ static void test_process_startup_waits_for_type0_response_before_preoperate(void
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
     iolink_master_process(&port);
-    expected_len = iolink_frame_encode_type1_cycle(pd_out,
-                                                   sizeof(pd_out),
-                                                   iolink_master_port_state(&port)->od_len,
-                                                   expected,
-                                                   sizeof(expected));
-    assert_int_equal(expected_len, 7);
-    assert_int_equal(g_send_calls, 4);
-    assert_int_equal(g_sent_len[3], (size_t)expected_len);
-    assert_memory_equal(g_sent[3], expected, (size_t)expected_len);
+    /* A.2.4: the TYPE_2 cyclic message is MC, CKT, PD-out, OD with the A.1.6
+       checksum and the M-sequence type in CKT (here TYPE_2 -> 0x80, CKT 0xAD);
+       there is no trailing checksum octet in a request. */
+    {
+        const uint8_t expected_cycle[] = {0x00U, 0xADU, 0x11U, 0x22U, 0x00U, 0x00U};
+
+        expected_len = (int) sizeof(expected_cycle);
+        assert_int_equal(g_send_calls, 4);
+        assert_int_equal(g_sent_len[3], sizeof(expected_cycle));
+        assert_memory_equal(g_sent[3], expected_cycle, sizeof(expected_cycle));
+    }
     assert_int_equal(iolink_master_port_state(&port)->cycle_count, 1U);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
     assert_true(g_send_calls >= 4);
@@ -1001,11 +1004,11 @@ static void feed_preoperate_isdu_response_bytes(iolink_master_port_t* port,
         }
 
         frame[0] = ctrl;
-        frame[1] = iolink_checksum_ck(frame[0], 0U);
+        frame[1] = test_ck6_type0(frame[0]);
         assert_int_equal(iolink_master_on_rx(port, frame, sizeof(frame)), 0);
 
         frame[0] = data[i];
-        frame[1] = iolink_checksum_ck(frame[0], 0U);
+        frame[1] = test_ck6_type0(frame[0]);
         assert_int_equal(iolink_master_on_rx(port, frame, sizeof(frame)), 0);
     }
 }
@@ -1042,7 +1045,7 @@ static void test_startup_can_validate_device_info_before_operate(void** state)
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
     iolink_master_process(&port);
     iolink_master_process(&port);
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)), 0);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
 
@@ -1077,7 +1080,7 @@ static void test_poll_rx_accepts_startup_type0_response_from_phy(void** state)
     assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
 
     g_recv_bytes[0] = 0x00U;
-    g_recv_bytes[1] = iolink_checksum_ck(g_recv_bytes[0], 0U);
+    g_recv_bytes[1] = test_ck6_type0(g_recv_bytes[0]);
     g_recv_len = 2U;
     g_recv_pos = 0U;
 
@@ -1097,14 +1100,14 @@ static void test_poll_rx_accepts_preoperate_type0_isdu_response_from_phy(void** 
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
     iolink_master_process(&port);
     iolink_master_process(&port);
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)), 0);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
 
     assert_int_equal(iolink_master_read_isdu(&port, 0x0002U, 0U, data, &len), 1);
 
     g_recv_bytes[0] = IOLINK_ISDU_CTRL_START;
-    g_recv_bytes[1] = iolink_checksum_ck(g_recv_bytes[0], 0U);
+    g_recv_bytes[1] = test_ck6_type0(g_recv_bytes[0]);
     g_recv_len = 2U;
     g_recv_pos = 0U;
 

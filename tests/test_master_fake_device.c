@@ -239,7 +239,7 @@ static void test_fake_device_exposes_event_pending_status(void** state)
 
     assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
     assert_true(diagnostics.event_pending);
-    assert_true((diagnostics.od_status & IOLINK_OD_STATUS_EVENT) != 0U);
+    assert_true((diagnostics.od_status & 0x80U) != 0U);
 }
 
 static void test_fake_device_serves_event_details(void** state)

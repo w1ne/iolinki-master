@@ -8,6 +8,7 @@
 #include <cmocka.h>
 
 #include "iolinki/crc.h"
+#include "test_wire_helpers.h"
 #include "iolinki/protocol.h"
 #include "../src/master_internal.h"
 
@@ -105,7 +106,7 @@ static void test_tick_drains_rx_before_sending_next_frame(void** state)
     assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
 
     startup_resp[0] = 0x00U;
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     queue_bytes(startup_resp, sizeof(startup_resp));
 
     assert_int_equal(iolink_master_tick(&port, false), 1);
@@ -146,7 +147,7 @@ static void test_tick_event_none_drains_rx_without_transmitting(void** state)
     assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
 
     startup_resp[0] = 0x00U;
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     queue_bytes(startup_resp, sizeof(startup_resp));
 
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
@@ -167,7 +168,7 @@ static void test_tick_event_cycle_due_transmits_after_rx(void** state)
     assert_int_equal(iolink_master_port_state(&port)->startup.step, 2U);
 
     startup_resp[0] = 0x00U;
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     queue_bytes(startup_resp, sizeof(startup_resp));
 
     assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 1);

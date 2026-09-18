@@ -249,8 +249,10 @@ static void fake_iolink_device_queue_type0(uint8_t value)
         return;
     }
 
+    /* A.1.5 TYPE_0 reply: one OD octet plus CKS (A.1.6 checksum over [data, CKS=0]). */
     g_device.rx_queue[0] = value;
-    g_device.rx_queue[1] = iolink_checksum_ck(value, 0U);
+    g_device.rx_queue[1] = 0x00U;
+    g_device.rx_queue[1] = iolink_checksum6(g_device.rx_queue, 2U);
     if(g_device.corrupt_next_response_checksum)
     {
         g_device.rx_queue[1] ^= 0x01U;
@@ -278,9 +280,8 @@ static void fake_iolink_device_queue_operate_response(void)
         return;
     }
 
-    g_device.rx_queue[pos++] = IOLINK_OD_STATUS_PD_VALID | IOLINK_DEVICE_STATUS_OK |
-                               (g_device.event_pending ? IOLINK_OD_STATUS_EVENT : 0U);
-
+    /* A.1.5 reply: [PD-in octets][OD octets] CKS, no leading status octet. CKS
+       carries the Event flag in bit 7 and PD-invalid in bit 6. */
     for(i = 0U; i < g_device.pd_in_len; i++)
     {
         g_device.rx_queue[pos++] = g_device.pd_in_value;
@@ -291,7 +292,10 @@ static void fake_iolink_device_queue_operate_response(void)
         g_device.rx_queue[pos++] = fake_iolink_device_next_response_od();
     }
 
-    g_device.rx_queue[pos] = iolink_crc6(g_device.rx_queue, pos);
+    /* A.1.5: CKS carries the Event flag in bit 7 (0x80). */
+    g_device.rx_queue[pos] = (uint8_t)(g_device.event_pending ? 0x80U : 0U);
+    g_device.rx_queue[pos] = (uint8_t)(iolink_checksum6(g_device.rx_queue, (size_t)(pos + 1U)) |
+                                       g_device.rx_queue[pos]);
     if(g_device.corrupt_next_response_checksum)
     {
         g_device.rx_queue[pos] ^= 0x01U;

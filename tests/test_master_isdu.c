@@ -10,6 +10,7 @@
 #include "iolinki/crc.h"
 #include "iolinki/frame.h"
 #include "iolinki/protocol.h"
+#include "test_wire_helpers.h"
 #include "../src/master_internal.h"
 
 static int g_send_calls;
@@ -66,7 +67,7 @@ static void enter_operate(iolink_master_port_t* port)
 
     iolink_master_process(port);
     iolink_master_process(port);
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     assert_int_equal(iolink_master_on_rx(port, startup_resp, sizeof(startup_resp)), 0);
     iolink_master_process(port);
 
@@ -84,12 +85,12 @@ static void assert_last_od(uint8_t od0, uint8_t od1)
 
 static void feed_response_od(iolink_master_port_t* port, uint8_t od0, uint8_t od1)
 {
-    uint8_t frame[4];
+    /* A.1.5 reply for a zero-PD, two-OD-octet M-sequence: [OD0][OD1] CKS. */
+    uint8_t frame[3];
 
-    frame[0] = IOLINK_OD_STATUS_PD_VALID;
-    frame[1] = od0;
-    frame[2] = od1;
-    frame[3] = iolink_crc6(frame, 3U);
+    frame[0] = od0;
+    frame[1] = od1;
+    frame[2] = test_ck6_reply(frame, 2U, 0U);
 
     assert_int_equal(iolink_master_on_rx(port, frame, sizeof(frame)), 0);
 }
@@ -135,11 +136,11 @@ static void feed_type0_isdu_response_bytes(iolink_master_port_t* port,
         }
 
         frame[0] = ctrl;
-        frame[1] = iolink_checksum_ck(frame[0], 0U);
+        frame[1] = test_ck6_type0(frame[0]);
         assert_int_equal(iolink_master_on_rx(port, frame, sizeof(frame)), 0);
 
         frame[0] = data[i];
-        frame[1] = iolink_checksum_ck(frame[0], 0U);
+        frame[1] = test_ck6_type0(frame[0]);
         assert_int_equal(iolink_master_on_rx(port, frame, sizeof(frame)), 0);
     }
 }
@@ -257,19 +258,19 @@ static void test_type0_read_isdu_completes_from_type0_response_bytes(void** stat
     assert_int_equal(iolink_master_read_isdu(&port, 0x0010U, 0U, data, &len), 1);
 
     frame[0] = IOLINK_ISDU_CTRL_START;
-    frame[1] = iolink_checksum_ck(frame[0], 0U);
+    frame[1] = test_ck6_type0(frame[0]);
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), 0);
 
     frame[0] = 0x4FU;
-    frame[1] = iolink_checksum_ck(frame[0], 0U);
+    frame[1] = test_ck6_type0(frame[0]);
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), 0);
 
     frame[0] = (uint8_t)(IOLINK_ISDU_CTRL_LAST | 0x01U);
-    frame[1] = iolink_checksum_ck(frame[0], 0U);
+    frame[1] = test_ck6_type0(frame[0]);
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), 0);
 
     frame[0] = 0x4BU;
-    frame[1] = iolink_checksum_ck(frame[0], 0U);
+    frame[1] = test_ck6_type0(frame[0]);
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), 0);
 
     len = sizeof(data);
@@ -420,7 +421,7 @@ static void test_preoperate_read_device_info_uses_type0_parameter_frames(void** 
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
     iolink_master_process(&port);
     iolink_master_process(&port);
-    startup_resp[1] = iolink_checksum_ck(startup_resp[0], 0U);
+    startup_resp[1] = test_ck6_type0(startup_resp[0]);
     assert_int_equal(iolink_master_on_rx(&port, startup_resp, sizeof(startup_resp)), 0);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
 

@@ -99,8 +99,10 @@ static int demo_phy_send(void* user, const uint8_t* data, size_t len)
 
     if((len == IOLINK_M_SEQ_TYPE0_LEN) && (data[0] == 0x00U))
     {
+        /* A.1.5 TYPE_0 reply: one OD octet plus CKS. */
         response[0] = 0x00U;
-        response[1] = iolink_checksum_ck(response[0], 0U);
+        response[1] = 0x00U;
+        response[1] = iolink_checksum6(response, 2U);
         queue_bytes(response, 2U);
         return (int)len;
     }
@@ -110,14 +112,14 @@ static int demo_phy_send(void* user, const uint8_t* data, size_t len)
         return (int)len;
     }
 
-    if(len == 6U)
+    if(len == 5U)
     {
-        response[0] = IOLINK_OD_STATUS_PD_VALID;
-        response[1] = 0x5AU;
+        /* A.2.4/A.1.5 OPERATE reply: [PD-in][OD...] CKS, no status octet. */
+        response[0] = 0x5AU;
+        response[1] = 0x00U;
         response[2] = 0x00U;
-        response[3] = 0x00U;
-        response[4] = iolink_crc6(response, 4U);
-        queue_bytes(response, 5U);
+        response[3] = iolink_checksum6(response, 4U);
+        queue_bytes(response, 4U);
         return (int)len;
     }
 

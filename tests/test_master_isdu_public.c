@@ -7,6 +7,7 @@
 #include <cmocka.h>
 
 #include "iolinki/crc.h"
+#include "test_wire_helpers.h"
 #include "iolinki/protocol.h"
 #include "iolinki_master/master.h"
 
@@ -52,7 +53,7 @@ static void feed_type0_byte(iolink_master_port_t* port, uint8_t byte)
     uint8_t frame[2];
 
     frame[0] = byte;
-    frame[1] = iolink_checksum_ck(frame[0], 0U);
+    frame[1] = test_ck6_type0(frame[0]);
     assert_int_equal(iolink_master_on_rx(port, frame, sizeof(frame)), IOLINK_MASTER_STATUS_OK);
 }
 
@@ -79,7 +80,7 @@ static void assert_last_type0_request(uint8_t expected_od)
     assert_true(g_send_calls > 0);
     assert_int_equal(g_sent_len[g_send_calls - 1], IOLINK_M_SEQ_TYPE0_LEN);
     assert_int_equal(g_sent[g_send_calls - 1][0], expected_od);
-    assert_int_equal(g_sent[g_send_calls - 1][1], iolink_checksum_ck(expected_od, 0U));
+    assert_int_equal(g_sent[g_send_calls - 1][1], test_ck6_type0(expected_od));
 }
 
 static void assert_next_type0_request(iolink_master_port_t* port, uint8_t expected_od)

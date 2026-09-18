@@ -256,8 +256,9 @@ typedef struct
 /** @brief Runtime diagnostics snapshot for a port. */
 typedef struct
 {
-    uint8_t od_status;                /**< Last on-request-data status octet. */
-    bool event_pending;               /**< True while an OD Event flag is set. */
+    uint8_t od_status;                /**< Last reply CKS octet (A.1.5). */
+    uint8_t device_status;            /**< Last DeviceStatus octet read via ISDU (0x0024). */
+    bool event_pending;               /**< True while the reply Event flag (CKS bit 7) is set. */
     uint8_t rx_retry_count;           /**< Current consecutive RX retry count. */
     uint32_t checksum_errors;         /**< Cumulative checksum errors. */
     uint32_t send_errors;             /**< Cumulative transmit errors. */
