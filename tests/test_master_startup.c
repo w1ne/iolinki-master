@@ -244,7 +244,8 @@ static void test_valid_init_sets_startup_state(void** state)
 
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &g_config), 0);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
-    assert_int_equal(iolink_master_port_state(&port)->od_len, 2);
+    /* g_config is TYPE_2_1: one OD octet per Table A.10. */
+    assert_int_equal(iolink_master_port_state(&port)->od_len, IOLINK_OD_LEN_8BIT);
     assert_int_equal(iolink_master_port_state(&port)->pd_in_len, g_config.pd_in_len);
     assert_int_equal(g_init_calls, 1);
     assert_int_equal(g_set_baudrate_calls, 1);
@@ -415,9 +416,10 @@ static void test_init_sets_od_length_from_m_sequence_type(void** state)
     assert_int_equal(iolink_master_port_state(&port)->od_len, IOLINK_OD_LEN_8BIT);
 
     reset_fake_phy(state);
+    /* Table A.10: TYPE_2_1 carries one OD octet; only TYPE_2_V carries two. */
     config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_2_1;
     assert_int_equal(iolink_master_init(&port, &g_fake_phy, &config), 0);
-    assert_int_equal(iolink_master_port_state(&port)->od_len, IOLINK_OD_LEN_16BIT);
+    assert_int_equal(iolink_master_port_state(&port)->od_len, IOLINK_OD_LEN_8BIT);
 
     reset_fake_phy(state);
     config.m_seq_type = IOLINK_MASTER_M_SEQ_TYPE_2_V;
@@ -892,11 +894,12 @@ static void test_process_startup_waits_for_type0_response_before_preoperate(void
 
     iolink_master_process(&port);
     /* A.2.4: the TYPE_2 cyclic message is MC, CKT, PD-out, OD with the A.1.6
-       checksum and the M-sequence type in CKT (TYPE_2 -> 0x80). A.1.6: the CKT
-       enters the checksum with its type bits in place, so the oracle over
-       [00 80 11 22 00 00] gives 0x05 -> CKT 0x85. No trailing checksum octet. */
+       checksum and the M-sequence type in CKT (TYPE_2 -> 0x80). TYPE_2_1 carries
+       one OD octet (Table A.10); A.1.6 folds the CKT with its type bits in
+       place, and the oracle over [00 80 11 22 00] gives 0x05 -> CKT 0x85. No
+       trailing checksum octet. */
     {
-        const uint8_t expected_cycle[] = {0x00U, 0x85U, 0x11U, 0x22U, 0x00U, 0x00U};
+        const uint8_t expected_cycle[] = {0x00U, 0x85U, 0x11U, 0x22U, 0x00U};
 
         expected_len = (int) sizeof(expected_cycle);
         assert_int_equal(g_send_calls, 4);
@@ -1062,10 +1065,17 @@ static void test_startup_can_validate_device_info_before_operate(void** state)
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
 
     /* Drive the ISDU request (index 0x0000) onto the ISDU channel until the
-       transport waits for the response, then deliver the Read Response (+). */
-    iolink_master_process(&port);
-    iolink_master_process(&port);
-    iolink_master_process(&port);
+       transport waits for the response, then deliver the Read Response (+).
+       TYPE_2_1 carries one OD octet per message (Table A.10), so the request is
+       segmented into one message per ISDU octet. */
+    for(uint8_t guard = 0U; guard < 8U; guard++)
+    {
+        iolink_master_process(&port);
+        if(iolink_master_port_state(&port)->isdu.phase == IOLINK_MASTER_ISDU_PHASE_WAIT)
+        {
+            break;
+        }
+    }
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_PREOPERATE);
     assert_int_equal(iolink_master_port_state(&port)->isdu.phase,
                      IOLINK_MASTER_ISDU_PHASE_WAIT);

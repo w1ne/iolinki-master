@@ -804,9 +804,10 @@ bool iolink_master_event_channel_access(const iolink_master_port_t* port, bool* 
         *addr = ev->addr;
     }
     if (od_len != NULL) {
-        /* One OD octet per read for TYPE_0/TYPE_2 (Table A.10); TYPE_1_1/1_2/1_V
-           carry their configured OD width. The address advances by the number
-           of octets the device returns (Table 58 slot layout). */
+        /* One OD octet per read for TYPE_0 and the one-octet TYPE_2_x variants
+           (Table A.10); TYPE_2_V and the TYPE_1_x types carry their configured
+           OD width. The address advances by the number of octets the device
+           returns (Table 58 slot layout). */
         *od_len = iolink_master_port_const_state(port)->od_len;
     }
     return true;

@@ -94,14 +94,14 @@ static int demo_phy_send(void* user, const uint8_t* data, size_t len)
         return (int)len;
     }
 
-    if(len == 5U)
+    /* TYPE_2_1 cyclic request: MC, CKT, PD-out(1), OD(1) -> 4 octets (Table A.10). */
+    if(len == 4U)
     {
-        /* A.2.4/A.1.5 reply: [PD-in][OD...] CKS, no status octet; flags in CKS bits 7/6. */
+        /* A.2.4/A.1.5 reply: [PD-in][OD] CKS, no status octet; flags in CKS bits 7/6. */
         response[0] = 0x5AU;
         response[1] = 0x00U;
-        response[2] = 0x00U;
-        response[3] = iolink_checksum6(response, 4U);
-        queue_bytes(response, 4U);
+        response[2] = iolink_checksum6(response, 3U);
+        queue_bytes(response, 3U);
         return (int)len;
     }
 
