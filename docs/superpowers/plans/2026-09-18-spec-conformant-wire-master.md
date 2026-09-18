@@ -124,3 +124,76 @@ handler), `tests/test_master_isdu_public.c`, `tests/test_master_isdu_wire.c`.
   rewritten for C1..C6 (no stale 0x00/0x0F text), `CHANGELOG.md` BREAKING entry, `docs/MISRA_DEVIATIONS.md`
   if new deviations. `./check_quality.sh` clean, all ctest green incl. `test_master_real_iolinki_device`
   against the sibling worktree device. Commit `docs: record the spec-conformant wire`.
+
+## Status
+
+Branch `feat/spec-wire-checksum-isdu`, worktree `/home/andrii/projects/iolinki-master-wt-wire`,
+device worktree `/home/andrii/projects/iolinki-wt-wire` (slice D, read-only here).
+
+### Per task
+
+- **Task 1 — verify replies with the A.1.6 checksum.** Commit `6468ec2`. Tests:
+  `test_master_startup`, `test_master_pd`, `test_master_fake_device` (A.1.5 reply
+  layout `[PD-in][OD] CKS`, flags in bits 7/6, fake device computes CKS with
+  `iolink_checksum6`). Result: pass.
+- **Task 2 — spec ISDU framing, lengths, CHKPDU and FlowCTRL segmentation.**
+  Commit `8908003`. Tests: `test_master_isdu`, `test_master_isdu_wire` (byte-exact
+  Table A.13/Figure A.20 vectors), `test_master_isdu_public`. Result: pass.
+- **Task 3 — read the Table 58 event memory over the diagnosis channel.**
+  Commit `bfff760`. Tests: `test_master_isdu_public`, `test_master_isdu_wire`,
+  `test_master_fake_device` event paths. Result: pass.
+- **Task 4 — Table A.10 M-sequence codes and Table B.6 descriptor validation.**
+  Commit `a1b243c`. Tests: `test_master_parameters` (new
+  `test_mseq_capability_code_matches_table_a10`,
+  `test_parse_direct_parameter_page1_rejects_reserved_pd_descriptors`,
+  `test_validate_accepts_every_table_a10_code_for_its_type`). Result: pass.
+- **Task 5 — T_DMT, T_DWU, response deadline from T_BIT, restart after retry
+  exhaustion.** Commit `efe4d41`. Tests: `test_master_startup`,
+  `test_master_tick` (new `test_tick_at_holds_first_message_for_t_dmt_after_wake`,
+  `test_tick_at_spaces_wake_retries_by_t_dwu`,
+  `test_response_deadline_has_a_t_bit_floor`,
+  `test_startup_probe_octet_stored_under_no_check`), `test_master_controller`,
+  `test_master_pd`, `test_master_public_flow`. Public storage budget bumped
+  1280 -> 1296 bytes. Result: pass.
+- **Task 6 — sample, docs, ledger.** Commit `26b3859`. Zephyr sample fake PHY
+  answers the new wire; `docs/IMPLEMENTATION_STATUS.md` rewritten for C1..C6;
+  `CHANGELOG.md` BREAKING entry; `docs/MISRA_DEVIATIONS.md` rows refreshed;
+  README status updated. Result: docs/sample only (not built by host CTest).
+
+### Overall test result
+
+`ctest --test-dir build --output-on-failure`: 14/15 targets pass. The single
+failure is `test_master_real_iolinki_device`, the cross-worktree on-wire target;
+per the design's merge order ("on-wire lane red until slice L") it stays red
+until slice D/L land. It was already red before Task 4 and is not a regression
+from this slice. All 14 host/hermetic targets green.
+
+### Blocker: `./check_quality.sh` cannot pass in this environment (pre-existing)
+
+`check_quality.sh` exits 1 at step 3/5 (MISRA C:2012). The tree has ~517
+`cppcheck --addon=misra` findings and the script runs that step with
+`--error-exitcode=1`; the same step fails on unmodified `HEAD` (509 findings in
+a clean `/tmp` extraction of the commit), so this is a pre-existing tree/tooling
+condition, not a regression. Step 4/5 (clang-format `--dry-run --Werror`) also
+cannot pass here because only clang-format **14.0.6** is installed while the
+project targets clang-format v21; v14 flags pre-existing committed code in
+`src/master_isdu.c` and `src/master_port.c` as unformatted. Per the brief, the
+tree was **not** reformatted with v14; touched lines were hand-formatted to
+Google 100-column style. Verified steps 1/5 (`-Werror -Wpedantic -Wconversion
+-Wshadow`) and 2/5 (cppcheck warning/style/performance/portability) pass:
+
+```
+[1/5] Verifying Compilation Warnings...   PASS
+[2/5] Running Static Analysis (Cppcheck)... PASS
+[3/5] Running MISRA C:2012 Check...       FAIL (pre-existing, also at HEAD)
+```
+
+New MISRA findings introduced by this slice are all in already-accepted rule
+classes (15.5 multiple returns, 19.2 opaque-storage union use) and are covered by
+the existing `docs/MISRA_DEVIATIONS.md` rows, which were refreshed accordingly.
+
+### Not done in this slice
+
+`test_master_real_iolinki_device` green against the sibling device, and physical
+wake-pulse/T_REN validation, remain open per the design's work split and merge
+order (slice L / hardware phase).
