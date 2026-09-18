@@ -54,6 +54,10 @@ read resp `[0xD4,0x12,0x34]`→`0xF2`; write resp(+) `[0x52]`→`0x52`.
 `IOLINKI_DEVICE_DIR`), every test that hard-codes CK bytes (`tests/fake_iolink_device.c`,
 `tests/test_master_*.c`), `src/master_port.c` reply verification (must zero CKS bits 0-5 before
 verifying and read Event/PD-status flags from bits 7/6).
+- [ ] Reply layout per spec A.1.5: `[PD-in][OD] CKS`, `CKS = event<<7 | pd_invalid<<6 | ck6`. Remove
+  every assumption of a leading status octet (`status & 0x20` PD_VALID, toggle bit) in
+  `src/master_port.c` reply parsing and in `tests/fake_iolink_device.c`; `pd_valid = !(cks & 0x40)`,
+  `event = cks & 0x80`. Vectors: TYPE_0 reply `10 39`; TYPE_2 PD `A5 22` valid/no event; `A5 8A` event.
 - [ ] Configure with the sibling worktree, build; fix all hard-coded checksums using the oracle; the
   fake device must compute its CKS with `iolink_checksum6`. All 14 ctest targets green. Commit
   `fix(wire): verify replies with the A.1.6 checksum`.
