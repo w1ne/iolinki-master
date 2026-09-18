@@ -313,6 +313,92 @@ static void test_wire_64_octet_read_uses_extended_length(void** state)
     assert_memory_equal(data, payload, sizeof(payload));
 }
 
+/** @brief Drive one DIAGNOSIS read of @p mc and answer it with @p value.
+ *
+ * Verifies the emitted TYPE_0 read M-sequence byte for byte (A.1.6 over
+ * [MC, CKT=0]) and injects the A.1.5 reply [value, CKS].
+ */
+static void serve_diagnosis_read(iolink_master_port_t* port, uint8_t mc, uint8_t value)
+{
+    uint8_t frame[2];
+
+    assert_int_equal(iolink_master_tick_event(port, IOLINK_MASTER_TICK_CYCLE_DUE),
+                     IOLINK_MASTER_STATUS_OK);
+    frame[0] = mc;
+    frame[1] = wire_ck6(frame, 1U);
+    assert_last_frame(frame, sizeof(frame));
+    feed_type0_byte(port, value);
+}
+
+static void test_wire_event_details_reads_diagnosis_memory(void** state)
+{
+    iolink_master_port_t port;
+    iolink_master_event_t events[2];
+    uint8_t count = 0U;
+    /* Oracle: MC = R|DIAGNOSIS|addr; memory = StatusCode 0x01 + slot1 E2 42 10. */
+    static const uint8_t mc0[] = {0xC0U, 0x1DU};
+    static const uint8_t mc1[] = {0xC1U, 0x0CU};
+    static const uint8_t mc2[] = {0xC2U, 0x3CU};
+    static const uint8_t mc3[] = {0xC3U, 0x2DU};
+
+    (void) state;
+
+    memset(events, 0, sizeof(events));
+    enter_type0_operate(&port);
+
+    assert_int_equal(iolink_master_read_event_details(&port, events, 2U, &count),
+                     IOLINK_MASTER_STATUS_PENDING);
+
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_last_frame(mc0, sizeof(mc0));
+    feed_type0_byte(&port, 0x01U);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_last_frame(mc1, sizeof(mc1));
+    feed_type0_byte(&port, 0xE2U);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_last_frame(mc2, sizeof(mc2));
+    feed_type0_byte(&port, 0x42U);
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_last_frame(mc3, sizeof(mc3));
+    feed_type0_byte(&port, 0x10U);
+
+    assert_int_equal(iolink_master_read_event_details(&port, events, 2U, &count),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(count, 1U);
+    assert_int_equal(events[0].qualifier, 0xE2U);
+    assert_int_equal(events[0].type, IOLINK_MASTER_EVENT_TYPE_WARNING);
+    assert_int_equal(events[0].code, 0x4210U);
+}
+
+static void test_wire_event_ack_writes_status_code(void** state)
+{
+    iolink_master_port_t port;
+    uint16_t event_code = 0U;
+    /* Oracle: Table 59 T8 confirm write MC = W|DIAGNOSIS|0, OD any (0x00). */
+    static const uint8_t confirm[] = {0x40U, 0x35U, 0x00U};
+
+    (void) state;
+
+    enter_type0_operate(&port);
+    assert_int_equal(iolink_master_ack_event(&port, &event_code), IOLINK_MASTER_STATUS_PENDING);
+
+    serve_diagnosis_read(&port, 0xC0U, 0x01U);
+    serve_diagnosis_read(&port, 0xC1U, 0xE2U);
+    serve_diagnosis_read(&port, 0xC2U, 0x42U);
+    serve_diagnosis_read(&port, 0xC3U, 0x10U);
+
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_last_frame(confirm, sizeof(confirm));
+
+    assert_int_equal(iolink_master_ack_event(&port, &event_code), IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(event_code, 0x4210U);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -321,6 +407,8 @@ int main(void)
         cmocka_unit_test_setup(test_wire_write_request_and_positive_ack, reset_wire),
         cmocka_unit_test_setup(test_wire_negative_response_maps_error_type, reset_wire),
         cmocka_unit_test_setup(test_wire_64_octet_read_uses_extended_length, reset_wire),
+        cmocka_unit_test_setup(test_wire_event_details_reads_diagnosis_memory, reset_wire),
+        cmocka_unit_test_setup(test_wire_event_ack_writes_status_code, reset_wire),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

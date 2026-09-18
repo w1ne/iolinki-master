@@ -54,6 +54,7 @@ typedef struct
     uint8_t isdu_response_len;
     uint8_t isdu_response_pos;
     bool isdu_response_active;
+    uint8_t event_memory[19];
 } fake_iolink_device_t;
 
 static fake_iolink_device_t g_device;
@@ -371,6 +372,45 @@ static uint8_t fake_iolink_device_direct_param_octet(uint8_t addr)
     return 0U;
 }
 
+/** @brief Return one octet of the Table 58 event memory served on DIAGNOSIS. */
+static uint8_t fake_iolink_device_event_memory_octet(uint8_t addr)
+{
+    return (addr < sizeof(g_device.event_memory)) ? g_device.event_memory[addr] : 0U;
+}
+
+/** @brief Queue an OPERATE/TYPE_0 reply for a DIAGNOSIS event-memory read.
+ *
+ * The reply follows A.1.5: [PD-in octets][OD octets] CKS, with the CKS Event flag
+ * in bit 7. @p od_len is the port's OD width (1 for TYPE_0/TYPE_2, wider for
+ * TYPE_1 with interleaved PD).
+ */
+static void fake_iolink_device_queue_diagnosis_read(uint8_t addr, uint8_t od_len)
+{
+    uint8_t pos = 0U;
+    uint8_t i;
+
+    if(od_len == 0U)
+    {
+        od_len = 1U;
+    }
+
+    for(i = 0U; i < g_device.pd_in_len; i++)
+    {
+        g_device.rx_queue[pos++] = g_device.pd_in_value;
+    }
+    for(i = 0U; i < od_len; i++)
+    {
+        g_device.rx_queue[pos++] =
+            fake_iolink_device_event_memory_octet((uint8_t)(addr + i));
+    }
+
+    g_device.rx_queue[pos] = (uint8_t)(g_device.event_pending ? 0x80U : 0U);
+    g_device.rx_queue[pos] =
+        (uint8_t)(iolink_checksum6(g_device.rx_queue, (size_t)(pos + 1U)) | g_device.rx_queue[pos]);
+    g_device.rx_len = (uint8_t)(pos + 1U);
+    g_device.rx_pos = 0U;
+}
+
 static int fake_iolink_device_send(void* user, const uint8_t* data, size_t len)
 {
     (void)user;
@@ -382,6 +422,24 @@ static int fake_iolink_device_send(void* user, const uint8_t* data, size_t len)
     if((len == 1U) && (data[0] == 0x55U))
     {
         g_device.wakeup_count++;
+        return (int)len;
+    }
+
+    /* DIAGNOSIS channel (7.3.8, Table 58): a read returns the event-memory octet
+       at the MC address; a write to address 0 confirms the readout. */
+    if((data[0] & IOLINK_MC_COMM_CHANNEL_MASK) == IOLINK_MC_CHANNEL_DIAGNOSIS)
+    {
+        if((data[0] & IOLINK_MC_RW_MASK) != 0U)
+        {
+            fake_iolink_device_queue_diagnosis_read((uint8_t)(data[0] & IOLINK_MC_ADDR_MASK),
+                                                    g_device.od_len);
+        }
+        else
+        {
+            /* StatusCode confirmation: the device release is not gated on a
+               reply octet (Table 59 T8); clear the Event flag. */
+            g_device.event_pending = false;
+        }
         return (int)len;
     }
 
@@ -550,6 +608,17 @@ void fake_iolink_device_set_event_code(uint16_t event_code)
     data[0] = (uint8_t)(event_code >> 8);
     data[1] = (uint8_t)(event_code & 0xFFU);
     fake_iolink_device_set_isdu_object(IOLINK_IDX_SYSTEM_COMMAND, 0U, data, sizeof(data));
+}
+
+void fake_iolink_device_set_event_memory(const uint8_t* memory, uint8_t len)
+{
+    uint8_t i;
+
+    (void)memset(g_device.event_memory, 0, sizeof(g_device.event_memory));
+    for(i = 0U; (i < len) && (i < sizeof(g_device.event_memory)); i++)
+    {
+        g_device.event_memory[i] = memory[i];
+    }
 }
 
 void fake_iolink_device_corrupt_next_response_checksum(void)

@@ -754,33 +754,210 @@ int iolink_master_read_detailed_device_status(iolink_master_port_t* port, uint8_
     return iolink_master_read_isdu(port, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0U, data, len);
 }
 
+/** @brief Latch the final event-service result and stop the transport. */
+static void iolink_master_event_finish(iolink_master_port_t* port, int result)
+{
+    iolink_master_port_state(port)->event.result = result;
+    iolink_master_port_state(port)->event.phase = IOLINK_MASTER_EVENT_PHASE_NONE;
+}
+
+/** @brief Start an event-memory service on the diagnosis channel (7.3.8.3 T2). */
+static void iolink_master_event_start(iolink_master_port_t* port,
+                                      iolink_master_event_req_t request)
+{
+    iolink_master_event_state_t* ev = &iolink_master_port_state(port)->event;
+
+    (void) memset(ev, 0, sizeof(*ev));
+    ev->request = request;
+    ev->phase = IOLINK_MASTER_EVENT_PHASE_READ;
+    ev->addr = 0U;
+    ev->needed = 1U; /* At least the StatusCode octet (Table 58 address 0). */
+    ev->result = IOLINK_MASTER_STATUS_PENDING;
+}
+
+bool iolink_master_event_channel_access(const iolink_master_port_t* port, bool* read, uint8_t* addr,
+                                        uint8_t* od_len)
+{
+    const iolink_master_event_state_t* ev;
+
+    if (port == NULL) {
+        return false;
+    }
+
+    ev = &iolink_master_port_const_state(port)->event;
+    if (ev->phase == IOLINK_MASTER_EVENT_PHASE_NONE) {
+        return false;
+    }
+
+    if (read != NULL) {
+        *read = (ev->phase == IOLINK_MASTER_EVENT_PHASE_READ);
+    }
+    if (addr != NULL) {
+        *addr = ev->addr;
+    }
+    if (od_len != NULL) {
+        /* One OD octet per read for TYPE_0/TYPE_2 (Table A.10); TYPE_1_1/1_2/1_V
+           carry their configured OD width. The address advances by the number
+           of octets the device returns (Table 58 slot layout). */
+        *od_len = iolink_master_port_const_state(port)->od_len;
+    }
+    return true;
+}
+
+void iolink_master_event_on_od(iolink_master_port_t* port, const uint8_t* od, uint8_t od_len)
+{
+    iolink_master_event_state_t* ev;
+    uint8_t i;
+
+    if ((port == NULL) || (od == NULL)) {
+        return;
+    }
+
+    ev = &iolink_master_port_state(port)->event;
+    if (ev->phase != IOLINK_MASTER_EVENT_PHASE_READ) {
+        return;
+    }
+
+    for (i = 0U; i < od_len; i++) {
+        if ((ev->addr < IOLINK_MASTER_EVENT_MEMORY_LEN) && (ev->len < IOLINK_MASTER_EVENT_MEMORY_LEN)) {
+            ev->memory[ev->addr] = od[i];
+            ev->addr++;
+            ev->len++;
+        }
+
+        if (!ev->status_seen && (ev->len >= 1U)) {
+            uint8_t status = ev->memory[0];
+            uint8_t active = (uint8_t) (status & 0x3FU);
+            uint8_t slot;
+
+            ev->status_seen = true;
+            ev->last_slot = 0U;
+            for (slot = 0U; slot < IOLINK_MASTER_EVENT_SLOT_MAX; slot++) {
+                if ((active & (uint8_t) (1U << slot)) != 0U) {
+                    ev->last_slot = (uint8_t) (slot + 1U);
+                }
+            }
+            /* Table 58: slot n occupies addresses 3n-2..3n. */
+            ev->needed = (ev->last_slot == 0U)
+                             ? 1U
+                             : (uint8_t) ((IOLINK_MASTER_EVENT_ENTRY_LEN * ev->last_slot) + 1U);
+        }
+    }
+
+    if (ev->status_seen && (ev->len >= ev->needed) &&
+        (ev->len >= 1U)) {
+        if (ev->request == IOLINK_MASTER_EVENT_REQ_ACK) {
+            /* Table 59 T8: confirm the readout by writing any value to the
+               StatusCode at address 0. */
+            ev->phase = IOLINK_MASTER_EVENT_PHASE_WRITE;
+            ev->addr = 0U;
+        }
+        else {
+            iolink_master_event_finish(port, IOLINK_MASTER_STATUS_OK);
+        }
+    }
+}
+
+void iolink_master_event_on_written(iolink_master_port_t* port)
+{
+    if (port == NULL) {
+        return;
+    }
+
+    if (iolink_master_port_state(port)->event.phase == IOLINK_MASTER_EVENT_PHASE_WRITE) {
+        iolink_master_event_finish(port, IOLINK_MASTER_STATUS_OK);
+    }
+}
+
+/** @brief Return true when the completed event service may be consumed by a caller. */
+static bool iolink_master_event_complete(const iolink_master_port_t* port)
+{
+    return (iolink_master_port_const_state(port)->event.phase == IOLINK_MASTER_EVENT_PHASE_NONE) &&
+           (iolink_master_port_const_state(port)->event.request != IOLINK_MASTER_EVENT_REQ_NONE);
+}
+
+/** @brief Return the EventCode of the lowest active slot in a Table 58 memory image.
+ *
+ * Slot n (0-based) occupies qualifier @c 1+3n, code MSB @c 2+3n and code LSB
+ * @c 3+3n (Table 58). Returns 0 when no slot is active.
+ */
+static uint16_t iolink_master_event_first_code(const uint8_t* memory)
+{
+    uint8_t active = (uint8_t) (memory[0] & 0x3FU);
+    uint8_t slot;
+
+    for (slot = 0U; slot < IOLINK_MASTER_EVENT_SLOT_MAX; slot++) {
+        if ((active & (uint8_t) (1U << slot)) != 0U) {
+            uint8_t base = (uint8_t) (1U + (IOLINK_MASTER_EVENT_ENTRY_LEN * slot));
+
+            return (uint16_t) (((uint16_t) memory[(uint8_t) (base + 1U)] << 8U) |
+                               memory[(uint8_t) (base + 2U)]);
+        }
+    }
+
+    return 0U;
+}
+
 int iolink_master_read_event_code(iolink_master_port_t* port, uint16_t* event_code)
 {
-    uint8_t data[2] = {0U};
-    uint8_t len = sizeof(data);
-    int ret;
+    iolink_master_event_state_t* ev;
 
-    if (event_code == NULL) {
+    if ((port == NULL) || (event_code == NULL)) {
         return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
-    ret = iolink_master_read_isdu(port, IOLINK_IDX_SYSTEM_COMMAND, 0U, data, &len);
-    if (ret != IOLINK_MASTER_STATUS_OK) {
-        return ret;
+    if ((iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_OPERATE) &&
+        (iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_PREOPERATE)) {
+        return IOLINK_MASTER_ISDU_ERR_INVALID_STATE;
     }
 
-    if (len < sizeof(data)) {
-        return IOLINK_MASTER_ISDU_ERR_DEVICE;
+    ev = &iolink_master_port_state(port)->event;
+    if (ev->phase != IOLINK_MASTER_EVENT_PHASE_NONE) {
+        return IOLINK_MASTER_STATUS_PENDING;
     }
 
-    *event_code = (uint16_t) (((uint16_t) data[0] << 8U) | data[1]);
+    if (!iolink_master_event_complete(port)) {
+        iolink_master_event_start(port, IOLINK_MASTER_EVENT_REQ_CODE);
+        return IOLINK_MASTER_STATUS_PENDING;
+    }
+
+    /* Consume the completed service (7.3.8.2: report the first active event). */
+    *event_code = iolink_master_event_first_code(ev->memory);
     iolink_master_port_state(port)->diagnostics.last_event_code = *event_code;
+    if (ev->last_slot >= 1U) {
+        iolink_master_port_state(port)->diagnostics.last_event_count = 1U;
+    }
+    ev->request = IOLINK_MASTER_EVENT_REQ_NONE;
     return IOLINK_MASTER_STATUS_OK;
 }
 
 int iolink_master_ack_event(iolink_master_port_t* port, uint16_t* event_code)
 {
-    return iolink_master_read_event_code(port, event_code);
+    iolink_master_event_state_t* ev;
+
+    if ((port == NULL) || (event_code == NULL)) {
+        return IOLINK_MASTER_ERR_INVALID_ARG;
+    }
+
+    if ((iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_OPERATE) &&
+        (iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_PREOPERATE)) {
+        return IOLINK_MASTER_ISDU_ERR_INVALID_STATE;
+    }
+
+    ev = &iolink_master_port_state(port)->event;
+    if (ev->phase != IOLINK_MASTER_EVENT_PHASE_NONE) {
+        return IOLINK_MASTER_STATUS_PENDING;
+    }
+
+    if (!iolink_master_event_complete(port)) {
+        iolink_master_event_start(port, IOLINK_MASTER_EVENT_REQ_ACK);
+        return IOLINK_MASTER_STATUS_PENDING;
+    }
+
+    *event_code = iolink_master_event_first_code(ev->memory);
+    iolink_master_port_state(port)->diagnostics.last_event_code = *event_code;
+    ev->request = IOLINK_MASTER_EVENT_REQ_NONE;
+    return IOLINK_MASTER_STATUS_OK;
 }
 
 /** @brief Map an event qualifier's mode field to the corresponding event type enum. */
@@ -802,51 +979,69 @@ static iolink_master_event_type_t iolink_master_event_type_from_qualifier(uint8_
 int iolink_master_read_event_details(iolink_master_port_t* port, iolink_master_event_t* events,
                                      uint8_t max_events, uint8_t* out_count)
 {
-    uint8_t data[IOLINK_MASTER_MAX_EVENTS * IOLINK_MASTER_EVENT_ENTRY_LEN] = {0U};
-    uint8_t len = sizeof(data);
-    uint8_t count;
-    uint8_t i;
-    int ret;
+    iolink_master_event_state_t* ev;
+    uint8_t active;
+    uint8_t count = 0U;
+    uint8_t slot;
 
-    if ((events == NULL) || (out_count == NULL)) {
+    if ((port == NULL) || (events == NULL) || (out_count == NULL)) {
         return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
-    ret = iolink_master_read_detailed_device_status(port, data, &len);
-    if (ret != IOLINK_MASTER_STATUS_OK) {
-        return ret;
+    if ((iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_OPERATE) &&
+        (iolink_master_port_state(port)->state != IOLINK_MASTER_STATE_PREOPERATE)) {
+        return IOLINK_MASTER_ISDU_ERR_INVALID_STATE;
     }
 
-    if ((len % IOLINK_MASTER_EVENT_ENTRY_LEN) != 0U) {
-        return IOLINK_MASTER_ISDU_ERR_DEVICE;
+    ev = &iolink_master_port_state(port)->event;
+    if (ev->phase != IOLINK_MASTER_EVENT_PHASE_NONE) {
+        return IOLINK_MASTER_STATUS_PENDING;
     }
 
-    count = (uint8_t) (len / IOLINK_MASTER_EVENT_ENTRY_LEN);
+    if (!iolink_master_event_complete(port)) {
+        iolink_master_event_start(port, IOLINK_MASTER_EVENT_REQ_DETAILS);
+        return IOLINK_MASTER_STATUS_PENDING;
+    }
+
+    /* Table 58: Active slots are reported in the StatusCode bits 0-5. */
+    active = (uint8_t) (ev->memory[0] & 0x3FU);
+    count = 0U;
+    for (slot = 0U; slot < IOLINK_MASTER_EVENT_SLOT_MAX; slot++) {
+        uint8_t base;
+
+        if ((active & (uint8_t) (1U << slot)) == 0U) {
+            continue;
+        }
+        base = (uint8_t) (1U + (IOLINK_MASTER_EVENT_ENTRY_LEN * slot));
+        events[count].qualifier = ev->memory[base];
+        events[count].type = iolink_master_event_type_from_qualifier(events[count].qualifier);
+        events[count].code = (uint16_t) (((uint16_t) ev->memory[(uint8_t) (base + 1U)] << 8U) |
+                                         ev->memory[(uint8_t) (base + 2U)]);
+        count++;
+        if (count >= max_events) {
+            if (count < IOLINK_MASTER_MAX_EVENTS) {
+                /* Report the events decoded so far but signal the overflow. */
+                break;
+            }
+            break;
+        }
+    }
+
     *out_count = count;
     iolink_master_port_state(port)->diagnostics.last_event_count = count;
-    iolink_master_port_state(port)->diagnostics.last_event_code = 0U;
-    if (max_events < count) {
-        return IOLINK_MASTER_ERR_BUFFER_TOO_SMALL;
-    }
-
-    for (i = 0U; i < count; i++) {
-        events[i].qualifier = data[i * IOLINK_MASTER_EVENT_ENTRY_LEN];
-        events[i].type = iolink_master_event_type_from_qualifier(events[i].qualifier);
-        events[i].code =
-            (uint16_t) (((uint16_t) data[(i * IOLINK_MASTER_EVENT_ENTRY_LEN) + 1U] << 8U) |
-                        data[(i * IOLINK_MASTER_EVENT_ENTRY_LEN) + 2U]);
-    }
-    if (count > 0U) {
-        iolink_master_port_state(port)->diagnostics.last_event_code = events[count - 1U].code;
-    }
+    iolink_master_port_state(port)->diagnostics.last_event_code =
+        (count > 0U) ? events[count - 1U].code : 0U;
 
     if (iolink_master_port_state(port)->config.event_handler != NULL) {
+        uint8_t i;
+
         for (i = 0U; i < count; i++) {
             iolink_master_port_state(port)->config.event_handler(
                 iolink_master_port_state(port)->config.event_user, &events[i]);
         }
     }
 
+    ev->request = IOLINK_MASTER_EVENT_REQ_NONE;
     return IOLINK_MASTER_STATUS_OK;
 }
 

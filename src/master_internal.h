@@ -117,6 +117,9 @@
 #define IOLINK_MASTER_DS_RECORD_HEADER_LEN 4U /**< Data Storage record header length, in bytes. */
 #define IOLINK_MASTER_EVENT_ENTRY_LEN 3U      /**< Length of one event entry, in bytes. */
 #define IOLINK_MASTER_MAX_EVENTS 8U           /**< Maximum events decoded per read. */
+#define IOLINK_MASTER_EVENT_MEMORY_LEN 19U    /**< Table 58 event memory size (0x00-0x12). */
+#define IOLINK_MASTER_EVENT_SLOT_MAX 6U       /**< Highest Table 58 event slot. */
+#define IOLINK_MASTER_EVENT_STATUS_DETAILS 0x80U /**< StatusCode bit 7: details present. */
 #define IOLINK_MASTER_EVENT_QUALIFIER_MODE_SHIFT 4U /**< Event-qualifier mode field shift. */
 #define IOLINK_MASTER_EVENT_QUALIFIER_MODE_MASK \
     0x03U                                        /**< Mask of the event-qualifier mode field. */
@@ -177,6 +180,42 @@ typedef struct
     uint16_t error;     /**< ISDU ErrorType (ErrorCode<<8|AdditionalCode). */
 } iolink_master_isdu_state_t;
 
+/** @brief Transport phase of the master Event handler (7.3.8.3, Figure 55). */
+typedef enum
+{
+    IOLINK_MASTER_EVENT_PHASE_NONE = 0, /**< Idle: no event service in progress. */
+    IOLINK_MASTER_EVENT_PHASE_READ,     /**< Reading the event memory (T2/T3). */
+    IOLINK_MASTER_EVENT_PHASE_WRITE,    /**< Confirming StatusCode (T8). */
+} iolink_master_event_phase_t;
+
+/** @brief Kind of event service requested through the diagnosis channel. */
+typedef enum
+{
+    IOLINK_MASTER_EVENT_REQ_NONE = 0, /**< No request. */
+    IOLINK_MASTER_EVENT_REQ_CODE,     /**< Report the first active event code. */
+    IOLINK_MASTER_EVENT_REQ_DETAILS,  /**< Read and deliver all active events. */
+    IOLINK_MASTER_EVENT_REQ_ACK,      /**< Read active events, then confirm. */
+} iolink_master_event_req_t;
+
+/** @brief Event-handler state: Table 58 event memory readout over DIAGNOSIS.
+ *
+ * The master reads the event memory octet by octet (7.3.8.2/Table 59) and, when
+ * the request asks for confirmation, writes any value to the StatusCode at
+ * address 0 to release the device's frozen event memory (Table 59 T8).
+ */
+typedef struct
+{
+    iolink_master_event_phase_t phase; /**< Current transport phase. */
+    iolink_master_event_req_t request; /**< Active service kind. */
+    uint8_t addr;                      /**< Next event-memory address to read. */
+    uint8_t needed;                    /**< Total memory octets to collect. */
+    uint8_t memory[IOLINK_MASTER_EVENT_MEMORY_LEN]; /**< Collected memory image. */
+    uint8_t len;                       /**< Octets collected so far. */
+    uint8_t last_slot;                 /**< Highest active event slot (1..6). */
+    bool status_seen;                  /**< True once the StatusCode is decoded. */
+    int result;                        /**< Latched final result. */
+} iolink_master_event_state_t;
+
 /** @brief Receive assembly buffer for a port. */
 typedef struct
 {
@@ -221,6 +260,7 @@ typedef struct
     iolink_master_diagnostics_t diagnostics;      /**< Runtime diagnostics counters. */
     iolink_master_device_info_t device_info;      /**< Decoded device identification. */
     iolink_master_isdu_state_t isdu;              /**< In-flight ISDU state machine. */
+    iolink_master_event_state_t event;            /**< Event-memory readout state machine. */
     iolink_master_block_state_t block;            /**< Parameter block operation state. */
     iolink_master_rx_state_t rx;                  /**< Receive assembly buffer. */
     uint32_t cycle_count;                         /**< Number of cycles executed. */
@@ -348,6 +388,22 @@ bool iolink_master_isdu_take_abort(iolink_master_port_t* port);
  * must conclude the service with an ISDU-channel read carrying FlowCTRL IDLE.
  */
 bool iolink_master_isdu_take_idle(iolink_master_port_t* port);
+
+/** @brief Return true while an event-memory service is active on DIAGNOSIS.
+ *
+ * When true, @p read reports the M-sequence direction (true = device to master,
+ * a memory read; false = master write of the StatusCode confirmation), @p addr
+ * the event-memory address to place in the MC address bits, and @p od_len the
+ * number of OD octets to include (1 for a read of one memory octet).
+ */
+bool iolink_master_event_channel_access(const iolink_master_port_t* port, bool* read, uint8_t* addr,
+                                        uint8_t* od_len);
+
+/** @brief Consume the OD octets of an event-memory read reply (Table 59 T3). */
+void iolink_master_event_on_od(iolink_master_port_t* port, const uint8_t* od, uint8_t od_len);
+
+/** @brief Consume the reply to the StatusCode confirmation write (Table 59 T8). */
+void iolink_master_event_on_written(iolink_master_port_t* port);
 
 /** @} */ /* end of iolinki_master_internal group */
 

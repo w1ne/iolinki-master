@@ -198,62 +198,91 @@ static void test_public_detailed_device_status_read_uses_standard_index(void** s
     assert_memory_equal(data, payload, sizeof(payload));
 }
 
-static void test_public_event_code_read_uses_standard_index_and_decodes(void** state)
+/** @brief Serve one DIAGNOSIS event-memory read request with @p value at @p addr.
+ *
+ * Drives one tick so the master emits MC = R|DIAGNOSIS|addr, asserts that frame,
+ * then injects the A.1.5 TYPE_0 reply `[value, CKS]`.
+ */
+static void serve_event_memory_read(iolink_master_port_t* port, uint8_t addr, uint8_t value)
+{
+    assert_int_equal(iolink_master_tick_event(port, IOLINK_MASTER_TICK_CYCLE_DUE),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_true(g_send_calls > 0);
+    assert_int_equal(g_sent[g_send_calls - 1][0], (uint8_t) (0xC0U | addr));
+    feed_type0_byte(port, value);
+}
+
+static void test_public_event_code_read_uses_diagnosis_event_memory(void** state)
 {
     iolink_master_port_t port;
     uint16_t event_code = 0U;
-    static const uint8_t payload[] = {0x18U, 0x03U};
+    /* Table 58: StatusCode bit 0 = slot 1 active; slot 1 = E2 42 10. */
+    static const uint8_t memory[] = {0x01U, 0xE2U, 0x42U, 0x10U};
 
-    (void)state;
+    (void) state;
 
     enter_type0_operate(&port);
 
     assert_int_equal(iolink_master_read_event_code(&port, &event_code),
                      IOLINK_MASTER_STATUS_PENDING);
-    feed_read_response(&port, payload, sizeof(payload));
+    serve_event_memory_read(&port, 0U, memory[0]);
+    serve_event_memory_read(&port, 1U, memory[1]);
+    serve_event_memory_read(&port, 2U, memory[2]);
+    serve_event_memory_read(&port, 3U, memory[3]);
 
     assert_int_equal(iolink_master_read_event_code(&port, &event_code),
                      IOLINK_MASTER_STATUS_OK);
-    assert_int_equal(event_code, 0x1803U);
+    assert_int_equal(event_code, 0x4210U);
 }
 
-static void test_public_event_ack_reads_and_returns_event_code(void** state)
+static void test_public_event_ack_reads_and_confirms_status_code(void** state)
 {
     iolink_master_port_t port;
     uint16_t event_code = 0U;
-    static const uint8_t payload[] = {0x18U, 0x03U};
+    static const uint8_t memory[] = {0x01U, 0xE2U, 0x42U, 0x10U};
 
-    (void)state;
+    (void) state;
 
     enter_type0_operate(&port);
 
     assert_int_equal(iolink_master_ack_event(&port, &event_code), IOLINK_MASTER_STATUS_PENDING);
-    feed_read_response(&port, payload, sizeof(payload));
+    serve_event_memory_read(&port, 0U, memory[0]);
+    serve_event_memory_read(&port, 1U, memory[1]);
+    serve_event_memory_read(&port, 2U, memory[2]);
+    serve_event_memory_read(&port, 3U, memory[3]);
+
+    /* Table 59 T8: confirm by writing any value to the StatusCode at address 0. */
+    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE),
+                     IOLINK_MASTER_STATUS_OK);
+    assert_int_equal(g_sent[g_send_calls - 1][0], 0x40U);
 
     assert_int_equal(iolink_master_ack_event(&port, &event_code), IOLINK_MASTER_STATUS_OK);
-    assert_int_equal(event_code, 0x1803U);
+    assert_int_equal(event_code, 0x4210U);
 }
 
-static void test_public_event_details_read_decodes_detailed_device_status(void** state)
+static void test_public_event_details_read_decodes_diagnosis_memory(void** state)
 {
     iolink_master_port_t port;
     iolink_master_event_t events[2];
     uint8_t count = 0U;
-    static const uint8_t payload[] = {0xE2U, 0x42U, 0x10U};
+    static const uint8_t memory[] = {0x01U, 0xE2U, 0x42U, 0x10U};
 
-    (void)state;
+    (void) state;
 
     memset(events, 0, sizeof(events));
     enter_type0_operate(&port);
 
     assert_int_equal(iolink_master_read_event_details(&port, events,
-                                                      (uint8_t)(sizeof(events) / sizeof(events[0])),
+                                                      (uint8_t) (sizeof(events) / sizeof(events[0])),
                                                       &count),
                      IOLINK_MASTER_STATUS_PENDING);
-    feed_read_response(&port, payload, sizeof(payload));
+    serve_event_memory_read(&port, 0U, memory[0]);
+    serve_event_memory_read(&port, 1U, memory[1]);
+    serve_event_memory_read(&port, 2U, memory[2]);
+    serve_event_memory_read(&port, 3U, memory[3]);
 
     assert_int_equal(iolink_master_read_event_details(&port, events,
-                                                      (uint8_t)(sizeof(events) / sizeof(events[0])),
+                                                      (uint8_t) (sizeof(events) / sizeof(events[0])),
                                                       &count),
                      IOLINK_MASTER_STATUS_OK);
     assert_int_equal(count, 1U);
@@ -427,10 +456,10 @@ int main(void)
         cmocka_unit_test_setup(test_public_data_storage_read_uses_standard_index, reset_fixture),
         cmocka_unit_test_setup(test_public_detailed_device_status_read_uses_standard_index,
                                reset_fixture),
-        cmocka_unit_test_setup(test_public_event_code_read_uses_standard_index_and_decodes,
+        cmocka_unit_test_setup(test_public_event_code_read_uses_diagnosis_event_memory,
                                reset_fixture),
-        cmocka_unit_test_setup(test_public_event_ack_reads_and_returns_event_code, reset_fixture),
-        cmocka_unit_test_setup(test_public_event_details_read_decodes_detailed_device_status,
+        cmocka_unit_test_setup(test_public_event_ack_reads_and_confirms_status_code, reset_fixture),
+        cmocka_unit_test_setup(test_public_event_details_read_decodes_diagnosis_memory,
                                reset_fixture),
         cmocka_unit_test_setup(test_public_isdu_verify_readback_compares_value, reset_fixture),
         cmocka_unit_test_setup(test_public_data_storage_verify_uses_standard_index, reset_fixture),

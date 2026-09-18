@@ -242,6 +242,69 @@ static bool iolink_master_send_isdu(iolink_master_port_t* port)
     return frame_len > 0;
 }
 
+/** @brief Send one M-sequence on the DIAGNOSIS channel if an event service is active.
+ *
+ * The event memory (7.3.8, Table 58) is read octet by octet and the readout is
+ * confirmed by a write to the StatusCode at address 0 (Table 59 T8). The M-sequence
+ * layout follows the configured type: TYPE_0 uses MC+CKT (write adds one OD);
+ * TYPE_1/TYPE_2 use MC+CKT+PD-out+OD (A.2.3/A.2.4). Returns true when a frame
+ * was emitted.
+ */
+static bool iolink_master_send_event(iolink_master_port_t* port)
+{
+    iolink_master_port_state_t* state = iolink_master_port_state(port);
+    uint8_t mc;
+    uint8_t addr = 0U;
+    uint8_t od_len = 1U;
+    bool read = false;
+    int frame_len;
+
+    if (!iolink_master_event_channel_access(port, &read, &addr, &od_len)) {
+        return false;
+    }
+
+    if (state->config.m_seq_type == IOLINK_MASTER_M_SEQ_TYPE_0) {
+        mc = iolink_master_encode_master_command(read, IOLINK_MASTER_MC_CHANNEL_DIAGNOSIS, addr);
+        if (read) {
+            frame_len = iolink_frame_encode_type0(mc, state->tx_buf, sizeof(state->tx_buf));
+        }
+        else {
+            frame_len =
+                iolink_frame_encode_type0_write(mc, 0x00U, state->tx_buf, sizeof(state->tx_buf));
+        }
+    }
+    else {
+        size_t od_pos;
+        uint8_t i;
+
+        mc = iolink_master_encode_master_command(read, IOLINK_MASTER_MC_CHANNEL_DIAGNOSIS, addr);
+        frame_len = (int) (IOLINK_M_SEQ_HEADER_LEN + state->pd_out_len + od_len);
+        state->tx_buf[0] = mc;
+        state->tx_buf[1] = 0x00U;
+        if (state->pd_out_len > 0U) {
+            (void) memcpy(&state->tx_buf[IOLINK_M_SEQ_HEADER_LEN], state->pd_out, state->pd_out_len);
+        }
+        od_pos = (size_t) IOLINK_M_SEQ_HEADER_LEN + state->pd_out_len;
+        for (i = 0U; i < od_len; i++) {
+            state->tx_buf[od_pos + i] = 0x00U;
+        }
+        state->tx_buf[1] = (uint8_t) (iolink_master_ckt_type_bits(state->config.m_seq_type) |
+                                      iolink_checksum6(state->tx_buf, (size_t) frame_len));
+    }
+
+    if (frame_len > 0) {
+        (void) iolink_master_send_full(port, state->tx_buf, (size_t) frame_len);
+    }
+
+    if (!read) {
+        /* Table 59 T8: the StatusCode write completes the readout; the device
+           release is not gated on the reply octet. */
+        iolink_master_event_on_written(port);
+    }
+
+    return frame_len > 0;
+}
+
 /** @brief Return true if a new OPERATE cycle is due at the given timestamp (or pacing is inactive).
  */
 static bool iolink_master_cycle_due_at(const iolink_master_port_t* port, uint32_t now_100us)
@@ -647,6 +710,10 @@ void iolink_master_process(iolink_master_port_t* port)
     if (iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_PREOPERATE) {
         int ret;
 
+        if (iolink_master_send_event(port)) {
+            return;
+        }
+
         if (iolink_master_send_isdu(port)) {
             return;
         }
@@ -688,8 +755,12 @@ void iolink_master_process(iolink_master_port_t* port)
     }
 
     if (iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_OPERATE) {
-        /* An active ISDU service takes the cycle; it is transported on the ISDU
-           channel rather than piggybacked on the process-data M-sequence. */
+        /* An event readout on the DIAGNOSIS channel (7.3.8.3) preempts the
+           cyclic exchange; an active ISDU service then takes the cycle. */
+        if (iolink_master_send_event(port)) {
+            return;
+        }
+
         if (iolink_master_send_isdu(port)) {
             return;
         }
@@ -807,6 +878,25 @@ int iolink_master_poll_rx(iolink_master_port_t* port)
     return frames;
 }
 
+/** @brief Route received OD octets to the active acyclic service.
+ *
+ * The DIAGNOSIS event readout (7.3.8) and the ISDU transport (7.3.6) are
+ * mutually exclusive services; whichever is active consumes the reply OD.
+ */
+static void iolink_master_route_od(iolink_master_port_t* port, const uint8_t* od, uint8_t od_len)
+{
+    bool read = false;
+    uint8_t addr = 0U;
+    uint8_t event_od_len = 1U;
+
+    if (iolink_master_event_channel_access(port, &read, &addr, &event_od_len) && read) {
+        iolink_master_event_on_od(port, od, od_len);
+        return;
+    }
+
+    iolink_master_isdu_on_od(port, od, od_len);
+}
+
 int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t len)
 {
     iolink_frame_operate_response_t resp;
@@ -858,7 +948,7 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
 
         iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
         iolink_master_port_state(port)->awaiting_response = false;
-        iolink_master_isdu_on_od(port, data, 1U);
+        iolink_master_route_od(port, data, 1U);
         return IOLINK_MASTER_STATUS_OK;
     }
 
@@ -884,7 +974,7 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
 
         iolink_master_port_state(port)->diagnostics.rx_retry_count = 0U;
         iolink_master_port_state(port)->awaiting_response = false;
-        iolink_master_isdu_on_od(port, data, 1U);
+        iolink_master_route_od(port, data, 1U);
         return IOLINK_MASTER_STATUS_OK;
     }
 
@@ -929,7 +1019,7 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
         iolink_master_port_state(port)->pd_valid = true;
     }
 
-    iolink_master_isdu_on_od(port, resp.od, resp.od_len);
+    iolink_master_route_od(port, resp.od, resp.od_len);
 
     return IOLINK_MASTER_STATUS_OK;
 }
