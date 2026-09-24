@@ -1,5 +1,7 @@
 # iolinki-master Architecture
 
+The companion device stack is [iolinki](https://github.com/w1ne/iolinki).
+
 `iolinki-master` is a standalone, hardware-independent IO-Link **master** protocol
 library. The design goal is a portable embedded master core with clean boundaries:
 no heap, caller-owned storage, a public API that hides private state, and no

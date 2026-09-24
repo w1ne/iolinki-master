@@ -1,5 +1,7 @@
 # iolinki-master
 
+The companion device stack is [iolinki](https://github.com/w1ne/iolinki).
+
 `iolinki-master` is a standalone IO-Link master stack. It is intentionally split
 from the device-oriented [`iolinki`](https://github.com/w1ne/iolinki) repository
 and reuses only the narrow shared pieces needed for CRC, frame handling, PHY
