@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-25
+
 ### Changed
 - **BREAKING: spec-conformant wire (IO-Link V1.1.5).** The master now speaks the
   spec message checksum (A.1.6), reply layout (A.1.5: `[PD-in][OD] CKS`, no
@@ -28,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `check_quality.sh` now also finds the Debian x86_64 cppcheck MISRA addon path.
 
 ### Added
+- **Zephyr module**: `zephyr/`, a west manifest, and a `native_sim` sample.
 - **Startup timing config**: `t_dmt_tbit` (T_DMT, default 32 bit times) and
   `t_dwu_100us` (T_DWU, default 400 = 40 ms); `wake_retry_limit` now defaults to
   the spec n_WU = 2 when 0, and the response deadline is floored at (11 + 10)
@@ -43,12 +46,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Startup probe** (`master_port.c`): the MinCycleTime probe octet is stored in
   `device_info.min_cycle_time` under every inspection level, including
   `NO_CHECK`.
+- **Table A.10 OD width**: TYPE_2_1 and TYPE_2_2 carry one On-request Data octet.
+- **Event readout**: a cyclic OPERATE reply can no longer complete a diagnosis
+  readout that has not been sent.
 
 ### Documented
 - **Spec conformance audit** against Interface & System Spec V1.1.5 in
   `docs/IMPLEMENTATION_STATUS.md`: the wire, ISDU transport, events, codes and
   timing are now conformant for the master slice (C1..C6); the former
   startup/OPERATE-transition and ISDU I-Service deviations are gone.
+
+### Verified
+- `cmake-ctest` and `labwired-real-firmware-model` are green against the
+  `iolinki` device stack on `develop`.
+- This tag is not an official IO-Link master conformance test. It has not been
+  run against a third-party sensor or actuator. The physical wake-up pulse
+  stays in the PHY adapter.
 
 ## [0.2.0] - 2026-07-04
 
@@ -113,6 +126,7 @@ for the honest gap list).
 - **Project baseline**: dual-license model (GPLv3 + commercial), coordinated-disclosure
   `SECURITY.md`, and `.clang-format` / `.editorconfig`.
 
-[Unreleased]: https://github.com/w1ne/iolinki-master/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/w1ne/iolinki-master/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/w1ne/iolinki-master/compare/v0.2.0...v1.0.0
 [0.2.0]: https://github.com/w1ne/iolinki-master/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/w1ne/iolinki-master/releases/tag/v0.1.0
