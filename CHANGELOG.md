@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Link the real-device test's file-backed NVM hooks directly into its executable
+  so weak platform stubs cannot mask parameter writes. Check Data Storage
+  readback after reinitializing the stacks.
+
+### Documented
+- Align new master commercial quotes with the Indie/Company product-family
+  packages: named independent individual or legal company, two/eight total
+  scoped assistance hours, and perpetual royalty-free family rights. Retain
+  accepted older grants and archive the previous published offer; the device
+  stack remains separately licensed.
+
 ## [1.0.0] - 2026-09-25
 
 ### Changed
