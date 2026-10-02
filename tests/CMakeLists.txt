@@ -72,12 +72,14 @@ if(CMOCKA_FOUND)
         "${IOLINKI_DEVICE_DIR}/src/device_info.c"
         "${IOLINKI_DEVICE_DIR}/src/platform_stubs.c"
         "${IOLINKI_DEVICE_DIR}/src/platform/linux/time_utils.c"
-        "${IOLINKI_DEVICE_DIR}/src/platform/linux/nvm_mock.c"
     )
     target_include_directories(iolinki_device_stack_for_tests PUBLIC "${IOLINKI_DEVICE_DIR}/include")
     target_link_libraries(iolinki_device_stack_for_tests PUBLIC iolinki_frame_helpers)
 
-    add_executable(test_master_real_iolinki_device test_master_real_iolinki_device.c)
+    # Link strong NVM hooks directly: weak platform stubs can otherwise satisfy
+    # the references before the static archive's file-backed mock is extracted.
+    add_executable(test_master_real_iolinki_device test_master_real_iolinki_device.c
+        "${IOLINKI_DEVICE_DIR}/src/platform/linux/nvm_mock.c")
     target_link_libraries(test_master_real_iolinki_device iolinki_master iolinki_device_stack_for_tests ${CMOCKA_LIBRARIES})
     add_test(NAME test_master_real_iolinki_device COMMAND test_master_real_iolinki_device)
 
