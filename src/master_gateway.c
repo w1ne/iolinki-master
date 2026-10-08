@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 static int gateway_append(char* out, size_t out_len, size_t* used, char ch)
 {
@@ -82,6 +83,7 @@ int iolink_master_format_gateway_line(uint8_t port_index,
 {
     size_t used = 0U;
     uint8_t i;
+    char line[IOLINK_MASTER_GATEWAY_LINE_MAX];
 
     if((info == NULL) || (out == NULL) || (out_len == 0U) || !info->valid ||
        (pd_in_len > IOLINK_PD_IN_MAX_SIZE) || ((pd_in_len > 0U) && (pd_in == NULL)))
@@ -89,21 +91,21 @@ int iolink_master_format_gateway_line(uint8_t port_index,
         return IOLINK_MASTER_ERR_INVALID_ARG;
     }
 
-    out[0] = '\0';
-    if((gateway_append_str(out, out_len, &used, "iolinki-gw/1 ") != 0) ||
-       (gateway_append_u8_dec(out, out_len, &used, port_index) != 0) ||
-       (gateway_append(out, out_len, &used, ' ') != 0) ||
-       (gateway_append_hex(out, out_len, &used, info->vendor_id, 4U) != 0) ||
-       (gateway_append(out, out_len, &used, ' ') != 0) ||
-       (gateway_append_hex(out, out_len, &used, info->device_id, 8U) != 0) ||
-       (gateway_append(out, out_len, &used, ' ') != 0))
+    line[0] = '\0';
+    if((gateway_append_str(line, sizeof(line), &used, "iolinki-gw/1 ") != 0) ||
+       (gateway_append_u8_dec(line, sizeof(line), &used, port_index) != 0) ||
+       (gateway_append(line, sizeof(line), &used, ' ') != 0) ||
+       (gateway_append_hex(line, sizeof(line), &used, info->vendor_id, 4U) != 0) ||
+       (gateway_append(line, sizeof(line), &used, ' ') != 0) ||
+       (gateway_append_hex(line, sizeof(line), &used, info->device_id, 8U) != 0) ||
+       (gateway_append(line, sizeof(line), &used, ' ') != 0))
     {
         return IOLINK_MASTER_ERR_BUFFER_TOO_SMALL;
     }
 
     if(pd_in_len == 0U)
     {
-        if(gateway_append(out, out_len, &used, '-') != 0)
+        if(gateway_append(line, sizeof(line), &used, '-') != 0)
         {
             return IOLINK_MASTER_ERR_BUFFER_TOO_SMALL;
         }
@@ -112,18 +114,24 @@ int iolink_master_format_gateway_line(uint8_t port_index,
     {
         for(i = 0U; i < pd_in_len; i++)
         {
-            if(gateway_append_hex(out, out_len, &used, pd_in[i], 2U) != 0)
+            if(gateway_append_hex(line, sizeof(line), &used, pd_in[i], 2U) != 0)
             {
                 return IOLINK_MASTER_ERR_BUFFER_TOO_SMALL;
             }
         }
     }
 
-    if(gateway_append(out, out_len, &used, '\n') != 0)
+    if(gateway_append(line, sizeof(line), &used, '\n') != 0)
     {
         return IOLINK_MASTER_ERR_BUFFER_TOO_SMALL;
     }
 
+    if((used + 1U) > out_len)
+    {
+        return IOLINK_MASTER_ERR_BUFFER_TOO_SMALL;
+    }
+
+    memcpy(out, line, used + 1U);
     return IOLINK_MASTER_STATUS_OK;
 }
 
@@ -149,6 +157,10 @@ int iolink_master_write_gateway_line(const iolink_master_port_t* port,
     }
 
     ret = iolink_master_get_pd_in(port, pd, (uint8_t)sizeof(pd), &pd_len);
+    if(ret == IOLINK_MASTER_STATUS_PENDING)
+    {
+        return iolink_master_format_gateway_line(port_index, &info, NULL, 0U, out, out_len);
+    }
     if(ret != IOLINK_MASTER_STATUS_OK)
     {
         return ret;

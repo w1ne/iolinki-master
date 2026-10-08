@@ -681,8 +681,9 @@ int iolink_master_format_gateway_line(uint8_t port_index,
 /**
  * @brief Collect device info and PD-in from a port and format one gateway line.
  *
- * @return ::IOLINK_MASTER_STATUS_PENDING when identity or PD is not valid yet,
- *         otherwise the ::iolink_master_format_gateway_line result.
+ * @return ::IOLINK_MASTER_STATUS_PENDING when identity is not valid yet.
+ *         A known device with no valid process data yet is reported with pd "-".
+ *         Otherwise returns the ::iolink_master_format_gateway_line result.
  */
 int iolink_master_write_gateway_line(const iolink_master_port_t* port,
                                      uint8_t port_index,
