@@ -47,6 +47,10 @@ if(CMOCKA_FOUND)
     target_link_libraries(test_master_parameters iolinki_master ${CMOCKA_LIBRARIES})
     add_test(NAME test_master_parameters COMMAND test_master_parameters)
 
+    add_executable(test_master_gateway test_master_gateway.c)
+    target_link_libraries(test_master_gateway iolinki_master ${CMOCKA_LIBRARIES})
+    add_test(NAME test_master_gateway COMMAND test_master_gateway)
+
     add_executable(test_master_public_flow test_master_public_flow.c)
     target_link_libraries(test_master_public_flow iolinki_master ${CMOCKA_LIBRARIES})
     add_test(NAME test_master_public_flow COMMAND test_master_public_flow)

@@ -37,6 +37,7 @@ target_include_directories(iolinki_frame_helpers PUBLIC "${IOLINKI_DEVICE_DIR}/i
 
 add_library(iolinki_master STATIC
     src/master_controller.c
+    src/master_gateway.c
     src/master_isdu.c
     src/master_parameters.c
     src/master_port.c
