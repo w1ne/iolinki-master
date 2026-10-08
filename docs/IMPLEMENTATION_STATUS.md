@@ -231,3 +231,11 @@ The scheduler/timing model is now explicit (cycle/deadline pacing plus the
 C6 startup/recovery timers). The remaining architecture work is real-PHY
 adapters and hardware validation, not the protocol wire.
 
+The next proof is a bench: one commercial sensor on this master through an
+out-of-tree PHY adapter, with VendorID, DeviceID, and process data emitted by
+`iolink_master_write_gateway_line`. Still open:
+
+- No hardware PHY adapter in this repository. `docs/PHY_BOUNDARY.md` is the contract.
+- No real-device sensor or actuator matrix.
+- No official IO-Link master conformance test.
+

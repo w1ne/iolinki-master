@@ -180,7 +180,14 @@ typedef enum
     IOLINK_MASTER_MC_CHANNEL_ISDU = 3U       /**< ISDU channel. */
 } iolink_master_mc_channel_t;
 
-/** @brief Address of the MasterCommand transition register (operate transition = 0x0F). */
+/**
+ * @brief 5-bit address which, with a process-channel write, encodes the legacy
+ *        Type-0 octet 0x0F (IOLINK_MC_TRANSITION_COMMAND).
+ *
+ * That octet is not the V1.1.5 DeviceOperate transition. DeviceOperate is a
+ * page-channel write of IOLINK_CMD_DEVICE_OPERATE (0x99) to Direct Parameter
+ * address 0x00.
+ */
 #define IOLINK_MASTER_MC_TRANSITION_ADDR 0x0FU
 
 /** @} */ /* end of Enumerations & result codes */
@@ -651,6 +658,36 @@ int iolink_master_apply_direct_parameter_page1(iolink_master_port_t* port, const
  */
 int iolink_master_get_device_info(const iolink_master_port_t* port,
                                   iolink_master_device_info_t* info);
+
+#define IOLINK_MASTER_GATEWAY_LINE_MAX 128U
+
+/**
+ * @brief Format one NUL-terminated gateway line, including its trailing newline.
+ *
+ * The line is `iolinki-gw/1 <port> <vendor-4hex> <device-8hex> <pd-hex-or-dash>`.
+ * @p info->valid must be true. @p pd_in may be NULL only when @p pd_in_len is 0.
+ * @p pd_in_len above IOLINK_PD_IN_MAX_SIZE is invalid.
+ *
+ * @return ::IOLINK_MASTER_STATUS_OK, ::IOLINK_MASTER_ERR_INVALID_ARG, or
+ *         ::IOLINK_MASTER_ERR_BUFFER_TOO_SMALL.
+ */
+int iolink_master_format_gateway_line(uint8_t port_index,
+                                      const iolink_master_device_info_t* info,
+                                      const uint8_t* pd_in,
+                                      uint8_t pd_in_len,
+                                      char* out,
+                                      size_t out_len);
+
+/**
+ * @brief Collect device info and PD-in from a port and format one gateway line.
+ *
+ * @return ::IOLINK_MASTER_STATUS_PENDING when identity or PD is not valid yet,
+ *         otherwise the ::iolink_master_format_gateway_line result.
+ */
+int iolink_master_write_gateway_line(const iolink_master_port_t* port,
+                                     uint8_t port_index,
+                                     char* out,
+                                     size_t out_len);
 /**
  * @brief Validate a port's stored device info against its configuration.
  *
