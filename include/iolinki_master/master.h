@@ -228,7 +228,13 @@ typedef struct
     uint8_t min_cycle_time;                /**< Minimum cycle time (raw octet encoding). */
     uint8_t pd_in_len;                     /**< Configured input process-data length, in bytes. */
     uint8_t pd_out_len;                    /**< Configured output process-data length, in bytes. */
-    bool auto_baudrate;                    /**< If true, sweep COM rates during startup. */
+    /**
+     * If true (spec behaviour, 7.3.2.2 / Figure 36), every wake-up request is
+     * followed by one TYPE_0 test message at COM3, then COM2, then COM1 until
+     * the device answers. If false, only @c baudrate is tried after each
+     * wake-up; use this only for a PHY that cannot run the other rates.
+     */
+    bool auto_baudrate;
     bool validate_device_info;             /**< If true, validate device identity/config. */
     iolink_master_inspection_level_t inspection_level; /**< Identity inspection level to enforce. */
     uint16_t expected_vendor_id;    /**< Expected VendorID for identity checks. */
@@ -241,24 +247,33 @@ typedef struct
      */
     uint32_t isdu_timeout_100us;
     /**
-     * Master message delay T_DMT (Table 42), in bit times, applied after a
-     * wake-up before the first test message is transmitted. The spec range is
-     * 27..37 T_BIT; 0 selects the default of 32.
+     * Master message delay T_DMT (Table 42), in bit times of the rate of the
+     * next message. It is applied after T_REN following a wake-up, and between
+     * the test messages of the COM3, COM2, COM1 scan (7.3.2.2). The spec range
+     * is 27..37 T_BIT; 0 selects the default of 32.
      */
     uint8_t t_dmt_tbit;
     /**
-     * Wake-up retry delay T_DWU (Table 42), in 100us units, between successive
-     * wake-up request sequences. The spec range is 30..50 ms; 0 selects the
+     * Wake-up retry delay T_DWU (Table 42), in 100us units: the wait after a
+     * failed establish attempt (no answer at any tried rate) before the next
+     * wake-up request (Figure 32). The spec range is 30..50 ms; 0 selects the
      * default of 400 (40 ms).
      */
     uint32_t t_dwu_100us;
     /**
-     * Number of extra wake-up requests to issue at the current baudrate before
-     * giving up (auto-baud: advancing to the next COM rate; fixed baud: erroring).
-     * 0 selects the spec default n_WU = 2 (Table 42): the master makes up to
-     * n_WU + 1 successive wake-up requests.
+     * Wake-up retries n_WU (Table 42) in one wake-up retry sequence: the master
+     * makes up to n_WU + 1 wake-up requests, each followed by the rate scan,
+     * before it reports the sequence as failed (Figure 33, Figure 36). 0
+     * selects the spec value 2, which is the only conformant value.
      */
     uint8_t wake_retry_limit;
+    /**
+     * Device detection time T_SD (Table 42), in 100us units: after a failed
+     * wake-up retry sequence the PHY is set inactive and the next sequence
+     * starts no earlier than T_SD later (7.3.2.2). The spec range is 0.5..1 s;
+     * 0 selects the default of 5000 (500 ms).
+     */
+    uint32_t t_sd_100us;
     void* event_user; /**< Opaque user pointer passed to event callbacks. */
     iolink_master_event_pending_cb_t
         event_pending_handler;              /**< Event-pending edge callback (may be NULL). */
@@ -301,6 +316,7 @@ typedef struct
     uint8_t last_event_count;         /**< Number of events in the last event read. */
     uint16_t last_event_code;         /**< Most recent decoded event code. */
     uint16_t last_isdu_error;         /**< Most recent ISDU ErrorType (ErrorCode<<8|AdditionalCode). */
+    uint32_t establish_failures; /**< Failed wake-up retry sequences (DL_Mode INACTIVE, 7.3.2.2). */
 } iolink_master_diagnostics_t;
 
 /** @brief Read-only scheduler-visible timing snapshot for a port. */
@@ -347,10 +363,10 @@ typedef struct
  * array reference plus port count.
  */
 #define IOLINK_MASTER_PORT_STORAGE_BUDGET_SIZE \
-    1296U /**< Auditing budget for port storage, in bytes. */
+    1312U /**< Auditing budget for port storage, in bytes. */
 #define IOLINK_MASTER_CONTROLLER_STORAGE_BUDGET_SIZE \
     32U /**< Auditing budget for controller storage, in bytes. */
-#define IOLINK_MASTER_PORT_STORAGE_SIZE 1296U /**< Actual port opaque storage size, in bytes. */
+#define IOLINK_MASTER_PORT_STORAGE_SIZE 1312U /**< Actual port opaque storage size, in bytes. */
 #define IOLINK_MASTER_CONTROLLER_STORAGE_SIZE \
     32U /**< Actual controller opaque storage size, in bytes. */
 
@@ -433,10 +449,21 @@ int iolink_master_poll_rx(iolink_master_port_t* port);
 /**
  * @brief Handle a response-timeout event for a port.
  *
+ * During STARTUP a timeout ends the current test message without an answer
+ * (Table 46, AwaitReply_1). The port moves on to the next rate of the
+ * COM3, COM2, COM1 scan, or issues the next wake-up request, or, after
+ * n_WU + 1 failed wake-up requests, reports the failed sequence with
+ * ::IOLINK_MASTER_ERR_RETRY_LIMIT, sets the PHY inactive and starts a new
+ * sequence on a later tick (7.3.2.2, Figure 33, Figure 36). The port stays in
+ * STARTUP; it does not latch ERROR.
+ *
+ * This entry point has no time base, so the T_DMT, T_DWU and T_SD waits are
+ * skipped. Use ::iolink_master_tick_at for spec timing.
+ *
  * @param port  Port whose response deadline elapsed.
  * @return ::IOLINK_MASTER_STATUS_OK, ::IOLINK_MASTER_STATUS_PENDING while
  *         retrying, ::IOLINK_MASTER_ERR_INVALID_ARG, or
- *         ::IOLINK_MASTER_ERR_RETRY_LIMIT.
+ *         ::IOLINK_MASTER_ERR_RETRY_LIMIT when a wake-up retry sequence failed.
  */
 int iolink_master_on_timeout(iolink_master_port_t* port);
 

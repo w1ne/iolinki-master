@@ -225,7 +225,7 @@ static void test_on_rx_bad_checksum_returns_error_and_increments_count(void** st
     assert_int_equal(iolink_master_port_state(&port)->diagnostics.checksum_errors, 1U);
 }
 
-static void test_on_rx_bad_checksum_retries_twice_before_error_state(void** state)
+static void test_on_rx_bad_checksum_retries_twice_then_restarts_from_wake_up(void** state)
 {
     iolink_master_port_t port = {0};
     const uint8_t frame[] = {0xA5U, 0x00U, 0x00U};
@@ -242,8 +242,14 @@ static void test_on_rx_bad_checksum_retries_twice_before_error_state(void** stat
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), -3);
     assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
 
+    /* MaxRetry = 2 (Table 46, Table 102): the third consecutive failure is
+       COMLOST, which restarts communication from the wake-up (Table 44 T14,
+       Table 85 T3) rather than latching ERROR. */
     assert_int_equal(iolink_master_on_rx(&port, frame, sizeof(frame)), -3);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_ERROR);
+    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_STARTUP);
+    assert_int_equal(iolink_master_port_state(&port)->startup.step,
+                     IOLINK_MASTER_STARTUP_STEP_WAKE);
+    assert_int_equal(iolink_master_port_state(&port)->diagnostics.rx_retry_count, 0U);
     assert_int_equal(iolink_master_port_state(&port)->diagnostics.checksum_errors, 3U);
 }
 
@@ -385,7 +391,7 @@ int main(void)
         cmocka_unit_test(test_get_od_status_rejects_invalid_args),
         cmocka_unit_test(test_get_device_status_returns_failure_for_null_port),
         cmocka_unit_test(test_on_rx_bad_checksum_returns_error_and_increments_count),
-        cmocka_unit_test(test_on_rx_bad_checksum_retries_twice_before_error_state),
+        cmocka_unit_test(test_on_rx_bad_checksum_retries_twice_then_restarts_from_wake_up),
         cmocka_unit_test(test_on_rx_valid_response_resets_checksum_retry_count),
         cmocka_unit_test(test_operate_timeout_retries_twice_then_restarts_communication),
         cmocka_unit_test(test_valid_response_resets_operate_timeout_retry_count),
