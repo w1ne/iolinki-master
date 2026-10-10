@@ -7,7 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Establish communication per V1.1.5 7.3.2.2 (Figure 36, Table 44).** One
+  wake-up request is followed by a TYPE_0 test message at COM3, COM2 and COM1
+  until the device answers; there is no wake-up between rates any more. The
+  first test message waits T_REN (Table 10) plus T_DMT, and each further rate
+  waits T_DMT in its own bit time (Table 42). With no answer at the last rate the
+  next wake-up waits T_DWU; after n_WU + 1 wake-ups the failed sequence is
+  reported (`IOLINK_MASTER_ERR_RETRY_LIMIT`, `diagnostics.establish_failures`),
+  the PHY goes inactive and a new sequence starts after T_SD (Figure 33). The
+  port stays in STARTUP instead of latching ERROR. `wake_retry_limit` now counts
+  wake-ups per sequence, not per rate.
+- **COMLOST restarts from the wake-up.** Message retry exhaustion (MaxRetry = 2)
+  in PREOPERATE and OPERATE re-enters STARTUP (Table 46, Table 44 T9/T14,
+  Table 85 T3) instead of latching ERROR.
+- `IOLINK_MASTER_PORT_STORAGE_SIZE` grew from 1296 to 1312 bytes for
+  `config.t_sd_100us` and `diagnostics.establish_failures`.
+
 ### Fixed
+- `iolink_master_tick_at` / `iolink_master_controller_tick_at` now time out a
+  startup test message after T_M-sequence (A.3.6, 58 T_BIT for TYPE_0, widened
+  by `response_timeout_100us`). Before, the timed API never left
+  "await response" in STARTUP, so a silent port never retried or scanned.
+- An undecodable answer to a test message counts as no answer (Table 46
+  AwaitReply_1); it no longer latches ERROR after two checksum errors.
+- The OPERATE response deadline uses the established rate, not `baudrate`,
+  when `auto_baudrate` is set.
+- `iolink_master_get_next_tick_time` reports the end of a startup wait.
 - Link the real-device test's file-backed NVM hooks directly into its executable
   so weak platform stubs cannot mask parameter writes. Check Data Storage
   readback after reinitializing the stacks.
