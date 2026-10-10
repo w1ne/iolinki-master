@@ -59,6 +59,10 @@ if(CMOCKA_FOUND)
     target_link_libraries(test_master_sio_public iolinki_master ${CMOCKA_LIBRARIES})
     add_test(NAME test_master_sio_public COMMAND test_master_sio_public)
 
+    add_executable(test_master_establish test_master_establish.c)
+    target_link_libraries(test_master_establish iolinki_master ${CMOCKA_LIBRARIES})
+    add_test(NAME test_master_establish COMMAND test_master_establish)
+
     add_executable(test_master_fake_device test_master_fake_device.c fake_iolink_device.c)
     target_link_libraries(test_master_fake_device iolinki_master ${CMOCKA_LIBRARIES})
     add_test(NAME test_master_fake_device COMMAND test_master_fake_device)

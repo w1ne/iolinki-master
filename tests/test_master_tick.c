@@ -376,21 +376,23 @@ static void test_tick_at_holds_first_message_for_t_dmt_after_wake(void** state)
 
     assert_int_equal(iolink_master_init(&port, &g_phy, &g_config), 0);
 
-    /* Wake-up at t=0; COM3 T_DMT = 32 * 4.34us = 139us -> 2 ticks of 100us. */
+    /* 7.3.2.2: the first test message follows the wake-up after T_REN (max
+       500us, Table 10) and T_DMT (Table 42). Wake-up at t=0; COM3 T_DMT =
+       32 * 4.34us = 139us -> 2 ticks; 5 + 2 = 7 ticks of 100us. */
     assert_int_equal(iolink_master_tick_at(&port, event, 0U), 0);
     assert_int_equal(g_send_calls, 1);
     assert_int_equal(iolink_master_port_state(&port)->startup.step,
                      IOLINK_MASTER_STARTUP_STEP_SEND_TYPE0);
-    assert_int_equal(iolink_master_port_state(&port)->send_ready_at_100us, 2U);
+    assert_int_equal(iolink_master_port_state(&port)->send_ready_at_100us, 7U);
 
-    /* T_DMT not yet elapsed: the test message is held off (Table 42). */
-    assert_int_equal(iolink_master_tick_at(&port, event, 1U), 0);
+    /* T_REN + T_DMT not yet elapsed: the test message is held off. */
+    assert_int_equal(iolink_master_tick_at(&port, event, 6U), 0);
     assert_int_equal(g_send_calls, 1);
     assert_int_equal(iolink_master_port_state(&port)->startup.step,
                      IOLINK_MASTER_STARTUP_STEP_SEND_TYPE0);
 
-    /* At t=200us (2 ticks) the first test message is sent. */
-    assert_int_equal(iolink_master_tick_at(&port, event, 2U), 0);
+    /* At t=700us the first test message is sent. */
+    assert_int_equal(iolink_master_tick_at(&port, event, 7U), 0);
     assert_int_equal(g_send_calls, 2);
     assert_int_equal(iolink_master_port_state(&port)->startup.step,
                      IOLINK_MASTER_STARTUP_STEP_AWAIT_RESPONSE);
