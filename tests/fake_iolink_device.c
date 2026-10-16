@@ -317,7 +317,7 @@ static void fake_iolink_device_queue_type0(uint8_t value)
     g_device.rx_pos = 0U;
 }
 
-static void fake_iolink_device_queue_operate_response(bool deliver_od)
+static void fake_iolink_device_queue_operate_response(bool read)
 {
     uint8_t pos = 0U;
     uint8_t i;
@@ -330,17 +330,21 @@ static void fake_iolink_device_queue_operate_response(bool deliver_od)
         return;
     }
 
-    /* A.1.5 reply: [PD-in octets][OD octets] CKS, no leading status octet. CKS
-       carries the Event flag in bit 7 and PD-invalid in bit 6. */
+    /* Figures A.9/A.10/A.13/A.14: a READ reply is [OD octets][PD-in octets]
+       CKS with the service response in the OD; a WRITE reply is
+       [PD-in octets] CKS with no OD. CKS carries the Event flag in bit 7 and
+       PD-invalid in bit 6 (A.1.5). */
+    if(read)
+    {
+        for(i = 0U; i < g_device.od_len; i++)
+        {
+            g_device.rx_queue[pos++] = fake_iolink_device_next_response_od();
+        }
+    }
+
     for(i = 0U; i < g_device.pd_in_len; i++)
     {
         g_device.rx_queue[pos++] = g_device.pd_in_value;
-    }
-
-    for(i = 0U; i < g_device.od_len; i++)
-    {
-        g_device.rx_queue[pos++] =
-            deliver_od ? fake_iolink_device_next_response_od() : 0U;
     }
 
     /* A.1.5: CKS carries the Event flag in bit 7 (0x80). */
@@ -378,11 +382,12 @@ static uint8_t fake_iolink_device_event_memory_octet(uint8_t addr)
     return (addr < sizeof(g_device.event_memory)) ? g_device.event_memory[addr] : 0U;
 }
 
-/** @brief Queue an OPERATE/TYPE_0 reply for a DIAGNOSIS event-memory read.
+/** @brief Queue an OPERATE reply for a DIAGNOSIS event-memory read.
  *
- * The reply follows A.1.5: [PD-in octets][OD octets] CKS, with the CKS Event flag
- * in bit 7. @p od_len is the port's OD width (1 for TYPE_0/TYPE_2, wider for
- * TYPE_1 with interleaved PD).
+ * A diagnosis read is a READ M-sequence: the reply is [OD octets][PD-in
+ * octets] CKS (Figures A.9/A.10/A.13/A.14), with the CKS Event flag in bit 7.
+ * @p od_len is the port's OD width (1 for TYPE_0/TYPE_2, wider for TYPE_1 with
+ * interleaved PD).
  */
 static void fake_iolink_device_queue_diagnosis_read(uint8_t addr, uint8_t od_len)
 {
@@ -394,14 +399,14 @@ static void fake_iolink_device_queue_diagnosis_read(uint8_t addr, uint8_t od_len
         od_len = 1U;
     }
 
-    for(i = 0U; i < g_device.pd_in_len; i++)
-    {
-        g_device.rx_queue[pos++] = g_device.pd_in_value;
-    }
     for(i = 0U; i < od_len; i++)
     {
         g_device.rx_queue[pos++] =
             fake_iolink_device_event_memory_octet((uint8_t)(addr + i));
+    }
+    for(i = 0U; i < g_device.pd_in_len; i++)
+    {
+        g_device.rx_queue[pos++] = g_device.pd_in_value;
     }
 
     g_device.rx_queue[pos] = (uint8_t)(g_device.event_pending ? 0x80U : 0U);
@@ -519,7 +524,7 @@ static int fake_iolink_device_send(void* user, const uint8_t* data, size_t len)
 
     g_device.operate_cycle_count++;
     g_device.link_state = FAKE_LINK_OPERATE;
-    fake_iolink_device_queue_operate_response(false);
+    fake_iolink_device_queue_operate_response((data[0] & IOLINK_MC_RW_MASK) != 0U);
     return (int)len;
 }
 

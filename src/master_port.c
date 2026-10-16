@@ -207,6 +207,10 @@ static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* d
     }
 
     if (sent == (int) len) {
+        /* Figures A.9/A.10/A.13/A.14: only the reply to a READ M-sequence (MC
+           bit 7 set) carries OD octets; a WRITE reply is [PD-in] CKS. Record
+           the direction of the frame now on the wire for reply framing. */
+        state->rx_od_expected = ((data[0] & IOLINK_MC_RW_MASK) != 0U);
         return true;
     }
 
@@ -1110,8 +1114,15 @@ int iolink_master_poll_rx(iolink_master_port_t* port)
                            : IOLINK_M_SEQ_TYPE0_LEN;
     }
     else if (iolink_master_port_state(port)->state == IOLINK_MASTER_STATE_OPERATE) {
-        expected_len = (uint8_t) (iolink_master_port_state(port)->config.pd_in_len +
-                                  iolink_master_port_state(port)->od_len + 1U);
+        /* Figures A.9/A.10/A.13/A.14: only the reply to a READ M-sequence
+           carries OD octets; a WRITE reply is [PD-in] CKS. A TYPE_0 OPERATE
+           port (no PD) keeps its established two-octet expectation: its
+           replies are framed by the TYPE_0 branch of iolink_master_on_rx. */
+        const iolink_master_port_state_t* state = iolink_master_port_const_state(port);
+        const bool type0_operate = (state->config.m_seq_type == IOLINK_MASTER_M_SEQ_TYPE_0) &&
+                                   (state->config.pd_in_len == 0U) && (state->pd_out_len == 0U);
+        const uint8_t od_octets = (type0_operate || state->rx_od_expected) ? state->od_len : 0U;
+        expected_len = (uint8_t) (state->config.pd_in_len + od_octets + 1U);
     }
     else {
         return IOLINK_MASTER_STATUS_OK;
@@ -1298,9 +1309,14 @@ int iolink_master_on_rx(iolink_master_port_t* port, const uint8_t* data, uint8_t
         return IOLINK_MASTER_STATUS_OK;
     }
 
-    if (iolink_frame_decode_operate_response(data, len,
-                                             iolink_master_port_state(port)->config.pd_in_len,
-                                             iolink_master_port_state(port)->od_len, &resp) != 0) {
+    /* Figures A.9/A.10/A.13/A.14: the reply to a READ M-sequence is
+       [OD][PD-in] CKS; a WRITE reply carries no OD ([PD-in] CKS). */
+    if (iolink_frame_decode_operate_response(
+            data, len, iolink_master_port_state(port)->config.pd_in_len,
+            iolink_master_port_state(port)->rx_od_expected
+                ? iolink_master_port_state(port)->od_len
+                : 0U,
+            &resp) != 0) {
         return IOLINK_MASTER_ERR_FRAME;
     }
 

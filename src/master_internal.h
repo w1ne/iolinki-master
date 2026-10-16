@@ -304,6 +304,10 @@ typedef struct
     bool send_ready_valid;            /**< True when @c send_ready_at_100us gates transmits. */
     bool cycle_timer_valid;           /**< True once the cycle timer has a valid start. */
     bool awaiting_response;           /**< True while waiting on a device response. */
+    /** True when the reply to the outstanding frame carries OD octets: a READ
+     *  M-sequence is answered with [OD][PD-in] CKS, a WRITE with [PD-in] CKS
+     *  (Figures A.9/A.10/A.13/A.14). */
+    bool rx_od_expected;
 } iolink_master_port_state_t;
 
 /** @brief Private controller state backed by ::iolink_master_controller_t storage. */
