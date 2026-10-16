@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **OPERATE M-sequence reply layout.** The reply to a READ M-sequence is now
+  decoded as `[OD][PD-in] CKS` and the reply to a WRITE M-sequence as
+  `[PD-in] CKS` with no OD, matching the device stack and Figures
+  A.9/A.10/A.13/A.14. Reply framing and OD routing follow the direction of
+  the M-sequence on the wire.
+
 ### Changed
 - **Establish communication per V1.1.5 7.3.2.2 (Figure 36, Table 44).** One
   wake-up request is followed by a TYPE_0 test message at COM3, COM2 and COM1
