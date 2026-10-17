@@ -196,20 +196,6 @@ static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* d
         }
     }
 
-    /* A response to an earlier M-sequence may still be on the wire when this
-       request is sent before it was consumed. If the direction changes, the
-       stale reply no longer matches the framing of this request (a READ reply
-       is [OD][PD-in] CKS, a WRITE reply is [PD-in] CKS), so drop the
-       accumulated bytes before the reply to this request is framed. */
-    if (state->awaiting_response && (od_expected != state->rx_od_expected)) {
-        ret = iolink_master_flush_rx(port);
-        if (ret != IOLINK_MASTER_STATUS_OK) {
-            state->diagnostics.send_errors++;
-            state->state = IOLINK_MASTER_STATE_ERROR;
-            return false;
-        }
-    }
-
     sent = state->phy->send(state->phy->user, data, len);
 
     if (state->config.prepare_rx != NULL) {
@@ -548,6 +534,11 @@ static int iolink_master_tick_common(iolink_master_port_t* port, iolink_master_t
             return rx_ret;
         }
 
+        if (state->awaiting_response) {
+            /* Drop a late or partial reply from the timed-out request so its
+               bytes cannot be framed as the reply to the next one. */
+            (void) iolink_master_flush_rx(port);
+        }
         state->awaiting_response = false;
         timeout_ret = iolink_master_on_timeout_at(port, now_100us, pace_cycles);
         if (timeout_ret != IOLINK_MASTER_STATUS_OK) {
@@ -556,6 +547,16 @@ static int iolink_master_tick_common(iolink_master_port_t* port, iolink_master_t
     }
 
     if (event != IOLINK_MASTER_TICK_CYCLE_DUE) {
+        return rx_ret;
+    }
+
+    /* One M-sequence at a time (A.1.2): do not put a new request on the wire
+       while a reply is still outstanding. Replies carry direction-dependent
+       lengths (A.9/A.10/A.13/A.14) and the ISDU transport advances on reply
+       receipt, so a pipelined send would mis-frame or desynchronize the
+       stream. The response deadline (or the reply itself) releases the port;
+       the caller retries on a later tick. */
+    if (state->awaiting_response) {
         return rx_ret;
     }
 

@@ -47,11 +47,6 @@ static int reset_fixture(void** state)
     return 0;
 }
 
-static int fake_device_flush_rx(void)
-{
-    fake_iolink_device_flush_rx();
-    return IOLINK_MASTER_STATUS_OK;
-}
 
 /** @brief Drain the CKS-only DeviceOperate reply queued by the fake device.
  *
@@ -177,64 +172,6 @@ static void test_fake_device_can_inject_bad_operate_checksum(void** state)
     assert_int_equal(diagnostics.rx_retry_count, 1U);
 }
 
-/** @brief A direction-changing send must drop a stale reply that is still unread.
- *
- * The cyclic WRITE reply is already on the wire (queued but not yet consumed)
- * when the event readout sends a DIAGNOSIS READ while the WRITE reply is still
- * outstanding. Framing the stale WRITE reply ([PD-in] CKS) as the READ reply
- * ([OD][PD-in] CKS) would swallow the first byte of the real READ reply and
- * fail the checksum. The master must flush the stale bytes instead.
- */
-static void test_stale_write_reply_is_dropped_when_read_is_sent(void** state)
-{
-    iolink_master_port_t port;
-    iolink_master_config_t config = g_config;
-    iolink_master_diagnostics_t diagnostics;
-    iolink_master_timing_t timing;
-    iolink_master_event_t events[1];
-    uint8_t count = 0U;
-    const uint8_t memory[] = {0x00U};
-
-    (void)state;
-
-    memset(events, 0, sizeof(events));
-    config.flush_rx = fake_device_flush_rx;
-    fake_iolink_device_set_event_pending(true);
-    fake_iolink_device_set_event_memory(memory, sizeof(memory));
-
-    assert_int_equal(iolink_master_init(&port, fake_iolink_device_phy(), &config), 0);
-    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
-    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
-    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_NONE), 1);
-    assert_int_equal(iolink_master_tick_event(&port, IOLINK_MASTER_TICK_CYCLE_DUE), 0);
-    consume_operate_ack(&port);
-    assert_int_equal(iolink_master_get_state(&port), IOLINK_MASTER_STATE_OPERATE);
-
-    /* A timed cyclic WRITE is sent; its reply stays queued and unread. */
-    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_CYCLE_DUE, 100U), 0);
-    assert_int_equal(iolink_master_get_timing(&port, &timing), 0);
-    assert_true(timing.awaiting_response);
-
-    /* The device answers requests in order: keep the unread WRITE reply so the
-       diagnosis reply follows it on the wire. */
-    fake_iolink_device_keep_unread_responses();
-
-    /* Start the event readout; the next request is a DIAGNOSIS READ sent while
-       the cyclic WRITE reply is still outstanding. */
-    assert_int_equal(iolink_master_read_event_details(&port, events, 1U, &count),
-                     IOLINK_MASTER_STATUS_PENDING);
-    iolink_master_process(&port);
-
-    /* The stale WRITE reply must be gone: the first poll frames the READ reply
-       on its own and leaves no checksum error behind. */
-    assert_int_equal(iolink_master_tick_at(&port, IOLINK_MASTER_TICK_NONE, 121U), 1);
-    assert_int_equal(iolink_master_get_diagnostics(&port, &diagnostics), 0);
-    assert_int_equal(diagnostics.checksum_errors, 0U);
-    assert_int_equal(diagnostics.rx_retry_count, 0U);
-    assert_int_equal(iolink_master_read_event_details(&port, events, 1U, &count),
-                     IOLINK_MASTER_STATUS_OK);
-    assert_int_equal(count, 0U);
-}
 
 static void test_fake_device_can_drop_response_for_timeout_path(void** state)
 {
@@ -860,8 +797,6 @@ int main(void)
         cmocka_unit_test_setup(test_fake_device_conformance_matrix_nominal_profiles,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_can_inject_bad_operate_checksum,
-                               reset_fixture),
-        cmocka_unit_test_setup(test_stale_write_reply_is_dropped_when_read_is_sent,
                                reset_fixture),
         cmocka_unit_test_setup(test_fake_device_can_drop_response_for_timeout_path,
                                reset_fixture),
