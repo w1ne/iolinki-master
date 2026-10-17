@@ -194,9 +194,11 @@ spec-conformant for the master slice (design contract C1..C6 in
 - **C1 message checksum (A.1.6).** Requests and replies use the spec XOR
   checksum, seeded `0x52` and compressed 8-to-6 bits by equations (A.1). The
   shared helper is `iolink_checksum6` from the `iolinki` device stack; the
-  obsolete `iolink_crc6` is gone. Reply layout is `[PD-in][OD] CKS` with the
-  Event flag in CKS bit 7 and the PD-invalid flag in bit 6 (A.1.5); there is no
-  leading status octet and no PD toggle bit.
+  obsolete `iolink_crc6` is gone. The reply to a READ M-sequence is
+  `[OD][PD-in] CKS` and the reply to a WRITE M-sequence is `[PD-in] CKS`
+  (Figures A.9/A.10/A.13/A.14), with the Event flag in CKS bit 7 and the
+  PD-invalid flag in bit 6 (A.1.5); there is no leading status octet and no PD
+  toggle bit.
 - **C2 M-sequence control octet (A.1.2, Table A.1/A.2).** `MC = RW<<7 |
   channel<<5 | address`; the master addresses Process, Page, Diagnosis and ISDU
   channels, and reads of unimplemented addresses return 0.

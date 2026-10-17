@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-17
+
+### Added
+- A port emits a one-line gateway record (`iolinki-gw/1`) once the device
+  identity is known, so bench and bring-up captures name the device without
+  extra probing.
+
 ### Changed
 - **Establish communication per V1.1.5 7.3.2.2 (Figure 36, Table 44).** One
   wake-up request is followed by a TYPE_0 test message at COM3, COM2 and COM1
@@ -25,6 +32,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `config.t_sd_100us` and `diagnostics.establish_failures`.
 
 ### Fixed
+- **OPERATE M-sequence reply layout (wire change).** The reply to a READ
+  M-sequence is now decoded as `[OD][PD-in] CKS` and the reply to a WRITE
+  M-sequence as `[PD-in] CKS` with no OD, matching the device stack and Figures
+  A.9/A.10/A.13/A.14. Reply framing and OD routing follow the direction of
+  the M-sequence on the wire. Device and master must be upgraded together for
+  the multi-octet OPERATE types: mixed old/new pairings frame replies with the
+  wrong layout and produce checksum errors. Use with iolinki device stack 3.0.0.
+- The master now serializes M-sequence exchanges: a new request is deferred
+  while a reply is outstanding, and a response timeout flushes late or partial
+  reply bytes. Replies carry direction-dependent lengths (A.9/A.10/A.13/A.14),
+  so a pipelined send could otherwise mis-frame or desynchronize the stream;
+  the ISDU transport and the diagnosis readout advance on reply receipt and
+  rely on this ordering.
 - `iolink_master_tick_at` / `iolink_master_controller_tick_at` now time out a
   startup test message after T_M-sequence (A.3.6, 58 T_BIT for TYPE_0, widened
   by `response_timeout_100us`). Before, the timed API never left
