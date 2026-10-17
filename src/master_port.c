@@ -183,11 +183,26 @@ static int iolink_master_flush_rx(iolink_master_port_t* port)
 static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* data, size_t len)
 {
     iolink_master_port_state_t* state = iolink_master_port_state(port);
+    const bool od_expected = ((data[0] & IOLINK_MC_RW_MASK) != 0U);
     int sent;
     int ret;
 
     if (state->config.prepare_tx != NULL) {
         ret = state->config.prepare_tx();
+        if (ret != IOLINK_MASTER_STATUS_OK) {
+            state->diagnostics.send_errors++;
+            state->state = IOLINK_MASTER_STATE_ERROR;
+            return false;
+        }
+    }
+
+    /* A response to an earlier M-sequence may still be on the wire when this
+       request is sent before it was consumed. If the direction changes, the
+       stale reply no longer matches the framing of this request (a READ reply
+       is [OD][PD-in] CKS, a WRITE reply is [PD-in] CKS), so drop the
+       accumulated bytes before the reply to this request is framed. */
+    if (state->awaiting_response && (od_expected != state->rx_od_expected)) {
+        ret = iolink_master_flush_rx(port);
         if (ret != IOLINK_MASTER_STATUS_OK) {
             state->diagnostics.send_errors++;
             state->state = IOLINK_MASTER_STATE_ERROR;
@@ -210,7 +225,7 @@ static bool iolink_master_send_full(iolink_master_port_t* port, const uint8_t* d
         /* Figures A.9/A.10/A.13/A.14: only the reply to a READ M-sequence (MC
            bit 7 set) carries OD octets; a WRITE reply is [PD-in] CKS. Record
            the direction of the frame now on the wire for reply framing. */
-        state->rx_od_expected = ((data[0] & IOLINK_MC_RW_MASK) != 0U);
+        state->rx_od_expected = od_expected;
         return true;
     }
 

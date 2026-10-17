@@ -44,6 +44,7 @@ typedef struct
     bool corrupt_next_response_checksum;
     bool drop_next_response;
     bool truncate_next_response;
+    bool keep_unread_responses;
     fake_iolink_device_object_t objects[FAKE_IOLINK_DEVICE_OBJECT_MAX_COUNT];
     uint8_t object_count;
     uint8_t isdu_request[FAKE_IOLINK_DEVICE_ISDU_REQUEST_MAX_LEN];
@@ -289,8 +290,28 @@ static uint8_t fake_iolink_device_next_response_od(void)
     return od;
 }
 
+/** @brief Queue start position for the next reply.
+ *
+ * By default a new reply replaces any unread bytes. With
+ * fake_iolink_device_keep_unread_responses() armed, unread bytes are kept and
+ * the new reply is appended after them, in wire order.
+ */
+static uint8_t fake_iolink_device_queue_begin(void)
+{
+    if(g_device.keep_unread_responses && (g_device.rx_pos < g_device.rx_len))
+    {
+        return g_device.rx_len;
+    }
+
+    g_device.rx_pos = 0U;
+    g_device.rx_len = 0U;
+    return 0U;
+}
+
 static void fake_iolink_device_queue_type0(uint8_t value)
 {
+    uint8_t pos;
+
     if(g_device.drop_next_response)
     {
         g_device.rx_len = 0U;
@@ -299,27 +320,29 @@ static void fake_iolink_device_queue_type0(uint8_t value)
         return;
     }
 
+    pos = fake_iolink_device_queue_begin();
+
     /* A.1.5 TYPE_0 reply: one OD octet plus CKS (A.1.6 checksum over [data, CKS=0]). */
-    g_device.rx_queue[0] = value;
-    g_device.rx_queue[1] = 0x00U;
-    g_device.rx_queue[1] = iolink_checksum6(g_device.rx_queue, 2U);
+    g_device.rx_queue[pos] = value;
+    g_device.rx_queue[pos + 1U] = 0x00U;
+    g_device.rx_queue[pos + 1U] = iolink_checksum6(&g_device.rx_queue[pos], 2U);
     if(g_device.corrupt_next_response_checksum)
     {
-        g_device.rx_queue[1] ^= 0x01U;
+        g_device.rx_queue[pos + 1U] ^= 0x01U;
         g_device.corrupt_next_response_checksum = false;
     }
-    g_device.rx_len = IOLINK_M_SEQ_TYPE0_LEN;
+    g_device.rx_len = (uint8_t)(pos + IOLINK_M_SEQ_TYPE0_LEN);
     if(g_device.truncate_next_response && (g_device.rx_len > 0U))
     {
         g_device.rx_len--;
         g_device.truncate_next_response = false;
     }
-    g_device.rx_pos = 0U;
 }
 
 static void fake_iolink_device_queue_operate_response(bool read)
 {
-    uint8_t pos = 0U;
+    uint8_t start;
+    uint8_t pos;
     uint8_t i;
 
     if(g_device.drop_next_response)
@@ -329,6 +352,9 @@ static void fake_iolink_device_queue_operate_response(bool read)
         g_device.drop_next_response = false;
         return;
     }
+
+    start = fake_iolink_device_queue_begin();
+    pos = start;
 
     /* Figures A.9/A.10/A.13/A.14: a READ reply is [OD octets][PD-in octets]
        CKS with the service response in the OD; a WRITE reply is
@@ -349,8 +375,9 @@ static void fake_iolink_device_queue_operate_response(bool read)
 
     /* A.1.5: CKS carries the Event flag in bit 7 (0x80). */
     g_device.rx_queue[pos] = (uint8_t)(g_device.event_pending ? 0x80U : 0U);
-    g_device.rx_queue[pos] = (uint8_t)(iolink_checksum6(g_device.rx_queue, (size_t)(pos + 1U)) |
-                                       g_device.rx_queue[pos]);
+    g_device.rx_queue[pos] =
+        (uint8_t)(iolink_checksum6(&g_device.rx_queue[start], (size_t)(pos + 1U - start)) |
+                  g_device.rx_queue[pos]);
     if(g_device.corrupt_next_response_checksum)
     {
         g_device.rx_queue[pos] ^= 0x01U;
@@ -362,7 +389,6 @@ static void fake_iolink_device_queue_operate_response(bool read)
         g_device.rx_len--;
         g_device.truncate_next_response = false;
     }
-    g_device.rx_pos = 0U;
 }
 
 static uint8_t fake_iolink_device_direct_param_octet(uint8_t addr)
@@ -391,13 +417,17 @@ static uint8_t fake_iolink_device_event_memory_octet(uint8_t addr)
  */
 static void fake_iolink_device_queue_diagnosis_read(uint8_t addr, uint8_t od_len)
 {
-    uint8_t pos = 0U;
+    uint8_t start;
+    uint8_t pos;
     uint8_t i;
 
     if(od_len == 0U)
     {
         od_len = 1U;
     }
+
+    start = fake_iolink_device_queue_begin();
+    pos = start;
 
     for(i = 0U; i < od_len; i++)
     {
@@ -411,9 +441,9 @@ static void fake_iolink_device_queue_diagnosis_read(uint8_t addr, uint8_t od_len
 
     g_device.rx_queue[pos] = (uint8_t)(g_device.event_pending ? 0x80U : 0U);
     g_device.rx_queue[pos] =
-        (uint8_t)(iolink_checksum6(g_device.rx_queue, (size_t)(pos + 1U)) | g_device.rx_queue[pos]);
+        (uint8_t)(iolink_checksum6(&g_device.rx_queue[start], (size_t)(pos + 1U - start)) |
+                  g_device.rx_queue[pos]);
     g_device.rx_len = (uint8_t)(pos + 1U);
-    g_device.rx_pos = 0U;
 }
 
 static int fake_iolink_device_send(void* user, const uint8_t* data, size_t len)
@@ -482,13 +512,14 @@ static int fake_iolink_device_send(void* user, const uint8_t* data, size_t len)
     if((len == IOLINK_M_SEQ_MIN_LEN) && (data[0] == 0x20U) &&
        (data[IOLINK_M_SEQ_HEADER_LEN] == IOLINK_CMD_DEVICE_OPERATE))
     {
+        uint8_t pos = fake_iolink_device_queue_begin();
+
         g_device.transition_count++;
         g_device.link_state = FAKE_LINK_OPERATE;
         /* Figure A.5: a Type-0 WRITE is answered by the CKS octet alone. */
-        g_device.rx_queue[0] = 0x00U;
-        g_device.rx_queue[0] = iolink_checksum6(g_device.rx_queue, 1U);
-        g_device.rx_len = 1U;
-        g_device.rx_pos = 0U;
+        g_device.rx_queue[pos] = 0x00U;
+        g_device.rx_queue[pos] = iolink_checksum6(&g_device.rx_queue[pos], 1U);
+        g_device.rx_len = (uint8_t)(pos + 1U);
         return (int)len;
     }
 
@@ -644,6 +675,17 @@ void fake_iolink_device_drop_next_response(void)
 void fake_iolink_device_truncate_next_response(void)
 {
     g_device.truncate_next_response = true;
+}
+
+void fake_iolink_device_keep_unread_responses(void)
+{
+    g_device.keep_unread_responses = true;
+}
+
+void fake_iolink_device_flush_rx(void)
+{
+    g_device.rx_len = 0U;
+    g_device.rx_pos = 0U;
 }
 
 const iolink_phy_api_t* fake_iolink_device_phy(void)
